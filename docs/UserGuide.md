@@ -30,8 +30,9 @@ sufficient contrast, and reduced-motion support.
 2. Enter your display name, email address, and password.
 3. Select **Create Student account**.
 4. Open the verification email from Firebase and verify the address.
-5. Return to HelpiNUS and sign in.
-6. If prompted, select **Retry Student profile setup**.
+5. Return to HelpiNUS and select **I’ve verified my email**. If the original
+   message is unavailable, select **Send verification email** first.
+6. If prompted, enter your name and select **Retry Student profile setup**.
 
 Public registration always creates an `ACTIVE` Student profile. The form does
 not accept a role or account status, so it cannot create a Mentor account or
@@ -56,8 +57,10 @@ recovery explanation. If a local Auth emulator is restarted, an identity left
 in browser storage is signed out automatically instead of becoming permanently
 stuck.
 
-If email verification is still required, use **Resend verification email** and
-then retry after completing verification.
+If email verification is still required, use **Send verification email** (or
+**Resend verification email** after the first request), complete verification,
+then select **I’ve verified my email**. These controls remain available after a
+page reload.
 
 ## 5. Student navigation
 
@@ -213,13 +216,15 @@ real Firebase project.
 ### “Verify your email”
 
 Open the Firebase verification message, complete verification, return to
-HelpiNUS, and retry profile setup. Use **Resend verification email** when needed.
+HelpiNUS, and select **I’ve verified my email**. Use **Send verification email**
+or **Resend verification email** when needed.
 
 ### “Your profile is not ready”
 
-Choose **Retry Student profile setup**. If the profile remains unavailable,
-confirm that the Functions emulator or deployed `initializeStudentProfile`
-function is reachable.
+Enter the Student name and choose **Retry Student profile setup**. This also
+repairs an Auth identity whose display name could not be saved during initial
+registration. If the profile remains unavailable, confirm that the Functions
+emulator or deployed `initializeStudentProfile` function is reachable.
 
 ### “Firebase is not configured”
 

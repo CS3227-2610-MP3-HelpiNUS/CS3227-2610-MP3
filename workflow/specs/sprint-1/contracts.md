@@ -18,6 +18,7 @@ rather than recreate domain types.
 ## Callable functions
 
 - `initializeStudentProfile(input)`
+- `discoverMentors(input)`
 - `createHelpRequest(input)`
 - `respondToHelpRequest(input)`
 - `closeHelpRequest(input)`

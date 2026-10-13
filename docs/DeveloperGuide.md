@@ -130,13 +130,16 @@ sequenceDiagram
 Registration is recoverable and fail-closed. Firebase Auth necessarily creates
 the identity first. Until `initializeStudentProfile` succeeds, protected routes
 and operations remain unavailable. Retrying is idempotent and cannot select a
-role or status. Existing malformed or privileged profiles are rejected rather
-than overwritten.
+role or status. The recovery form accepts the Student name again so a failed
+Auth display-name update can be retried before trusted profile creation.
+Existing malformed or privileged profiles are rejected rather than overwritten.
 
 Production requires a verified email. The only bypass is for synthetic
 `@example.test` users when both the browser and Functions are explicitly using
 the local emulators. A stale identity left behind after an emulator restart is
-signed out instead of producing a permanent account-loading error.
+signed out instead of producing a permanent account-loading error. Auth-state
+subscriptions bind each profile read to the identity that initiated it and
+discard delayed results after sign-out or account switching.
 
 Mentors are never publicly registered. Use the trusted Admin SDK provisioning
 script described in Section 12.
@@ -208,7 +211,7 @@ transactional implementations arrive with their domain features.
 | Resource | Client reads | Client writes |
 | --- | --- | --- |
 | Own profile | Own `users/{uid}` document | Denied |
-| Mentor profiles | ACTIVE users may discover active profiles | Denied |
+| Mentor profiles | ACTIVE users may get an active profile; discovery uses `discoverMentors` | Denied |
 | Modules | ACTIVE users | Denied |
 | Help requests | Owning Student or assigned Mentor | Denied; callable transitions only |
 | Conversations | Participants | Denied |
@@ -244,6 +247,7 @@ All state-changing domain inputs except profile initialization carry a UUID
 | Callable | Authorized role | Purpose in approved contract |
 | --- | --- | --- |
 | `initializeStudentProfile` | Authenticated new Student | Create or return the trusted Student profile |
+| `discoverMentors` | Active Student or Mentor | Return active profiles whose authoritative owner is an ACTIVE Mentor |
 | `createHelpRequest` | Student | Create a pending request |
 | `respondToHelpRequest` | Mentor | Accept or reject a pending request |
 | `closeHelpRequest` | Student | Close an accepted request |
@@ -256,9 +260,9 @@ All state-changing domain inputs except profile initialization carry a UUID
 | `studentStudyAssist` | Student | Future SoC LLM study-assistance seam |
 | `mentorConsultationSummary` | Mentor | Future SoC LLM summary seam |
 
-Only `initializeStudentProfile` and the authentication test seam execute domain
-behaviour in Sprint 1. Other callables validate and authorize, then return an
-explicit `unavailable` error without writing data.
+Only `initializeStudentProfile`, `discoverMentors`, and the authentication test
+seam execute domain behaviour in Sprint 1. Other callables validate and
+authorize, then return an explicit `unavailable` error without writing data.
 
 The frontend exposes a typed generic callable adapter. Firebase responses are
 validated against the shared output schema. `createMockCallableClient` accepts
@@ -367,7 +371,14 @@ npm run provision:mentor --workspace src/functions -- \
   mentor@example.com "Mentor Name"
 ```
 
-Never commit the credential used by Application Default Credentials.
+For a new passwordless identity, the command prints one-time links for setting
+the Mentor password and verifying the email address. Deliver both links to the
+Mentor through a trusted channel before treating onboarding as complete. An
+existing verified password identity needs no links. The script does not report
+successful onboarding until all required links have been generated.
+
+Never commit the credential used by Application Default Credentials or record
+the generated onboarding links in repository logs.
 
 ## 13. Cloud Functions packaging
 

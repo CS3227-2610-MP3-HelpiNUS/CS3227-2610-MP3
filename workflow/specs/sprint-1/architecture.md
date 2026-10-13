@@ -37,7 +37,7 @@ uses a separate trusted administrative utility.
 | Resource | Direct client reads | Direct client writes |
 | --- | --- | --- |
 | Own user profile | Own record only | None |
-| Mentor profiles | Authenticated discovery of active profiles | None |
+| Mentor profiles | Direct get for an active profile; collection discovery uses `discoverMentors` | None |
 | Help requests | Student-owned or assigned Mentor records | None; callable transitions only |
 | Conversations | Participants only | None |
 | Messages | Participants only | Participant may create with self as sender; immutable afterwards |
@@ -46,8 +46,9 @@ uses a separate trusted administrative utility.
 | AI audit events | None | None; backend only |
 
 Clients never directly modify role, account status, ownership, or workflow
-status fields. Query shapes must satisfy the same authorization constraints as
-individual document reads.
+status fields. Firestore cannot safely enforce the cross-document owner check
+for this collection query, so `discoverMentors` joins active profiles to the
+authoritative user records in trusted backend code.
 
 ## ADR-004: application boundaries
 
