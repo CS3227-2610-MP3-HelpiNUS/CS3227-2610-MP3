@@ -40,12 +40,12 @@ describe('authentication and role routing', () => {
 
   it('offers a safe retry after identity creation when profile initialization fails', async () => {
     const user = userEvent.setup(); const retry = vi.fn().mockResolvedValue({ user: student }); let current: Session = { user: null, issue: 'PROFILE_MISSING' }
-    const svc = services({ user: null }, { registerStudent: async () => { throw new Error('profile setup failed') }, getCurrent: async () => current, retryStudentProfile: async () => { current = { user: student }; return retry() } })
+    const svc = services({ user: null }, { registerStudent: async () => { throw new Error('profile setup failed') }, getCurrent: async () => current, retryStudentProfile: async (displayName) => { current = { user: student }; return retry(displayName) } })
     renderAt('/register', svc)
     await user.type(screen.getByLabelText('Name'), 'Jamie Tan'); await user.type(screen.getByLabelText('Email'), 'jamie@example.test'); await user.type(screen.getByLabelText('Password'), 'Student-demo-123!')
     await user.click(screen.getByRole('button', { name: 'Create Student account' }))
     await user.click(await screen.findByRole('button', { name: 'Retry Student profile setup' }))
-    expect(retry).toHaveBeenCalledOnce()
+    expect(retry).toHaveBeenCalledWith('Jamie Tan')
     expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
   })
 
@@ -64,7 +64,40 @@ describe('authentication and role routing', () => {
     await user.click(screen.getByRole('button', { name: 'Create Student account' }))
     await user.click(await screen.findByRole('button', { name: 'Send verification email' }))
     expect(resendVerificationEmail).toHaveBeenCalledOnce()
-    expect(await screen.findByRole('status')).toHaveTextContent('Verification email sent.')
+    expect(await screen.findByText('Verification email sent. Check your inbox.')).toBeInTheDocument()
+  })
+
+  it('recovers a missing profile from the account-access page and redirects immediately', async () => {
+    const user = userEvent.setup()
+    let current: Session = { user: null, issue: 'PROFILE_MISSING' }
+    const retryStudentProfile = vi.fn(async (displayName?: string) => {
+      expect(displayName).toBe('Jamie Tan')
+      current = { user: student }
+      return current
+    })
+    renderAt('/account-access', services(current, { getCurrent: async () => current, retryStudentProfile }))
+
+    await user.type(screen.getByLabelText('Name'), 'Jamie Tan')
+    await user.click(screen.getByRole('button', { name: 'Retry Student profile setup' }))
+
+    expect(retryStudentProfile).toHaveBeenCalledWith('Jamie Tan')
+    expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
+  })
+
+  it('offers resend and refresh actions for a restored unverified session', async () => {
+    const user = userEvent.setup()
+    const resendVerificationEmail = vi.fn().mockResolvedValue(undefined)
+    const restored: Session = { user: null, issue: 'EMAIL_UNVERIFIED' }
+    renderAt('/account-access', services(restored, {
+      getCurrent: async () => ({ user: student }),
+      resendVerificationEmail,
+    }))
+
+    await user.click(screen.getByRole('button', { name: 'Send verification email' }))
+    expect(resendVerificationEmail).toHaveBeenCalledOnce()
+    expect(await screen.findByText('Verification email sent. Check your inbox.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'I’ve verified my email' }))
+    expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
   })
 
   it('signs in with email and password and routes based on the trusted profile role', async () => {

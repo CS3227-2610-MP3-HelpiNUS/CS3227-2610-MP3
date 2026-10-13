@@ -9,7 +9,7 @@ export const firebaseServiceProxy: HelpiNUSServices = {
     async getCurrent() { return (await loadFirebaseServices()).session.getCurrent() },
     subscribe(listener, onError) { let unsubscribe = () => {}; let cancelled = false; void loadFirebaseServices().then((services) => { if (cancelled) return; unsubscribe = services.session.subscribe(listener, onError) }).catch(onError); return () => { cancelled = true; unsubscribe() } },
     async registerStudent(input) { return (await loadFirebaseServices()).session.registerStudent(input) },
-    async retryStudentProfile() { return (await loadFirebaseServices()).session.retryStudentProfile() },
+    async retryStudentProfile(displayName) { return (await loadFirebaseServices()).session.retryStudentProfile(displayName) },
     async resendVerificationEmail() { return (await loadFirebaseServices()).session.resendVerificationEmail() },
     async signIn(input) { return (await loadFirebaseServices()).session.signIn(input) },
     async signOut() { return (await loadFirebaseServices()).session.signOut() },

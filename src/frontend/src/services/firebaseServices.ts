@@ -23,23 +23,30 @@ function syntheticEmulatorUser(identity: AuthUser) {
   return emulatorEnabled && identity.email?.endsWith('@example.test') === true
 }
 
-async function currentSession(): Promise<Session> {
+const staleSessionRead = Symbol('stale-session-read')
+
+function identityIsCurrent(identity: AuthUser | null) {
+  return configured().auth.currentUser === identity
+}
+
+async function sessionForIdentity(identity: AuthUser | null): Promise<Session | typeof staleSessionRead> {
   const client = configured()
-  const identity = client.auth.currentUser
-  if (!identity) return { user: null }
+  if (!identity) return identityIsCurrent(identity) ? { user: null } : staleSessionRead
   try {
     await identity.reload()
   } catch (error) {
     if (isStaleAuthIdentityError(error)) {
+      if (!identityIsCurrent(identity)) return staleSessionRead
       await signOut(client.auth)
       return { user: null }
     }
     throw error
   }
-  if (client.auth.currentUser?.uid !== identity.uid) return { user: null }
+  if (!identityIsCurrent(identity)) return staleSessionRead
   const email = identity.email ?? ''
   if (!identity.emailVerified && !syntheticEmulatorUser(identity)) return { user: null, issue: 'EMAIL_UNVERIFIED' }
   const snapshot = await getDoc(doc(client.firestore, 'users', identity.uid))
+  if (!identityIsCurrent(identity)) return staleSessionRead
   if (!snapshot.exists()) return { user: null, issue: 'PROFILE_MISSING' }
   const data = snapshot.data()
   const parsed = userSchema.safeParse({ ...data, createdAt: normalizeFirestoreTimestamp(data.createdAt), id: snapshot.id })
@@ -48,14 +55,23 @@ async function currentSession(): Promise<Session> {
   return { user: parsed.data }
 }
 
+async function currentSession(): Promise<Session> {
+  const result = await sessionForIdentity(configured().auth.currentUser)
+  return result === staleSessionRead ? currentSession() : result
+}
+
 async function initializeProfile(displayName?: string): Promise<Session> {
   const client = configured()
   const identity = client.auth.currentUser
   if (!identity) throw new Error('Sign in again to finish setting up your Student profile.')
   await identity.reload()
   await identity.getIdToken(true)
-  const profileName = displayName ?? identity.displayName
+  const suppliedName = displayName?.trim()
+  const profileName = suppliedName || identity.displayName?.trim()
   if (!profileName) throw new Error('Your account name is missing. Contact HelpiNUS support to finish setup.')
+  if (suppliedName && identity.displayName !== suppliedName) {
+    await updateProfile(identity, { displayName: suppliedName })
+  }
   const invoke = httpsCallable<InitializeStudentProfileInput, InitializeStudentProfileOutput>(client.functions, 'initializeStudentProfile')
   const result = await invoke({ displayName: profileName })
   initializeStudentProfileOutputSchema.parse(result.data)
@@ -78,16 +94,25 @@ export const firebaseServices: HelpiNUSServices = {
     async getCurrent() { return currentSession() },
     subscribe(listener, onError) {
       const client = configured()
-      return onAuthStateChanged(client.auth, () => { void currentSession().then(listener).catch(onError) }, onError)
+      let requestId = 0
+      return onAuthStateChanged(client.auth, (identity) => {
+        const currentRequest = ++requestId
+        void sessionForIdentity(identity).then((session) => {
+          if (currentRequest === requestId && session !== staleSessionRead) listener(session)
+        }).catch(() => {
+          if (currentRequest === requestId) onError()
+        })
+      }, onError)
     },
     async registerStudent({ displayName, email, password }) {
       const client = configured()
+      const normalizedName = displayName.trim()
       const credential = await createUserWithEmailAndPassword(client.auth, email, password)
-      await updateProfile(credential.user, { displayName })
+      await updateProfile(credential.user, { displayName: normalizedName })
       if (!syntheticEmulatorUser(credential.user)) await sendEmailVerification(credential.user)
-      return initializeProfile(displayName)
+      return initializeProfile(normalizedName)
     },
-    async retryStudentProfile() { return initializeProfile() },
+    async retryStudentProfile(displayName) { return initializeProfile(displayName) },
     async resendVerificationEmail() {
       const identity = configured().auth.currentUser
       if (!identity) throw new Error('Sign in again to resend your verification email.')

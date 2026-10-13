@@ -37,7 +37,7 @@ export interface HelpiNUSServices {
     getCurrent(): Promise<Session>
     subscribe(listener: (session: Session) => void, onError: () => void): () => void
     registerStudent(input: { displayName: string; email: string; password: string }): Promise<Session>
-    retryStudentProfile(): Promise<Session>
+    retryStudentProfile(displayName?: string): Promise<Session>
     resendVerificationEmail(): Promise<void>
     signIn(input: { email: string; password: string }): Promise<Session>
     signOut(): Promise<void>
