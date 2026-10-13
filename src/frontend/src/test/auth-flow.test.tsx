@@ -26,7 +26,7 @@ function services(session: Session = { user: null }, overrides: Partial<HelpiNUS
 
 describe('authentication and role routing', () => {
   it('registers a Student without exposing role or status controls', async () => {
-    const user = userEvent.setup(); const register = vi.fn().mockResolvedValue(undefined)
+    const user = userEvent.setup(); const register = vi.fn().mockResolvedValue({ user: student })
     const svc = services({ user: null }, { registerStudent: register, getCurrent: async () => ({ user: student }) })
     renderAt('/register', svc)
     await user.type(screen.getByLabelText('Name'), 'Jamie Tan')
@@ -49,6 +49,24 @@ describe('authentication and role routing', () => {
     expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
   })
 
+  it('lets a partially registered user resend email verification', async () => {
+    const user = userEvent.setup()
+    const resendVerificationEmail = vi.fn().mockResolvedValue(undefined)
+    const svc = services({ user: null }, {
+      registerStudent: async () => { throw Object.assign(new Error('Verification delivery failed'), { code: 'auth/network-request-failed' }) },
+      getCurrent: async () => ({ user: null, issue: 'EMAIL_UNVERIFIED' }),
+      resendVerificationEmail,
+    })
+    renderAt('/register', svc)
+    await user.type(screen.getByLabelText('Name'), 'Jamie Tan')
+    await user.type(screen.getByLabelText('Email'), 'jamie@example.test')
+    await user.type(screen.getByLabelText('Password'), 'Student-demo-123!')
+    await user.click(screen.getByRole('button', { name: 'Create Student account' }))
+    await user.click(await screen.findByRole('button', { name: 'Send verification email' }))
+    expect(resendVerificationEmail).toHaveBeenCalledOnce()
+    expect(await screen.findByRole('status')).toHaveTextContent('Verification email sent.')
+  })
+
   it('signs in with email and password and routes based on the trusted profile role', async () => {
     const user = userEvent.setup(); const signIn = vi.fn().mockResolvedValue({ user: mentor })
     renderAt('/login', services({ user: null }, { signIn, getCurrent: async () => ({ user: mentor }) }))
@@ -56,6 +74,26 @@ describe('authentication and role routing', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
     expect(signIn).toHaveBeenCalledWith({ email: 'mentor@example.test', password: 'Mentor-demo-123!' })
     expect(await screen.findByRole('heading', { name: 'Mentor dashboard' })).toBeInTheDocument()
+  })
+
+  it('routes a Student login to the Student workspace', async () => {
+    const user = userEvent.setup()
+    renderAt('/login', services({ user: null }, { signIn: vi.fn().mockResolvedValue({ user: student }), getCurrent: async () => ({ user: student }) }))
+    await user.type(screen.getByLabelText('Email'), 'student@example.test')
+    await user.type(screen.getByLabelText('Password'), 'Student-demo-123!')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
+  })
+
+  it('shows a mapped auth error without exposing raw Firebase SDK text', async () => {
+    const user = userEvent.setup()
+    const raw = Object.assign(new Error('Firebase: Error (auth/operation-not-allowed).'), { code: 'auth/operation-not-allowed' })
+    renderAt('/login', services({ user: null }, { signIn: async () => { throw raw } }))
+    await user.type(screen.getByLabelText('Email'), 'student@example.test')
+    await user.type(screen.getByLabelText('Password'), 'Student-demo-123!')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('We could not complete that request. Please try again.')
+    expect(screen.queryByText(/Firebase:/)).not.toBeInTheDocument()
   })
 
   it('restores an existing session from the auth listener', async () => {
@@ -75,9 +113,19 @@ describe('authentication and role routing', () => {
       { path: '/login', element: <LoginPage /> },
     ], { initialEntries: ['/student/dashboard'] })
     render(<ServiceProvider servicesOverride={svc}><RouterProvider router={router} /></ServiceProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Sign out' }))[1])
     expect(signOut).toHaveBeenCalledOnce()
     expect(await screen.findByRole('heading', { name: 'Welcome to HelpiNUS' })).toBeInTheDocument()
+  })
+
+  it('routes both desktop and mobile brand links to the active role workspace', async () => {
+    const router = createMemoryRouter([
+      { element: <ProtectedRoute role="MENTOR" />, children: [{ element: <AppShell />, children: [{ path: '/mentor/dashboard', element: <h1>Mentor dashboard</h1> }] }] },
+    ], { initialEntries: ['/mentor/dashboard'] })
+    render(<ServiceProvider servicesOverride={services({ user: mentor })}><RouterProvider router={router} /></ServiceProvider>)
+    const brands = await screen.findAllByRole('link', { name: 'HelpiNUS home' })
+    expect(brands).toHaveLength(2)
+    expect(brands.map((brand) => brand.getAttribute('href'))).toEqual(['/mentor/dashboard', '/mentor/dashboard'])
   })
 
   it('denies cross-role access and routes to the profile-authorized dashboard', async () => {
