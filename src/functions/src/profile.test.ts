@@ -45,7 +45,7 @@ describe('initializeStudentProfile', () => {
   })
 
   it('returns an existing matching student profile without changing it', async () => {
-    const existing = { displayName: 'Original', email: 'u1@example.test', role: 'STUDENT', status: 'ACTIVE' }
+    const existing = { id: 'u1', displayName: 'Original', email: 'u1@example.test', role: 'STUDENT', status: 'ACTIVE', createdAt: new Date('2026-10-13T02:00:00.000Z') }
     const { db, create } = fakeDb(existing)
     const auth = { uid: 'u1', token: { email: 'u1@example.test', email_verified: true } } as never
     const result = await initializeStudentProfileHandler(input, request(auth), db, false)

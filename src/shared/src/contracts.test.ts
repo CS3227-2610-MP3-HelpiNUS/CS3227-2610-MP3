@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   availabilitySlotSchema,
   createHelpRequestInputSchema,
+  messageSchema,
   userSchema,
 } from './index.js'
 
@@ -41,5 +42,12 @@ describe('shared contracts', () => {
         description: 'Please explain the topic.',
       }).success,
     ).toBe(false)
+  })
+
+  it('rejects a message with only whitespace', () => {
+    expect(messageSchema.safeParse({
+      id: 'message-1', conversationId: 'conversation-1', senderId: 'student-1', body: ' \t\n ',
+      createdAt: '2026-10-13T10:00:00.000Z',
+    }).success).toBe(false)
   })
 })

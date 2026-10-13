@@ -1,6 +1,7 @@
 import { FieldValue, type Firestore } from 'firebase-admin/firestore'
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https'
 import type { InitializeStudentProfileInput } from '@helpinus/shared'
+import { userSchema } from '@helpinus/shared'
 
 export async function initializeStudentProfileHandler(
   input: InitializeStudentProfileInput,
@@ -31,7 +32,11 @@ export async function initializeStudentProfileHandler(
         : typeof value.createdAt?.toDate === 'function'
           ? value.createdAt.toDate().toISOString()
           : value.createdAt
-      output = { user: { id: auth.uid, ...value, createdAt } }
+      const parsed = userSchema.safeParse({ ...value, createdAt })
+      if (!parsed.success || parsed.data.id !== auth.uid) {
+        throw new HttpsError('permission-denied', 'Your account profile is invalid. Contact HelpiNUS support.')
+      }
+      output = { user: parsed.data }
       return
     }
     const user = {

@@ -6,7 +6,9 @@ service cloud.firestore {
     function activeUser() {
       return userExists()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'ACTIVE'
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['STUDENT', 'MENTOR'];
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['STUDENT', 'MENTOR']
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email;
     }
     function participant(ids) { return activeUser() && request.auth.uid in ids; }
     function activeMentor(mentorId) {
@@ -16,7 +18,11 @@ service cloud.firestore {
     }
 
     match /users/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
-    match /mentorProfiles/{uid} { allow read: if activeUser() && resource.data.active == true && activeMentor(uid); allow write: if false; }
+    match /mentorProfiles/{uid} {
+      allow get: if activeUser() && resource.data.active == true && activeMentor(uid);
+      allow list: if activeUser() && resource.data.active == true;
+      allow write: if false;
+    }
     match /modules/{id} { allow read: if activeUser(); allow write: if false; }
     match /helpRequests/{id} {
       allow read: if activeUser() && (resource.data.studentId == request.auth.uid || resource.data.mentorId == request.auth.uid);
@@ -33,7 +39,7 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['senderId', 'body', 'createdAt'])
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.body is string
-          && request.resource.data.body.size() > 0
+          && request.resource.data.body.matches('.*[^\\s].*')
           && request.resource.data.body.size() <= 4000
           && request.resource.data.createdAt == request.time;
         allow update, delete: if false;

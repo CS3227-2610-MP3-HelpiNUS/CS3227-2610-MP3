@@ -60,8 +60,9 @@ export const mockServices: HelpiNUSServices = {
   session: {
     getCurrent: async () => ({ user: signedInUser }),
     subscribe: (listener) => { listener({ user: signedInUser }); return () => {} },
-    registerStudent: async () => { signedInUser = student },
+    registerStudent: async () => { signedInUser = student; return { user: student } },
     retryStudentProfile: async () => ({ user: signedInUser }),
+    resendVerificationEmail: async () => {},
     signIn: async () => { signedInUser = student; return { user: student } },
     signOut: async () => { signedInUser = null },
   },

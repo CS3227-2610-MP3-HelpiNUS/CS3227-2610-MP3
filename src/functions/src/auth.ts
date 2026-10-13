@@ -1,6 +1,6 @@
 import { getFirestore } from 'firebase-admin/firestore'
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https'
-import type { UserRole } from '@helpinus/shared'
+import { userSchema, type UserRole } from '@helpinus/shared'
 
 export interface AuthorizedUser {
   uid: string
@@ -21,10 +21,16 @@ export async function requireActiveUser(request: CallableRequest<unknown>): Prom
   if (!snapshot.exists) throw new HttpsError('failed-precondition', 'Your profile is not ready yet.')
   const profile = snapshot.data()
   if (profile?.status !== 'ACTIVE') throw new HttpsError('permission-denied', 'Your account is not active.')
-  if (profile.role !== 'STUDENT' && profile.role !== 'MENTOR') {
-    throw new HttpsError('permission-denied', 'Your account role is invalid.')
+  const createdAt = profile.createdAt instanceof Date
+    ? profile.createdAt.toISOString()
+    : typeof profile.createdAt?.toDate === 'function'
+      ? profile.createdAt.toDate().toISOString()
+      : profile.createdAt
+  const parsed = userSchema.safeParse({ ...profile, createdAt })
+  if (!parsed.success || parsed.data.id !== auth.uid) {
+    throw new HttpsError('permission-denied', 'Your account profile is invalid. Contact HelpiNUS support.')
   }
-  const email = typeof profile.email === 'string' ? profile.email : ''
+  const email = parsed.data.email
   const tokenEmail = typeof auth.token.email === 'string' ? auth.token.email : ''
   if (email !== tokenEmail) throw new HttpsError('permission-denied', 'Your profile does not match your signed-in account.')
   const syntheticEmulatorUser = process.env.FUNCTIONS_EMULATOR === 'true' && email.endsWith('@example.test')
@@ -34,8 +40,8 @@ export async function requireActiveUser(request: CallableRequest<unknown>): Prom
   return {
     uid: auth.uid,
     email,
-    displayName: typeof profile.displayName === 'string' ? profile.displayName : '',
-    role: profile.role,
+    displayName: parsed.data.displayName,
+    role: parsed.data.role,
     status: 'ACTIVE',
   }
 }

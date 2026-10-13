@@ -142,6 +142,9 @@ export type CallableName = keyof typeof callableSchemas
 export type InitializeStudentProfileInput = z.infer<
   typeof initializeStudentProfileInputSchema
 >
+export type InitializeStudentProfileOutput = z.infer<
+  typeof initializeStudentProfileOutputSchema
+>
 export type CreateHelpRequestInput = z.infer<typeof createHelpRequestInputSchema>
 export type RespondToHelpRequestInput = z.infer<
   typeof respondToHelpRequestInputSchema
