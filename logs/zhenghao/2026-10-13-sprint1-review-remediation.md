@@ -27,6 +27,16 @@ integration pull request. The work remained on `zh/feat-auth-role-routing`.
 8. Third-party Actions used mutable major tags. Checkout, Node setup, and Google
    authentication are pinned to reviewed full commit SHAs.
 
+## Mentor discovery follow-up
+
+Two additional review findings were confirmed. Mentor discovery now uses the
+full user record only inside trusted eligibility checks and returns an explicit
+public projection without sign-in email or account metadata. Its contract also
+supports bounded cursor pagination, while the backend scans successive profile
+batches until it finds eligible Mentors. Integration coverage places more than
+one full scan batch of suspended owners before valid Mentors and verifies that
+the valid results remain reachable across pages.
+
 ## Verification intent
 
 The remediation adds focused frontend, provisioning, and Firestore Rules

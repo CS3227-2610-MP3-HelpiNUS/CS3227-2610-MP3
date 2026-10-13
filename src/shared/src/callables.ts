@@ -3,7 +3,6 @@ import { z } from 'zod'
 import {
   appointmentSchema,
   helpRequestSchema,
-  mentorProfileSchema,
   userSchema,
 } from './domain.js'
 
@@ -15,10 +14,20 @@ export const initializeStudentProfileInputSchema = z.object({
 })
 export const initializeStudentProfileOutputSchema = z.object({ user: userSchema })
 
-export const discoverMentorsInputSchema = z.object({}).strict()
+export const discoverMentorsInputSchema = z.object({
+  cursor: identifierSchema.optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+}).strict()
+export const publicMentorSchema = z.object({
+  userId: identifierSchema,
+  displayName: z.string().trim().min(1).max(100),
+  biography: z.string().trim().max(1000),
+  moduleIds: z.array(identifierSchema).max(30),
+}).strict()
 export const discoverMentorsOutputSchema = z.object({
-  mentors: z.array(z.object({ user: userSchema, profile: mentorProfileSchema })).max(100),
-})
+  mentors: z.array(publicMentorSchema).max(50),
+  nextCursor: identifierSchema.nullable(),
+}).strict()
 
 export const createHelpRequestInputSchema = nonEmptyInputSchema.extend({
   mentorId: identifierSchema.nullable().default(null),
@@ -163,6 +172,9 @@ export type InitializeStudentProfileInput = z.infer<
 export type InitializeStudentProfileOutput = z.infer<
   typeof initializeStudentProfileOutputSchema
 >
+export type DiscoverMentorsInput = z.input<typeof discoverMentorsInputSchema>
+export type DiscoverMentorsParsedInput = z.output<typeof discoverMentorsInputSchema>
+export type DiscoverMentorsOutput = z.infer<typeof discoverMentorsOutputSchema>
 export type CreateHelpRequestInput = z.infer<typeof createHelpRequestInputSchema>
 export type RespondToHelpRequestInput = z.infer<
   typeof respondToHelpRequestInputSchema

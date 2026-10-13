@@ -247,7 +247,7 @@ All state-changing domain inputs except profile initialization carry a UUID
 | Callable | Authorized role | Purpose in approved contract |
 | --- | --- | --- |
 | `initializeStudentProfile` | Authenticated new Student | Create or return the trusted Student profile |
-| `discoverMentors` | Active Student or Mentor | Return active profiles whose authoritative owner is an ACTIVE Mentor |
+| `discoverMentors` | Active Student or Mentor | Return a cursor-paginated list of public Mentor fields after verifying each profile against its authoritative ACTIVE Mentor account; sign-in email and account metadata are never returned |
 | `createHelpRequest` | Student | Create a pending request |
 | `respondToHelpRequest` | Mentor | Accept or reject a pending request |
 | `closeHelpRequest` | Student | Close an accepted request |

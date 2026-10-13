@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   availabilitySlotSchema,
   createHelpRequestInputSchema,
+  discoverMentorsInputSchema,
+  discoverMentorsOutputSchema,
   messageSchema,
   userSchema,
 } from './index.js'
@@ -42,6 +44,20 @@ describe('shared contracts', () => {
         description: 'Please explain the topic.',
       }).success,
     ).toBe(false)
+  })
+
+  it('defaults Mentor discovery pagination and rejects private account fields', () => {
+    expect(discoverMentorsInputSchema.parse({})).toEqual({ limit: 20 })
+    expect(discoverMentorsOutputSchema.safeParse({
+      mentors: [{
+        userId: 'mentor-1',
+        displayName: 'Mentor One',
+        biography: '',
+        moduleIds: ['CS3227'],
+        email: 'private@example.test',
+      }],
+      nextCursor: null,
+    }).success).toBe(false)
   })
 
   it('rejects a message with only whitespace', () => {

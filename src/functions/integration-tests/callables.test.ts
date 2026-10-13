@@ -5,7 +5,14 @@ import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/
 import { initializeApp as initializeAdminApp, deleteApp as deleteAdminApp } from 'firebase-admin/app'
 import { getAuth as getAdminAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
-import { discoverMentorsOutputSchema, initializeStudentProfileOutputSchema, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
+import {
+  discoverMentorsOutputSchema,
+  initializeStudentProfileOutputSchema,
+  type DiscoverMentorsInput,
+  type DiscoverMentorsOutput,
+  type InitializeStudentProfileInput,
+  type InitializeStudentProfileOutput,
+} from '@helpinus/shared'
 
 const app = initializeApp({ apiKey: 'fake-api-key', projectId: 'helpinus-integration-test', appId: 'integration-test' }, 'helpinus-integration')
 const auth = getAuth(app)
@@ -15,7 +22,7 @@ connectFunctionsEmulator(functions, '127.0.0.1', 5001)
 
 const initializeProfile = httpsCallable<InitializeStudentProfileInput, InitializeStudentProfileOutput>(functions, 'initializeStudentProfile')
 const testAuthenticated = httpsCallable<{ displayName: string }, { uid: string; ok: boolean }>(functions, 'testAuthenticated')
-const discoverMentors = httpsCallable<Record<string, never>, unknown>(functions, 'discoverMentors')
+const discoverMentors = httpsCallable<DiscoverMentorsInput, DiscoverMentorsOutput>(functions, 'discoverMentors')
 const adminApp = initializeAdminApp({ projectId: 'helpinus-integration-test' }, 'helpinus-integration-admin')
 const adminAuth = getAdminAuth(adminApp)
 const adminDb = getFirestore(adminApp)
@@ -56,21 +63,65 @@ describe('callable emulator integration', () => {
     await expect(testAuthenticated({ displayName: 'Student' })).resolves.toMatchObject({ data: { uid: user.uid, ok: true } })
   })
 
-  it('discovers only profiles backed by an authoritative ACTIVE Mentor account', async () => {
-    const activeId = `mentor-${crypto.randomUUID()}`
-    const suspendedId = `mentor-${crypto.randomUUID()}`
+  it('returns paginated public Mentor fields after scanning past ineligible owners', async () => {
+    const firstActiveId = `z-active-a-${crypto.randomUUID()}`
+    const secondActiveId = `z-active-b-${crypto.randomUUID()}`
     const createdAt = new Date()
-    await Promise.all([
-      adminDb.collection('users').doc(activeId).set({ id: activeId, displayName: 'Active Mentor', email: 'active@example.test', role: 'MENTOR', status: 'ACTIVE', createdAt }),
-      adminDb.collection('mentorProfiles').doc(activeId).set({ userId: activeId, biography: '', moduleIds: [], active: true }),
-      adminDb.collection('users').doc(suspendedId).set({ id: suspendedId, displayName: 'Suspended Mentor', email: 'suspended@example.test', role: 'MENTOR', status: 'SUSPENDED', createdAt }),
-      adminDb.collection('mentorProfiles').doc(suspendedId).set({ userId: suspendedId, biography: '', moduleIds: [], active: true }),
-    ])
+    const batch = adminDb.batch()
+    for (let index = 0; index < 101; index += 1) {
+      const suspendedId = `a-suspended-${String(index).padStart(3, '0')}`
+      batch.set(adminDb.collection('users').doc(suspendedId), {
+        id: suspendedId,
+        displayName: `Suspended Mentor ${index}`,
+        email: `suspended-${index}@example.test`,
+        role: 'MENTOR',
+        status: 'SUSPENDED',
+        createdAt,
+      })
+      batch.set(adminDb.collection('mentorProfiles').doc(suspendedId), {
+        userId: suspendedId,
+        biography: '',
+        moduleIds: [],
+        active: true,
+      })
+    }
+    for (const [id, displayName] of [
+      [firstActiveId, 'First Active Mentor'],
+      [secondActiveId, 'Second Active Mentor'],
+    ] as const) {
+      batch.set(adminDb.collection('users').doc(id), {
+        id,
+        displayName,
+        email: `${id}@example.test`,
+        role: 'MENTOR',
+        status: 'ACTIVE',
+        createdAt,
+      })
+      batch.set(adminDb.collection('mentorProfiles').doc(id), {
+        userId: id,
+        biography: `${displayName} biography`,
+        moduleIds: ['CS3227'],
+        active: true,
+      })
+    }
+    await batch.commit()
 
-    const result = await discoverMentors({})
-    const parsed = discoverMentorsOutputSchema.parse(result.data)
-    expect(parsed.mentors.map(({ user }) => user.id)).toContain(activeId)
-    expect(parsed.mentors.map(({ user }) => user.id)).not.toContain(suspendedId)
+    const first = await discoverMentors({ limit: 1 })
+    const firstPage = discoverMentorsOutputSchema.parse(first.data)
+    expect(firstPage.mentors).toEqual([{
+      userId: firstActiveId,
+      displayName: 'First Active Mentor',
+      biography: 'First Active Mentor biography',
+      moduleIds: ['CS3227'],
+    }])
+    expect(firstPage.mentors[0]).not.toHaveProperty('email')
+    expect(firstPage.mentors[0]).not.toHaveProperty('role')
+    expect(firstPage.nextCursor).toBe(firstActiveId)
+
+    const second = await discoverMentors({ limit: 1, cursor: firstPage.nextCursor ?? undefined })
+    const secondPage = discoverMentorsOutputSchema.parse(second.data)
+    expect(secondPage.mentors.map(({ userId }) => userId)).toEqual([secondActiveId])
+    expect(secondPage.nextCursor).toBeNull()
   })
 
   it('requires verification and rejects mismatched or malformed trusted profiles', async () => {

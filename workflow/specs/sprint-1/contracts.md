@@ -18,7 +18,13 @@ rather than recreate domain types.
 ## Callable functions
 
 - `initializeStudentProfile(input)`
-- `discoverMentors(input)`
+- `discoverMentors({ cursor?, limit? })` returns only public Mentor discovery
+  fields (`userId`, `displayName`, `biography`, and `moduleIds`) plus a nullable
+  continuation cursor. The backend may read the full authoritative user record
+  for eligibility checks, but must not return sign-in email, role, status, or
+  other account metadata. Each request scans a bounded number of successive
+  batches and returns a cursor when more records remain, so invalid or suspended
+  profiles cannot permanently hide later eligible Mentors.
 - `createHelpRequest(input)`
 - `respondToHelpRequest(input)`
 - `closeHelpRequest(input)`

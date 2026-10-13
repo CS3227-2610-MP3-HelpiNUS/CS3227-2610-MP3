@@ -24,7 +24,7 @@ export const initializeStudentProfile = callable(
 
 export const discoverMentors = callable(
   callableSchemas.discoverMentors.input,
-  (_input, request) => discoverMentorsHandler(request, db),
+  (input, request) => discoverMentorsHandler(input, request, db),
 )
 
 function notImplemented(name: string, role?: 'STUDENT' | 'MENTOR') {
