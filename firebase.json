@@ -4,6 +4,7 @@
   "hosting": {
     "public": "src/frontend/dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "predeploy": ["npm run build --workspace frontend"],
     "rewrites": [{ "source": "**", "destination": "/index.html" }]
   },
   "emulators": {
