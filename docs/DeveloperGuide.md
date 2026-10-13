@@ -310,6 +310,10 @@ Prerequisites:
   and
 - access to `helpinus-dev` for live development configuration.
 
+The GitHub verification job installs Temurin JDK 21 explicitly before running
+the Firebase Rules and integration emulator tests; it does not rely on the
+hosted runner's default Java version.
+
 Install and verify:
 
 ```bash
