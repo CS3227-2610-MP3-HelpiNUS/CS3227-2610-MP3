@@ -19,12 +19,16 @@ export interface DashboardData {
 
 export interface Session {
   user: User | null
+  issue?: 'PROFILE_MISSING' | 'PROFILE_INVALID' | 'ACCOUNT_INACTIVE' | 'EMAIL_UNVERIFIED'
 }
 
 export interface HelpiNUSServices {
   session: {
     getCurrent(): Promise<Session>
-    signInDemo(): Promise<Session>
+    subscribe(listener: (session: Session) => void, onError: () => void): () => void
+    registerStudent(input: { displayName: string; email: string; password: string }): Promise<void>
+    retryStudentProfile(): Promise<Session>
+    signIn(input: { email: string; password: string }): Promise<Session>
     signOut(): Promise<void>
   }
   dashboard: {

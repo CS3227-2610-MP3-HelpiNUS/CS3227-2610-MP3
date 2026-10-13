@@ -21,14 +21,10 @@ export function ServiceProvider({ children, servicesOverride }: { children: Reac
   }, [currentServices])
   useEffect(() => {
     let active = true
-    currentServices.session.getCurrent().then((value) => {
-      if (active) setSession(value)
-    }).catch(() => {
-      if (active) setError('We could not load your account. Check your connection and try again.')
-    }).finally(() => {
-      if (active) setLoading(false)
-    })
-    return () => { active = false }
+    const unsubscribe = currentServices.session.subscribe((value) => {
+      if (active) { setSession(value); setError(null); setLoading(false) }
+    }, () => { if (active) { setError('We could not load your account. Check your connection and try again.'); setLoading(false) } })
+    return () => { active = false; unsubscribe() }
   }, [currentServices])
   const value = useMemo(() => ({ services: currentServices, session, loading, error, refreshSession }), [currentServices, session, loading, error, refreshSession])
   return <ServiceContext.Provider value={value}>{children}</ServiceContext.Provider>

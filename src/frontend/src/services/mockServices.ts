@@ -59,7 +59,10 @@ let signedInUser: User | null = student
 export const mockServices: HelpiNUSServices = {
   session: {
     getCurrent: async () => ({ user: signedInUser }),
-    signInDemo: async () => { signedInUser = student; return { user: student } },
+    subscribe: (listener) => { listener({ user: signedInUser }); return () => {} },
+    registerStudent: async () => { signedInUser = student },
+    retryStudentProfile: async () => ({ user: signedInUser }),
+    signIn: async () => { signedInUser = student; return { user: student } },
     signOut: async () => { signedInUser = null },
   },
   dashboard: { getStudentDashboard: async () => mockDashboard },

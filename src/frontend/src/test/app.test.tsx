@@ -77,7 +77,7 @@ describe('Student application foundation', () => {
   it('keeps a mentor route behind the Mentor role guard', async () => {
     const mentorServices: HelpiNUSServices = {
       ...mockServices,
-      session: { ...mockServices.session, getCurrent: async () => ({ user: mockDashboard.mentors[0].user }) },
+      session: { ...mockServices.session, getCurrent: async () => ({ user: mockDashboard.mentors[0].user }), subscribe: (listener) => { listener({ user: mockDashboard.mentors[0].user }); return () => {} } },
     }
     renderStudentAt('/mentor/dashboard', mentorServices)
 
@@ -88,7 +88,7 @@ describe('Student application foundation', () => {
   it('fails closed and sends a signed-out visitor to the public sign-in route', async () => {
     const signedOut: HelpiNUSServices = {
       ...mockServices,
-      session: { ...mockServices.session, getCurrent: async () => ({ user: null }) },
+      session: { ...mockServices.session, getCurrent: async () => ({ user: null }), subscribe: (listener) => { listener({ user: null }); return () => {} } },
     }
     renderStudentAt('/student/dashboard', signedOut)
 
