@@ -37,3 +37,9 @@ callable exports loaded). Local emulators used Node 26 although Functions
 request Node 22. Live Firebase project setup and Email/Password enablement
 remain human console tasks; no AI/domain workflows were implemented. See the
 implementation log for full outcomes and commit hashes.
+
+## Commits
+
+- `efb76af` — auth and routing implementation with tests.
+- `2a12cdd` — callable-compatible profile retry.
+- `b7d102e` — user/developer guide and handoff documentation.

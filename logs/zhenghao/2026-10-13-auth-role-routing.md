@@ -35,6 +35,14 @@
   Firebase project, CI run, or deployment was used. Vite reports the existing
   Firebase adapter chunk exceeds 500 kB minified.
 
+## Commits
+
+- `efb76af` — auth adapters, Student forms, session restoration, role guards,
+  and frontend behavior tests.
+- `2a12cdd` — retain and reuse the Firebase Auth display name when retrying
+  profile initialization.
+- `b7d102e` — User Guide, Developer Guide, and this handoff documentation.
+
 ## Human setup and limits
 
 Live Firebase Email/Password Auth and Web App configuration remain Firebase
