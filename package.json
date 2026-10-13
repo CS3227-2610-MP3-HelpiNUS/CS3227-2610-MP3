@@ -12,10 +12,10 @@
     "src/shared"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspace src/shared && npm run build --workspaces --if-present",
+    "typecheck": "npm run build --workspace src/shared && npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run build --workspace src/shared && npm run test --workspaces --if-present",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   }
 }
