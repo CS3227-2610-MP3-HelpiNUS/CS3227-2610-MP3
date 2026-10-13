@@ -1,7 +1,7 @@
 import { createUserWithEmailAndPassword, onAuthStateChanged, sendEmailVerification, signInWithEmailAndPassword, signOut, updateProfile, type User as AuthUser } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { initializeStudentProfileOutputSchema, userSchema, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
+import { callableSchemas, initializeStudentProfileOutputSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
 import { firebase } from './firebase'
 import { firebaseEnvironment, isEmulatorConnectionAllowed } from './firebaseConfig'
 import type { DashboardData, HelpiNUSServices, Session } from './contracts'
@@ -62,6 +62,17 @@ async function initializeProfile(displayName?: string): Promise<Session> {
   return currentSession()
 }
 
+async function invokeCallable<Name extends CallableName>(
+  name: Name,
+  input: CallableInput<Name>,
+): Promise<CallableOutput<Name>> {
+  const result = await httpsCallable<CallableInput<Name>, unknown>(
+    configured().functions,
+    name,
+  )(input)
+  return callableSchemas[name].output.parse(result.data) as CallableOutput<Name>
+}
+
 export const firebaseServices: HelpiNUSServices = {
   session: {
     async getCurrent() { return currentSession() },
@@ -92,4 +103,5 @@ export const firebaseServices: HelpiNUSServices = {
   dashboard: {
     async getStudentDashboard(): Promise<DashboardData> { return mockDashboard },
   },
+  callables: { invoke: invokeCallable },
 }

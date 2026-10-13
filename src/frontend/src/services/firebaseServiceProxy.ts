@@ -17,4 +17,7 @@ export const firebaseServiceProxy: HelpiNUSServices = {
   dashboard: {
     async getStudentDashboard() { return (await loadFirebaseServices()).dashboard.getStudentDashboard() },
   },
+  callables: {
+    async invoke(name, input) { return (await loadFirebaseServices()).callables.invoke(name, input) },
+  },
 }

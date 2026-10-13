@@ -6,6 +6,9 @@ import type {
   MentorProfile,
   Module,
   User,
+  CallableInput,
+  CallableName,
+  CallableOutput,
 } from '@helpinus/shared'
 
 export interface DashboardData {
@@ -22,6 +25,13 @@ export interface Session {
   issue?: 'PROFILE_MISSING' | 'PROFILE_INVALID' | 'ACCOUNT_INACTIVE' | 'EMAIL_UNVERIFIED'
 }
 
+export interface CallableClient {
+  invoke<Name extends CallableName>(
+    name: Name,
+    input: CallableInput<Name>,
+  ): Promise<CallableOutput<Name>>
+}
+
 export interface HelpiNUSServices {
   session: {
     getCurrent(): Promise<Session>
@@ -35,4 +45,5 @@ export interface HelpiNUSServices {
   dashboard: {
     getStudentDashboard(): Promise<DashboardData>
   }
+  callables: CallableClient
 }

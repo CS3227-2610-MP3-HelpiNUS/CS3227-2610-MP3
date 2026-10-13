@@ -1,5 +1,33 @@
-import type { Appointment, AvailabilitySlot, Conversation, HelpRequest, MentorProfile, Module, User } from '@helpinus/shared'
-import type { DashboardData, HelpiNUSServices } from './contracts'
+import type { Appointment, AvailabilitySlot, CallableInput, CallableName, CallableOutput, Conversation, HelpRequest, MentorProfile, Module, User } from '@helpinus/shared'
+import type { CallableClient, DashboardData, HelpiNUSServices } from './contracts'
+
+export type MockCallableFixtures = Partial<{
+  [Name in CallableName]: (
+    input: CallableInput<Name>,
+  ) => CallableOutput<Name> | Promise<CallableOutput<Name>>
+}>
+
+export class MockCallableUnavailableError extends Error {
+  readonly callableName: CallableName
+
+  constructor(callableName: CallableName) {
+    super(`${callableName} has no mock fixture.`)
+    this.name = 'MockCallableUnavailableError'
+    this.callableName = callableName
+  }
+}
+
+export function createMockCallableClient(fixtures: MockCallableFixtures = {}): CallableClient {
+  return {
+    async invoke<Name extends CallableName>(name: Name, input: CallableInput<Name>) {
+      const handler = fixtures[name] as
+        | ((value: CallableInput<Name>) => CallableOutput<Name> | Promise<CallableOutput<Name>>)
+        | undefined
+      if (!handler) throw new MockCallableUnavailableError(name)
+      return handler(input)
+    },
+  }
+}
 
 const student: User = {
   id: 'student-01', displayName: 'Jamie Tan', email: 'jamie.tan@example.edu',
@@ -67,4 +95,5 @@ export const mockServices: HelpiNUSServices = {
     signOut: async () => { signedInUser = null },
   },
   dashboard: { getStudentDashboard: async () => mockDashboard },
+  callables: createMockCallableClient(),
 }

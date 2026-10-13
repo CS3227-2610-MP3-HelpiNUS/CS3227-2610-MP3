@@ -20,7 +20,7 @@ function message(error: unknown) {
     'functions/unavailable': 'The account service is temporarily unavailable. Try again shortly.',
   }
   if (typeof code === 'string') return messages[code] ?? 'We could not complete that request. Please try again.'
-  return error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+  return 'We could not complete that request. Please try again.'
 }
 function issueMessage(issue: Session['issue']) {
   if (issue === 'EMAIL_UNVERIFIED') return 'Account created. Verify your email, sign in, then retry profile setup.'

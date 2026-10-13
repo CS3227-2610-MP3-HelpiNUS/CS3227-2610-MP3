@@ -139,6 +139,14 @@ export const callableSchemas = {
 
 export type CallableName = keyof typeof callableSchemas
 
+export type CallableInput<Name extends CallableName> = z.input<
+  (typeof callableSchemas)[Name]['input']
+>
+
+export type CallableOutput<Name extends CallableName> = z.output<
+  (typeof callableSchemas)[Name]['output']
+>
+
 export type InitializeStudentProfileInput = z.infer<
   typeof initializeStudentProfileInputSchema
 >

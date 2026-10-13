@@ -96,6 +96,18 @@ describe('authentication and role routing', () => {
     expect(screen.queryByText(/Firebase:/)).not.toBeInTheDocument()
   })
 
+  it('does not expose an unclassified service error message', async () => {
+    const user = userEvent.setup()
+    renderAt('/login', services({ user: null }, {
+      signIn: async () => { throw new Error('Service functions is not available') },
+    }))
+    await user.type(screen.getByLabelText('Email'), 'student@example.test')
+    await user.type(screen.getByLabelText('Password'), 'Student-demo-123!')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('We could not complete that request. Please try again.')
+    expect(screen.queryByText(/Service functions/)).not.toBeInTheDocument()
+  })
+
   it('restores an existing session from the auth listener', async () => {
     let notify: (session: Session) => void = () => {}; let subscribed = false
     const svc = services({ user: null }, { subscribe: (listener) => { notify = listener; subscribed = true; return () => {} }, getCurrent: async () => ({ user: null }) })
