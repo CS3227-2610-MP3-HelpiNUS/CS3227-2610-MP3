@@ -1,7 +1,8 @@
 # HelpiNUS Developer Guide
 
-This guide will be expanded alongside the Sprint 1 implementation. The approved
-requirements and architecture records live in `workflow/specs/sprint-1`.
+The approved requirements and architecture records live in
+`workflow/specs/sprint-1`. The initial end-user walkthrough is in
+[`UserGuide.md`](UserGuide.md).
 
 ## Technology baseline
 
@@ -14,6 +15,25 @@ requirements and architecture records live in `workflow/specs/sprint-1`.
 - Vitest and React Testing Library
 
 ## Authorization design
+
+The frontend uses email/password Firebase Authentication through
+`src/frontend/src/services/firebaseServices.ts`; React components depend on the
+service adapter contract. Registration creates a Firebase identity and invokes
+the authenticated `initializeStudentProfile` callable. The public form sends
+only a display name, email, and password; the callable assigns `STUDENT` and
+`ACTIVE`. A failed profile call leaves a recoverable retry path. The auth-state
+listener restores the session after reloads and sign-in/sign-out changes.
+
+The frontend reads `users/{uid}` and validates it with the shared user schema.
+The document ID must match the authenticated UID and the profile email must
+match the Auth identity. Missing, malformed, mismatched, inactive, or
+unverified accounts fail closed. Production and non-emulator accounts must
+verify email. Only synthetic `@example.test` users when the frontend is
+explicitly connected to the local development Auth emulator bypass that check.
+An ACTIVE profile's role alone selects Student or Mentor routes; a wrong-role
+route redirects to the profile's dashboard. No public Mentor selector or
+client-side privileged profile write exists. Trusted Mentor provisioning
+remains the Admin SDK utility described below.
 
 The Firestore document `users/{uid}` is the single authoritative record for a
 user's `STUDENT` or `MENTOR` role and `ACTIVE`, `SUSPENDED`, or `DISABLED`
@@ -76,6 +96,13 @@ both emulator host variables configured:
 `FUNCTIONS_EMULATOR=true FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run seed:emulator --workspace src/functions`.
 Synthetic `@example.test` accounts bypass email verification only while the
 Functions emulator is running. Production callables require verified email.
+For the frontend, copy `src/frontend/.env.example` to a local environment file,
+provide the development Web App config, set `VITE_USE_FIREBASE_EMULATORS=true`,
+and run `npm run dev --workspace src/frontend`. The frontend emulator bypass is
+also limited to a development build explicitly connected to loopback emulators
+and the `@example.test` suffix. Run the frontend suite with
+`npm run test --workspace src/frontend` to check auth screens, session
+restoration, role routing, and account denial states.
 Mentors are created with the trusted utility
 `npm run provision:mentor --workspace src/functions -- <email> "<display name>"`;
 it uses Application Default Credentials and requires an explicit target project
