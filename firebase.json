@@ -1,5 +1,5 @@
 {
-  "functions": [{ "source": "src/functions", "codebase": "default", "runtime": "nodejs22", "predeploy": ["npm run build --workspace src/functions"] }],
+  "functions": [{ "source": "src/functions/deploy", "codebase": "default", "runtime": "nodejs22", "predeploy": ["npm run build --workspace src/functions", "npm run verify:deploy-package --workspace src/functions"] }],
   "firestore": { "rules": "firestore.rules", "indexes": "firestore.indexes.json" },
   "hosting": {
     "public": "src/frontend/dist",

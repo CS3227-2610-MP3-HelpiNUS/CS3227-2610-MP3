@@ -1,6 +1,8 @@
 node_modules/
 dist/
 src/functions/lib/
+src/functions/deploy/index.js
+src/functions/deploy/node_modules/
 coverage/
 .firebase/
 firebase-debug.log*

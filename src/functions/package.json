@@ -5,12 +5,14 @@
   "main": "lib/index.js",
   "engines": { "node": "22" },
   "scripts": {
-    "build": "npm --prefix ../shared run build && tsc -p tsconfig.json --noEmit && esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --external:firebase-admin --external:firebase-functions --external:zod --outfile=lib/index.js",
+    "build": "npm --prefix ../shared run build && tsc -p tsconfig.json --noEmit && esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --external:firebase-admin --external:firebase-functions --outfile=lib/index.js && node scripts/prepare-deploy-package.mjs",
+    "verify:deploy-package": "node scripts/verify-deploy-package.mjs",
+    "test:deploy-package": "node scripts/verify-deploy-package.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint --config ../frontend/eslint.config.js src scripts",
     "test": "vitest run src",
     "test:rules": "firebase emulators:exec --only firestore --project helpinus-rules-test 'vitest run rules-tests'",
-    "test:integration": "npm run build && firebase emulators:exec --only auth,firestore,functions --project helpinus-integration-test 'vitest run integration-tests'",
+    "test:integration": "npm run build && firebase emulators:exec --only auth,firestore,functions --project helpinus-integration-test 'npm --prefix src/functions exec -- vitest run integration-tests'",
     "seed:emulator": "tsx scripts/seed-emulator.ts",
     "provision:mentor": "tsx scripts/provision-mentor.ts"
   },
