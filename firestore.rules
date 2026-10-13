@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function userExists() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function activeUser() {
+      return userExists()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'ACTIVE'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['STUDENT', 'MENTOR']
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email;
+    }
+    function participant(ids) { return activeUser() && request.auth.uid in ids; }
+    function activeMentor(mentorId) {
+      return exists(/databases/$(database)/documents/users/$(mentorId))
+        && get(/databases/$(database)/documents/users/$(mentorId)).data.role == 'MENTOR'
+        && get(/databases/$(database)/documents/users/$(mentorId)).data.status == 'ACTIVE';
+    }
+
+    match /users/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
+    match /mentorProfiles/{uid} {
+      allow get: if activeUser() && resource.data.active == true && activeMentor(uid);
+      // Collection discovery is served by discoverMentors so every profile can
+      // be joined to its authoritative users/{uid} role and status record.
+      allow list: if false;
+      allow write: if false;
+    }
+    match /modules/{id} { allow read: if activeUser(); allow write: if false; }
+    match /helpRequests/{id} {
+      allow read: if activeUser() && (resource.data.studentId == request.auth.uid || resource.data.mentorId == request.auth.uid);
+      allow write: if false;
+    }
+    match /conversations/{id} {
+      allow read: if participant(resource.data.participantIds);
+      allow write: if false;
+      match /messages/{messageId} {
+        function conversation() { return get(/databases/$(database)/documents/conversations/$(id)).data; }
+        allow read: if exists(/databases/$(database)/documents/conversations/$(id)) && participant(conversation().participantIds);
+        allow create: if exists(/databases/$(database)/documents/conversations/$(id))
+          && participant(conversation().participantIds)
+          && request.resource.data.keys().hasOnly(['senderId', 'body', 'createdAt'])
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.body is string
+          && request.resource.data.body.matches('(?s).*[^\\s].*')
+          && request.resource.data.body.size() <= 4000
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+    }
+    match /availabilitySlots/{id} { allow read: if activeUser() && resource.data.withdrawn == false && resource.data.startsAt > request.time && activeMentor(resource.data.mentorId); allow write: if false; }
+    match /appointments/{id} { allow read: if activeUser() && (resource.data.studentId == request.auth.uid || resource.data.mentorId == request.auth.uid); allow write: if false; }
+    match /aiAuditEvents/{id} { allow read, write: if false; }
+  }
+}

@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "HelpiNUS Sprint 1 Architecture",
+    "output": "helpinus-architecture.html",
+    "viewBox": [1390, 860],
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/CS3227-2610-MP3-HelpiNUS/CS3227-2610-MP3",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "ea01a0a9ecb4e04b54ba7dd55220b8a728dd69d7"
+    },
+    "views": [
+      {
+        "id": "student-request",
+        "label": "Student request path",
+        "focus": ["browser", "hosting", "react", "adapter", "auth", "functions", "firestore"],
+        "note": "Trace a browser session through the React service boundary into trusted Firebase services."
+      },
+      {
+        "id": "trusted-contracts",
+        "label": "Trusted contracts",
+        "focus": ["react", "adapter", "contracts", "functions", "rules", "firestore"],
+        "note": "Shared runtime schemas and Security Rules protect both client and backend boundaries."
+      },
+      {
+        "id": "delivery",
+        "label": "Firebase boundary",
+        "focus": ["hosting", "auth", "functions", "rules", "firestore"],
+        "note": "The same topology is deployed into isolated development and production Firebase projects."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Student / Mentor",
+      "sublabel": "Laptop or mobile browser",
+      "pos": [50, 330],
+      "size": [170, 72]
+    },
+    {
+      "id": "hosting",
+      "type": "cloud",
+      "label": "Firebase Hosting",
+      "sublabel": "Vite production bundle",
+      "pos": [285, 110],
+      "size": [180, 70]
+    },
+    {
+      "id": "react",
+      "type": "frontend",
+      "label": "React application",
+      "sublabel": "Routes, guards, role UI",
+      "pos": [285, 330],
+      "size": [180, 72],
+      "sources": [
+        { "path": "src/frontend/src/routes/appRoutes.tsx", "line": 9, "label": "Route tree" }
+      ]
+    },
+    {
+      "id": "adapter",
+      "type": "frontend",
+      "label": "Service adapters",
+      "sublabel": "Firebase or mock client",
+      "pos": [540, 330],
+      "size": [180, 72],
+      "sources": [
+        { "path": "src/frontend/src/services/contracts.ts", "line": 30, "label": "Adapter contract" }
+      ]
+    },
+    {
+      "id": "contracts",
+      "type": "security",
+      "label": "Shared contracts",
+      "sublabel": "TypeScript + Zod",
+      "pos": [795, 105],
+      "size": [180, 72],
+      "sources": [
+        { "path": "src/shared/src/domain.ts", "line": 3, "label": "Domain schemas" },
+        { "path": "src/shared/src/callables.ts", "line": 12, "label": "Callable schemas" }
+      ]
+    },
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "Firebase Authentication",
+      "sublabel": "Email/password identity",
+      "pos": [540, 105],
+      "size": [200, 76]
+    },
+    {
+      "id": "functions",
+      "type": "backend",
+      "label": "Cloud Functions v2",
+      "sublabel": "Trusted state transitions",
+      "pos": [795, 330],
+      "size": [200, 76],
+      "sources": [
+        { "path": "src/functions/src/index.ts", "line": 1, "label": "Function exports" },
+        { "path": "src/functions/src/auth.ts", "line": 18, "label": "Authorization" }
+      ]
+    },
+    {
+      "id": "rules",
+      "type": "security",
+      "label": "Firestore Rules",
+      "sublabel": "Direct-access policy",
+      "pos": [795, 565],
+      "size": [200, 72],
+      "sources": [
+        { "path": "firestore.rules", "line": 1, "label": "Rules policy" }
+      ]
+    },
+    {
+      "id": "firestore",
+      "type": "database",
+      "label": "Cloud Firestore",
+      "sublabel": "Authoritative domain records",
+      "pos": [1070, 330],
+      "size": [210, 76]
+    },
+    {
+      "id": "deliveryPolicy",
+      "type": "external",
+      "label": "Delivery policy",
+      "sublabel": "GitHub Actions + human gate",
+      "pos": [1070, 105],
+      "size": [210, 76],
+      "sources": [
+        { "path": ".github/workflows/firebase.yml", "line": 1, "label": "Delivery workflow" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Firebase project: helpinus-dev or helpinus-prod",
+      "wraps": ["hosting", "auth", "functions", "rules", "firestore"],
+      "pad": 32
+    },
+    {
+      "kind": "security-group",
+      "label": "Trusted backend boundary",
+      "wraps": ["functions", "firestore"],
+      "pad": 36
+    }
+  ],
+  "connections": [
+    { "id": "load-app", "from": "browser", "to": "hosting", "label": "HTTPS assets", "variant": "emphasis", "fromSide": "top", "toSide": "left" },
+    { "id": "operate-ui", "from": "browser", "to": "react", "variant": "emphasis" },
+    { "id": "ui-services", "from": "react", "to": "adapter" },
+    { "id": "adapter-auth", "from": "adapter", "to": "auth", "label": "identity + token", "variant": "security", "fromSide": "top", "toSide": "bottom", "labelAt": [630, 255] },
+    { "id": "adapter-functions", "from": "adapter", "to": "functions", "variant": "security" },
+    { "id": "adapter-rules", "from": "adapter", "to": "rules", "label": "authorized direct access", "variant": "security", "fromSide": "bottom", "toSide": "left", "via": [[630, 480], [755, 480], [755, 601]], "labelAt": [690, 470] },
+    { "id": "rules-db", "from": "rules", "to": "firestore", "label": "authorize request", "variant": "security", "fromSide": "right", "toSide": "bottom", "via": [[1035, 601], [1175, 601]], "labelAt": [1105, 591] },
+    { "id": "functions-db", "from": "functions", "to": "firestore", "variant": "emphasis" },
+    { "id": "contracts-ui", "from": "contracts", "to": "adapter", "label": "client validation", "variant": "dashed", "fromSide": "left", "toSide": "right", "via": [[755, 141], [755, 366]], "labelAt": [765, 255] },
+    { "id": "contracts-functions", "from": "contracts", "to": "functions", "label": "callable validation", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "labelAt": [895, 255] },
+    { "id": "delivery-hosting", "from": "deliveryPolicy", "to": "hosting", "label": "verified environment deploy", "variant": "dashed", "fromSide": "top", "toSide": "top", "via": [[1175, 60], [375, 60]], "labelAt": [760, 50] }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Single source of truth",
+      "items": [
+        "users/{uid} owns role and account status",
+        "Only trusted Admin SDK code writes privileged fields"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Replaceable client boundary",
+      "items": [
+        "React components use service adapters",
+        "Mock and Firebase adapters implement the same session contract"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Fail-closed authorization",
+      "items": [
+        "Verified identity and ACTIVE profile are required",
+        "Privileged transitions remain callable-owned"
+      ]
+    }
+  ]
+}

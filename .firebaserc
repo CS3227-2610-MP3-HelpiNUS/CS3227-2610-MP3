@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "helpinus-dev": "helpinus-dev",
+    "helpinus-prod": "helpinus-prod"
+  }
+}
