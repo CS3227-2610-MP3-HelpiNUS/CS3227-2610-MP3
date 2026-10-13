@@ -43,8 +43,10 @@ async function initializeProfile(displayName?: string): Promise<Session> {
   if (!identity) throw new Error('Sign in again to finish setting up your Student profile.')
   await identity.reload()
   await identity.getIdToken(true)
+  const profileName = displayName ?? identity.displayName
+  if (!profileName) throw new Error('Your account name is missing. Contact HelpiNUS support to finish setup.')
   const invoke = httpsCallable(client.functions, 'initializeStudentProfile')
-  await invoke(displayName ? { displayName } : {})
+  await invoke({ displayName: profileName })
   return currentSession()
 }
 
