@@ -6,6 +6,7 @@ import { requireActiveUser, requireRole } from './auth.js'
 import { callableSchemas } from '@helpinus/shared'
 import type { ZodType } from 'zod'
 import { initializeStudentProfileHandler } from './profile.js'
+import { discoverMentorsHandler } from './mentorDiscovery.js'
 
 initializeApp()
 const db = getFirestore()
@@ -19,6 +20,11 @@ export const testAuthenticated = callable(
 export const initializeStudentProfile = callable(
   callableSchemas.initializeStudentProfile.input,
   (input, request) => initializeStudentProfileHandler(input, request, db, process.env.FUNCTIONS_EMULATOR === 'true'),
+)
+
+export const discoverMentors = callable(
+  callableSchemas.discoverMentors.input,
+  (_input, request) => discoverMentorsHandler(request, db),
 )
 
 function notImplemented(name: string, role?: 'STUDENT' | 'MENTOR') {

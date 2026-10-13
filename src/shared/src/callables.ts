@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   appointmentSchema,
   helpRequestSchema,
+  mentorProfileSchema,
   userSchema,
 } from './domain.js'
 
@@ -13,6 +14,11 @@ export const initializeStudentProfileInputSchema = z.object({
   displayName: z.string().trim().min(1).max(100),
 })
 export const initializeStudentProfileOutputSchema = z.object({ user: userSchema })
+
+export const discoverMentorsInputSchema = z.object({}).strict()
+export const discoverMentorsOutputSchema = z.object({
+  mentors: z.array(z.object({ user: userSchema, profile: mentorProfileSchema })).max(100),
+})
 
 export const createHelpRequestInputSchema = nonEmptyInputSchema.extend({
   mentorId: identifierSchema.nullable().default(null),
@@ -90,6 +96,10 @@ export const callableSchemas = {
   initializeStudentProfile: {
     input: initializeStudentProfileInputSchema,
     output: initializeStudentProfileOutputSchema,
+  },
+  discoverMentors: {
+    input: discoverMentorsInputSchema,
+    output: discoverMentorsOutputSchema,
   },
   createHelpRequest: {
     input: createHelpRequestInputSchema,

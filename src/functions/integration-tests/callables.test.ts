@@ -5,7 +5,7 @@ import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/
 import { initializeApp as initializeAdminApp, deleteApp as deleteAdminApp } from 'firebase-admin/app'
 import { getAuth as getAdminAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
-import { initializeStudentProfileOutputSchema, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
+import { discoverMentorsOutputSchema, initializeStudentProfileOutputSchema, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
 
 const app = initializeApp({ apiKey: 'fake-api-key', projectId: 'helpinus-integration-test', appId: 'integration-test' }, 'helpinus-integration')
 const auth = getAuth(app)
@@ -15,6 +15,7 @@ connectFunctionsEmulator(functions, '127.0.0.1', 5001)
 
 const initializeProfile = httpsCallable<InitializeStudentProfileInput, InitializeStudentProfileOutput>(functions, 'initializeStudentProfile')
 const testAuthenticated = httpsCallable<{ displayName: string }, { uid: string; ok: boolean }>(functions, 'testAuthenticated')
+const discoverMentors = httpsCallable<Record<string, never>, unknown>(functions, 'discoverMentors')
 const adminApp = initializeAdminApp({ projectId: 'helpinus-integration-test' }, 'helpinus-integration-admin')
 const adminAuth = getAdminAuth(adminApp)
 const adminDb = getFirestore(adminApp)
@@ -53,6 +54,23 @@ describe('callable emulator integration', () => {
     const retry = await initializeProfile({ displayName: 'Changed Name' })
     expect(retry.data.user.displayName).toBe('Integration Student')
     await expect(testAuthenticated({ displayName: 'Student' })).resolves.toMatchObject({ data: { uid: user.uid, ok: true } })
+  })
+
+  it('discovers only profiles backed by an authoritative ACTIVE Mentor account', async () => {
+    const activeId = `mentor-${crypto.randomUUID()}`
+    const suspendedId = `mentor-${crypto.randomUUID()}`
+    const createdAt = new Date()
+    await Promise.all([
+      adminDb.collection('users').doc(activeId).set({ id: activeId, displayName: 'Active Mentor', email: 'active@example.test', role: 'MENTOR', status: 'ACTIVE', createdAt }),
+      adminDb.collection('mentorProfiles').doc(activeId).set({ userId: activeId, biography: '', moduleIds: [], active: true }),
+      adminDb.collection('users').doc(suspendedId).set({ id: suspendedId, displayName: 'Suspended Mentor', email: 'suspended@example.test', role: 'MENTOR', status: 'SUSPENDED', createdAt }),
+      adminDb.collection('mentorProfiles').doc(suspendedId).set({ userId: suspendedId, biography: '', moduleIds: [], active: true }),
+    ])
+
+    const result = await discoverMentors({})
+    const parsed = discoverMentorsOutputSchema.parse(result.data)
+    expect(parsed.mentors.map(({ user }) => user.id)).toContain(activeId)
+    expect(parsed.mentors.map(({ user }) => user.id)).not.toContain(suspendedId)
   })
 
   it('requires verification and rejects mismatched or malformed trusted profiles', async () => {
