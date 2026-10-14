@@ -87,6 +87,36 @@
 .mentor-avatar { display: grid; width: 46px; height: 46px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #e6efe9; color: #285c48; font-size: 12px; font-weight: 700; }
 .mentor-preview > div { flex: 1; }
 .mentor-bio { color: #405356; font-size: 11px; }
+.mentor-discovery { max-width: 980px; }
+@media (max-width: 520px) {
+  html:has(.mentor-discovery), body:has(.mentor-discovery) { min-width: 0; }
+}
+.mentor-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.mentor-discovery .button { min-height: 44px; }
+.mentor-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
+.mentor-controls label { display: grid; min-width: min(100%, 230px); flex: 1; gap: 7px; color: var(--ink); font-size: 12px; font-weight: 650; }
+.mentor-controls input, .mentor-controls select { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid #cbd8d2; border-radius: 7px; background: #fff; color: var(--ink); font-size: 13px; }
+.mentor-controls select:focus-visible { outline: 3px solid #155e75; outline-offset: 3px; }
+.mentor-controls select:disabled { color: var(--quiet); background: #f4f6f5; }
+.mentor-scope { margin-bottom: 19px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.mentor-list { display: grid; gap: 12px; margin: 0 0 18px; padding: 0; list-style: none; }
+.mentor-card, .mentor-state, .mentor-notice { min-width: 0; padding: 19px 20px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.mentor-card-top { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.mentor-card h2 { margin: 0 0 4px; font-size: 16px; }
+.mentor-card-top p { margin: 0; color: var(--muted); font-size: 12px; }
+.mentor-details { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.mentor-details h3 { margin: 14px 0 7px; font-size: 13px; }
+.mentor-details ul { margin: 0 0 16px; padding-left: 20px; }
+.mentor-state { margin-bottom: 18px; }
+.mentor-state h2 { margin-bottom: 7px; font-size: 17px; }
+.mentor-state p, .mentor-notice p { margin-bottom: 12px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.mentor-notice { margin: 12px 0 18px; border-color: #e8c6c1; background: #fff7f5; }
+.mentor-more { min-height: 44px; }
+.mentor-dialog { width: min(440px, calc(100vw - 32px)); padding: 24px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); box-shadow: 0 18px 70px #14281f33; }
+.mentor-dialog::backdrop { background: #14281f99; }
+.mentor-dialog h2 { margin-bottom: 12px; font-size: 19px; }
+.mentor-dialog p { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .mentor-card-top { align-items: flex-start; flex-direction: column; } .mentor-card-top .button, .mentor-controls .button { width: 100%; } }
 .availability-label { flex: 0 0 auto; padding: 6px 9px; border-radius: 20px; background: var(--green-soft); color: var(--green-dark); font-size: 10px; font-weight: 650; }
 .route-status, .empty-panel { display: grid; min-height: 220px; align-content: center; justify-items: start; gap: 10px; color: var(--muted); font-size: 13px; }
 .route-status h1, .empty-panel h1 { margin: 0; color: var(--ink); font-size: 23px; }
