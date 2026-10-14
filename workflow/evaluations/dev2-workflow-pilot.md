@@ -11,6 +11,8 @@ Use synthetic fixtures and read-only rehearsals before reuse. Record actual name
 | Handoff recovery after a new conversation | New coordinator reconstructs branch, parent SHA, approvals, hashes, checks, and gaps from ledger/log | General reviewer recovered F02 paths, parent SHA, hashes, and pending checks; original human reply identifiers remain unavailable |
 | Seeded behavior or test defect | Independent verifier identifies the defect with reproducible evidence | Synthetic snippet review: general verifier identified private email added to a public mentor card and rendered; count-only test missed it. Proposed red tests assert no sentinel email in UI and no `email` prop passed. No repository defect or runnable test was introduced |
 | Named spec/code/security role invocation | Runtime demonstrably selects the TOML identity; record output and sandbox limits | Not run: current `spawn_agent` API has no TOML identity selector. Generic reviewer was used and is not proof of named selection |
+| Incremental implementation commits | Each coherent slice has focused checks, an explicit staged path list, and its own SHA; no other agent's files enter a commit | Not run under the revised workflow; F02's historical five commits were made at handoff, after implementation |
+| Developer 1 agent artifact boundary | Broad searches and PR review exclude Developer 2 SDD contents unless Developer 1 explicitly names the artifacts | Written AGENTS.md guardrail added; runtime behavior not yet tested |
 
 ## First authorized feature slice pilot
 
