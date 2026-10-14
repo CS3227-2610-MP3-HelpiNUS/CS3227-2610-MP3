@@ -1,0 +1,7 @@
+interface:
+  display_name: "MP3 Feature Delivery"
+  short_description: "Deliver approved MP3 features using SDD gates and independent verification."
+  default_prompt: "Use $mp3-feature-delivery to verify the approval gates for an MP3 feature, then deliver only its explicitly authorized scope."
+
+policy:
+  allow_implicit_invocation: false
