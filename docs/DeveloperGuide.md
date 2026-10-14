@@ -41,6 +41,9 @@ deferred.
 The Web SDK version is aligned across workspaces because
 `@firebase/rules-unit-testing` v5 expects Firebase 12. This also prevents npm
 from resolving incompatible internal Firebase service registries.
+The F02 lockfile correction removes the stale nested frontend Firebase 13
+entry and resolves Firebase 12.19.0 for both workspaces while preserving the
+frontend's declared `^12.0.0` range.
 
 ## 3. Repository organization
 
@@ -284,7 +287,7 @@ redirects authenticated users to their authoritative role dashboard.
 Student navigation:
 
 - Dashboard — implemented with labelled mock data;
-- Find a mentor — scaffold;
+- Find a mentor — Student Mentor discovery and module filtering;
 - Help requests — scaffold;
 - Conversations — scaffold;
 - Consultations — scaffold; and
@@ -299,6 +302,64 @@ React components receive `HelpiNUSServices` from `ServiceProvider`. In a
 configured environment it lazily loads Firebase services. Without Firebase Web
 configuration it deliberately uses mock services so another developer can work
 on the frontend immediately.
+
+### Student Mentor discovery (S1-D2-F02)
+
+`/student/mentors` remains inside `ProtectedRoute role="STUDENT"` and
+`AppShell`; `appRoutes.tsx` now renders `MentorDiscoveryPage`. The page calls
+`services.callables.invoke('discoverMentors', { limit: 20 })` and supplies the
+returned `nextCursor` on each requested continuation. It appends records in
+backend order, retaining the first record for a repeated `userId`. A failed
+later page leaves the loaded records intact and offers Retry for that cursor.
+An empty page with a cursor still offers Load more. There is no automatic
+pagination or server-side search/filter input.
+
+The sole new service interface is
+`HelpiNUSServices.modules.getById(id): Promise<Module | null>`. The Firebase
+adapter reads the individual `modules/{id}` document through `getDoc`, checks
+its canonical document ID, and parses present data with the shared
+`moduleSchema`; only a confirmed missing document returns `null`. Permission,
+transport, identity, and schema failures reject. The proxy exposes the same
+method, and the mock adapter supports valid, missing, and failing records.
+Neither the page nor this module service lists `mentorProfiles` or a module
+collection. The unchanged generic callable adapter validates Firebase
+discovery responses against the strict shared public output schema.
+
+`MentorDiscoveryPage` keys its content component by service identity and signed-in
+user ID, so a change to either remounts the page and clears its records, cursor,
+controls, dialog, and per-ID metadata cache. It resolves only module IDs
+referenced by loaded Mentors and avoids duplicate pending reads. Confirmed
+absence uses the unknown-module fallback; failed reads show a recoverable
+notice and Retry for failed IDs. While any referenced metadata is loading or
+failed, module selector changes are disabled and text search covers names and
+biographies only. Once ready, text search also matches real module codes and
+titles, and selector choices are active resolved modules supported by loaded
+Mentors. Search and module selection combine over loaded records without
+changing backend order or making further requests. A selected module remains
+applied during metadata degradation, with a separate Clear module action.
+
+Details expand inline from the callable's public name, biography, and module
+IDs plus authorized module labels. The Ask for help dialog carries the Mentor
+and optional selected module context only while open; it performs no write or
+`createHelpRequest` call. Initial/later loading, empty/no-match, discovery
+error, and metadata degradation have separate states. A persistent polite live
+status announces no Mentor or no-match results, including when more pages may
+remain. Page generation guards discard late results after route or
+session/service changes, and React StrictMode effect replay reuses the pending
+first-page request. A route revisit starts with fresh page state. The existing
+backend callable checks the authoritative active Mentor account before
+returning only public fields;
+the Student route guard and Firestore Rules retain their existing roles.
+
+The default mock uses visibly named Sample Mentors, cursor-keyed public pages,
+active/inactive module records, and an absent module reference. It rejects an
+unexpected cursor or page size. For targeted cases, pass a fresh
+`servicesOverride` to `ServiceProvider` with a scenario-specific
+`createMockCallableClient` fixture and module lookup. Do not use
+`mockDashboard.mentors` as discovery data because its nested `User` records
+contain private fields. The live emulator seed still creates one Mentor with
+empty `moduleIds` and no module catalogue; it cannot demonstrate filtering
+until a separately approved seed or data change supplies module records.
 
 ## 11. Installation and Firebase Web configuration
 
@@ -320,6 +381,18 @@ Install and verify:
 npm ci
 npm run check
 ```
+
+For S1-D2-F02 only, the owner approved Node.js 24.21.0 for the earlier local
+installation and verification after checking the declared dependency engines.
+The later local verification used Node.js 24.14 and npm 11.9. The project
+policy remains Node.js 22 in `.nvmrc`, package engines, Functions runtime, and
+CI. Node 22 was unavailable locally for the final run, and CI has not run;
+neither local Node 24 result establishes Node 22 compatibility.
+On Windows, invoke the npm CLI with the intended Node executable and put that
+executable first in the process-local `PATH` so npm scripts and child processes
+use the same version. The F02 sandbox run also redirected process-local
+`TEMP`/`TMP` to a writable workspace directory to avoid a Vitest temporary
+file rename error. These are local execution settings, not repository changes.
 
 Copy the example environment file:
 
@@ -430,6 +503,46 @@ npm run test:deploy-package --workspace src/functions
 npm run test:rules --workspace src/functions
 npm run test:integration --workspace src/functions
 ```
+
+For F02, the focused frontend suites are:
+
+```bash
+npm run test -w src/frontend -- mentorDiscovery.test.tsx
+npm run test -w src/frontend -- mentorDiscoveryAdapters.test.ts
+```
+
+The earlier 2026-10-14 Node 24.21.0 local run passed `npm ci` and root
+`npm run check`: frontend lint, typecheck, 77 tests, and build; Functions
+lint, typecheck, 15 tests, and build; shared checks and 5 tests. A later fresh
+Node 24.14/npm 11.9 run after the final correction passed the combined focused
+Mentor route and adapter suites (41 tests), the full frontend suite (82 tests),
+frontend lint/typecheck/build, and root `npm run check` (frontend 82,
+Functions 15, shared 5 tests, with their other checks and builds).
+Firestore Rules tests passed 5/5 through a direct emulator invocation, and
+callable emulator integration passed 4/4, including `discoverMentors` public
+pagination. These are local results; Node 22 and GitHub Actions CI remain
+unverified.
+
+A Codex in-app browser walkthrough exercised mock search, pagination,
+no-match recovery, dialog keyboard focus/return, and the layouts at laptop,
+375 × 812, and 812 × 375. Long biography and module-title content wrapped at
+375 × 812. A later 320 × 640 check found horizontal overflow from the
+pre-existing `min-width: 320px` on `html` and `body` in
+`src/frontend/src/index.css`. F02 now applies a discovery-route-only override
+in `App.css` below 520 px; the in-app browser recheck measured equal document
+scroll and client widths at both 320 and 375 px, including 320 px details and
+dialog states. The underlying global rule was not edited.
+An actual screen-reader walkthrough remains outstanding for F02-TC-044.
+
+On Windows, the existing `npm run test:rules -w src/functions`
+script failed before executing tests because its single-quoted nested command
+was not parsed as intended. The tests were run through the Firebase CLI
+directly. In the earlier emulator run, an unrelated local process occupied
+Firestore port 8080, so a temporary local configuration used port 8085;
+no checked-in Firebase configuration changed. The earlier callable integration
+run needed process-local `FUNCTIONS_DISCOVERY_TIMEOUT=60` and Vitest
+`--testTimeout 30000` for cold emulator startup. These adjustments do not
+establish that the original Windows npm emulator scripts pass unchanged.
 
 Automated tests demonstrate the checked cases, not complete security. Manual
 browser testing should still cover registration, verification, Student and
