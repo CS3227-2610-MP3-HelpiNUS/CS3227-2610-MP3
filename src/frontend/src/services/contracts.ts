@@ -45,5 +45,8 @@ export interface HelpiNUSServices {
   dashboard: {
     getStudentDashboard(): Promise<DashboardData>
   }
+  modules: {
+    getById(id: string): Promise<Module | null>
+  }
   callables: CallableClient
 }

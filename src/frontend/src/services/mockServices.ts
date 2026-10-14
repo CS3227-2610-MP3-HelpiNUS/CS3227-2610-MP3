@@ -1,4 +1,4 @@
-import type { Appointment, AvailabilitySlot, CallableInput, CallableName, CallableOutput, Conversation, HelpRequest, MentorProfile, Module, User } from '@helpinus/shared'
+import { discoverMentorsOutputSchema, moduleSchema, type Appointment, type AvailabilitySlot, type CallableInput, type CallableName, type CallableOutput, type Conversation, type HelpRequest, type MentorProfile, type Module, type User } from '@helpinus/shared'
 import type { CallableClient, DashboardData, HelpiNUSServices } from './contracts'
 
 export type MockCallableFixtures = Partial<{
@@ -84,6 +84,44 @@ export const mockDashboard: DashboardData = {
 }
 let signedInUser: User | null = student
 
+// Discovery fixtures contain only the callable's public Mentor fields. Their
+// opaque cursor is selected by input, just as a later callable page would be.
+const discoveryPages = {
+  first: discoverMentorsOutputSchema.parse({
+    mentors: [
+      { userId: 'sample-mentor-01', displayName: 'Sample Aisha', biography: 'I enjoy explaining software design with examples.', moduleIds: ['cs2103t', 'cs2040s'] },
+      { userId: 'sample-mentor-02', displayName: 'Sample Dev', biography: 'Happy to work through graph problems.', moduleIds: ['cs2040s', 'cs3230'] },
+      { userId: 'sample-mentor-03', displayName: 'Sample Mei', biography: 'Let us explore computing systems together.', moduleIds: ['missing-module'] },
+      { userId: 'sample-mentor-04', displayName: 'Sample Noor', biography: '', moduleIds: [] },
+    ],
+    nextCursor: 'sample-page-2',
+  }),
+  'sample-page-2': discoverMentorsOutputSchema.parse({
+    mentors: [
+      { userId: 'sample-mentor-05', displayName: 'Sample Ravi', biography: 'I like making algorithms approachable.', moduleIds: ['cs2040s'] },
+    ],
+    nextCursor: null,
+  }),
+}
+
+const discoveryModules = new Map<string, unknown>([
+  ...modules.map((module): [string, Module] => [module.id, module]),
+  ['cs3230', { id: 'cs3230', code: 'CS3230', title: 'Design and Analysis of Algorithms', active: false }],
+])
+
+export function createMockModuleLookup(records: ReadonlyMap<string, unknown>): HelpiNUSServices['modules'] {
+  return {
+    async getById(id) {
+      if (!records.has(id)) return null
+      const record = records.get(id)
+      if (record instanceof Error) throw record
+      const parsed = moduleSchema.parse(record)
+      if (parsed.id !== id) throw new Error('Module document ID does not match stored ID.')
+      return parsed
+    },
+  }
+}
+
 export const mockServices: HelpiNUSServices = {
   session: {
     getCurrent: async () => ({ user: signedInUser }),
@@ -95,5 +133,13 @@ export const mockServices: HelpiNUSServices = {
     signOut: async () => { signedInUser = null },
   },
   dashboard: { getStudentDashboard: async () => mockDashboard },
-  callables: createMockCallableClient(),
+  modules: createMockModuleLookup(discoveryModules),
+  callables: createMockCallableClient({
+    discoverMentors: async ({ cursor, limit }) => {
+      if (limit !== 20) throw new Error('Mock discovery expects a page size of 20.')
+      if (cursor === undefined) return discoveryPages.first
+      if (cursor === 'sample-page-2') return discoveryPages['sample-page-2']
+      throw new Error('Unknown mock discovery cursor.')
+    },
+  }),
 }
