@@ -9,7 +9,8 @@ summaries.
 
 Sprint 1 provides account creation, sign-in, sign-out, session restoration,
 role-based access, a Student dashboard with clearly labelled sample data, and
-Mentor discovery for Students. Help-request management, conversations,
+Mentor discovery for Students, and a read-only Mentor dashboard and profile
+management. Help-request management, conversations,
 consultation booking, and AI actions are currently scaffolds and do not yet
 complete their domain workflows.
 
@@ -128,7 +129,32 @@ Mentor with a trusted backend script. After provisioning, the Mentor signs in
 with the supplied Firebase Authentication identity and is routed to the Mentor
 dashboard. Student URLs redirect back to the Mentor dashboard.
 
-The Mentor dashboard and other Mentor workflows are scaffolds in Sprint 1.
+### Mentor dashboard
+
+The Mentor dashboard welcomes you with a read-only summary of your own saved
+profile. Choose **My profile** from the dashboard or Mentor navigation to open
+the full profile at `/mentor/profile`; changes are made there. Returning to the
+dashboard loads a fresh summary, so a confirmed profile edit can appear.
+
+The summary shows your saved display name and a shortened biography. A blank
+biography says **No biography provided**; an empty saved module list says
+**No modules listed**. If either field is blank, **Complete your profile** opens
+the profile page. With module information available, the dashboard previews up
+to three verified active modules and counts further active modules. Inactive
+or missing saved module references are counted as needing review. If a saved
+module's details cannot be checked, the dashboard identifies them as
+unavailable rather than calling them supported.
+
+Your welcome and **My profile** link remain available while the summary loads.
+If the profile read fails, choose **Try again**. If only module information is
+unavailable, the dashboard keeps your saved name and biography, shows the
+number of saved modules without guessed labels, and offers **Retry module
+information**. If your own profile is missing, inactive, or invalid, follow
+the administrator or HelpiNUS support guidance shown on the page. If account
+access is denied during a read, the page clears the summary and checks the
+session again; use its explicit **Try again** only after access is resolved.
+The dashboard does not show request, booking, consultation, conversation, or
+other activity totals.
 
 ### Manage your Mentor profile
 
@@ -195,8 +221,8 @@ npm run dev --workspace src/frontend
 If no Firebase Web configuration is present, HelpiNUS intentionally uses its
 mock service adapter. Open the URL printed by Vite. This mode demonstrates the
 Student dashboard, navigation, and Mentor discovery without contacting
-Firebase. Mentor names beginning with **Sample** and their module information
-are demonstration data, not live Mentor profiles.
+Firebase. Mentor names beginning with **Sample** and their
+module information are demonstration data, not live Mentor profiles.
 
 ## 9. Run with Firebase emulators
 
@@ -282,10 +308,13 @@ that environment.
 ### Emulator Mentor
 
 1. Sign in as `mentor@example.test`.
-2. Confirm the Mentor dashboard opens.
-3. Enter `/student/dashboard` manually and confirm the app returns to the Mentor
+2. Confirm the Mentor dashboard opens with the saved profile summary and a
+   **My profile** link. The seeded Mentor initially has no listed modules.
+3. Open **My profile**, make and save a profile change, then return to the
+   dashboard and check that it reads the saved change.
+4. Enter `/student/dashboard` manually and confirm the app returns to the Mentor
    dashboard.
-4. Confirm both desktop and mobile sign-out work.
+5. Confirm both desktop and mobile sign-out work.
 
 ### Registration and recovery
 
