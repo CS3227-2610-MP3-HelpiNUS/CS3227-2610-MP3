@@ -295,7 +295,11 @@ describe('Mentor profile callable emulator persistence', () => {
     const studentFunctions = getFunctions(studentApp, 'asia-southeast1')
     connectFunctionsEmulator(studentFunctions, '127.0.0.1', 5001)
     const studentDb = getClientFirestore(studentApp)
-    connectFirestoreEmulator(studentDb, '127.0.0.1', 18080)
+    const firestoreEmulatorHost = process.env.FIRESTORE_EMULATOR_HOST
+    if (!firestoreEmulatorHost) throw new Error('FIRESTORE_EMULATOR_HOST is required for the direct client read')
+    const { hostname, port } = new URL(`http://${firestoreEmulatorHost}`)
+    if (!port) throw new Error(`FIRESTORE_EMULATOR_HOST has no port: ${firestoreEmulatorHost}`)
+    connectFirestoreEmulator(studentDb, hostname, Number(port))
     const studentEmail = `f04-${crypto.randomUUID()}@example.test`
     const student = (await createUserWithEmailAndPassword(studentAuth, studentEmail, 'Synthetic-123!')).user
     await db.collection('users').doc(student.uid).set({
