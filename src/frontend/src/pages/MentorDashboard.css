@@ -4,7 +4,7 @@
 .mentor-dashboard-eyebrow { color: var(--color-primary, #166534); font-size: .75rem; font-weight: 700; letter-spacing: .09em; }
 .mentor-dashboard-header h1 { margin: .4rem 0 .6rem; }
 .mentor-dashboard-header p, .mentor-dashboard-intro { color: var(--color-text-muted, #475569); }
-.mentor-dashboard-primary { flex: none; min-height: 44px; }
+.mentor-dashboard .mentor-dashboard-primary { flex: none; min-height: 44px; }
 .mentor-dashboard-card { min-width: 0; padding: clamp(1rem, 3vw, 1.75rem); background: #fff; border: 1px solid #d7e3d9; border-radius: 1rem; }
 .mentor-dashboard-card h2 { margin-top: 0; }
 .mentor-dashboard-details { display: grid; gap: 1rem; }
