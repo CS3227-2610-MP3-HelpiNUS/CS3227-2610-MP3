@@ -151,7 +151,7 @@ describe('S1-D2-F03 Mentor dashboard', () => {
   it('TC-07 replaces all fields after metadata retry', async () => {
     let count = 0
     const { invoke } = setup({ read: async () => ++count === 1 ? ready({ moduleIds: ['a'] }, { kind: 'unavailable' }) : ready({ displayName: 'Updated Name', biography: 'Updated bio.', moduleIds: ['b'] }, { kind: 'ready', modules: [{ id: 'b', state: 'active', code: 'CS2', title: 'New module' }] }) })
-    await screen.findByText('1 saved modules; module information unavailable')
+    await screen.findByText('1 saved module; module information unavailable')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Retry module information' }))
     expect(await screen.findByText('Updated Name')).toBeInTheDocument()
     expect(screen.getByText('CS2 — New module')).toBeInTheDocument()
@@ -221,7 +221,7 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     const pending = deferred<ReadOwnMentorProfileOutput>()
     let count = 0
     setup({ read: () => ++count === 1 ? Promise.resolve(ready({ moduleIds: ['a'] }, { kind: 'unavailable' })) : count === 2 ? pending.promise : Promise.resolve(ready({ displayName: 'Current Name', moduleIds: ['b'] }, { kind: 'ready', modules: [{ id: 'b', state: 'active', code: 'CS2', title: 'Current module' }] })) })
-    await screen.findByText('1 saved modules; module information unavailable')
+    await screen.findByText('1 saved module; module information unavailable')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Retry module information' }))
     await user.click(screen.getByRole('button', { name: 'Retry module information' }))

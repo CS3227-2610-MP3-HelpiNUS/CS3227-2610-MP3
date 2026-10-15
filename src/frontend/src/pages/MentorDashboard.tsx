@@ -19,16 +19,20 @@ function excerpt(value: string) {
   return `${lastSpace > 0 ? prefix.slice(0, lastSpace) : prefix}…`
 }
 
+function initials(value: string) {
+  return value.trim().split(/\s+/u).slice(0, 2).map((part) => Array.from(part)[0]?.toLocaleUpperCase() ?? '').join('') || 'M'
+}
+
 function moduleSummary(result: Ready) {
   if (result.metadata.kind !== 'ready') return null
   const byId = new Map(result.metadata.modules.map((module) => [module.id, module]))
-  const active: string[] = []
+  const active: { id: string; label: string }[] = []
   let review = 0
   let unknown = 0
   for (const id of new Set(result.profile.moduleIds)) {
     const module = byId.get(id)
     if (!module) unknown++
-    else if (module.state === 'active') active.push(`${module.code} — ${module.title}`)
+    else if (module.state === 'active') active.push({ id, label: `${module.code} — ${module.title}` })
     else review++
   }
   return { active, review, unknown }
@@ -112,30 +116,45 @@ function MentorDashboardContent({ services, uid, refreshSession }: { services: H
   const summary = view.kind === 'ready' ? moduleSummary(view.result) : null
   return <section className="mentor-dashboard">
     <header className="mentor-dashboard-header">
-      <div><span className="mentor-dashboard-eyebrow">MENTOR SPACE</span><h1>Welcome to your Mentor space</h1><p>Review the profile Students can see when they find a mentor.</p></div>
+      <div className="mentor-dashboard-welcome">
+        <span className="mentor-dashboard-eyebrow">MENTOR SPACE</span>
+        <h1>Welcome to your Mentor space</h1>
+        <p>Review the profile Students can see when they find a mentor.</p>
+      </div>
       <Link className="button button-primary mentor-dashboard-primary" to="/mentor/profile">My profile</Link>
     </header>
     <section className="mentor-dashboard-card" aria-labelledby="mentor-dashboard-profile-title">
-      <h2 id="mentor-dashboard-profile-title">Your profile</h2>
-      <p className="mentor-dashboard-intro">A quick view of your Student-visible profile.</p>
-      {view.kind === 'loading' && <p role="status">Loading your profile…</p>}
-      {view.kind === 'error' && <div role="alert"><p>We could not load your profile.</p><button className="button button-secondary" onClick={() => void read()}>Try again</button></div>}
-      {view.kind === 'sessionError' && <div role="alert"><p>We could not check your account access.</p><button className="button button-secondary" onClick={() => void read()}>Try again</button></div>}
-      {view.kind === 'accessLost' && <div role="alert"><p>Your account access may have changed. Check your account or contact your administrator or HelpiNUS support.</p><button className="button button-secondary" onClick={() => void retryDenied()}>Try again</button></div>}
-      {view.kind === 'unavailable' && <div role="alert"><p><strong>Profile unavailable</strong></p><p>Your Mentor profile cannot be edited. Contact your administrator or HelpiNUS support.</p></div>}
+      <div className="mentor-dashboard-card-heading">
+        <h2 id="mentor-dashboard-profile-title">Your profile</h2>
+        <p>A quick view of your Student-visible profile.</p>
+      </div>
+      {view.kind === 'loading' && <p className="mentor-dashboard-message mentor-dashboard-loading" role="status">Loading your profile…</p>}
+      {view.kind === 'error' && <div className="mentor-dashboard-message mentor-dashboard-error" role="alert"><p>We could not load your profile.</p><button className="button button-secondary" onClick={() => void read()}>Try again</button></div>}
+      {view.kind === 'sessionError' && <div className="mentor-dashboard-message mentor-dashboard-error" role="alert"><p>We could not check your account access.</p><button className="button button-secondary" onClick={() => void read()}>Try again</button></div>}
+      {view.kind === 'accessLost' && <div className="mentor-dashboard-message mentor-dashboard-error" role="alert"><p>Your account access may have changed. Check your account or contact your administrator or HelpiNUS support.</p><button className="button button-secondary" onClick={() => void retryDenied()}>Try again</button></div>}
+      {view.kind === 'unavailable' && <div className="mentor-dashboard-message mentor-dashboard-error" role="alert"><p><strong>Profile unavailable</strong></p><p>Your Mentor profile cannot be edited. Contact your administrator or HelpiNUS support.</p></div>}
       {profile && view.kind === 'ready' && <div className="mentor-dashboard-details">
-        <p className="mentor-dashboard-name">{profile.displayName}</p>
-        <div><h3>Biography</h3><p>{bio || 'No biography provided'}</p></div>
-        <div><h3>Supported modules</h3>
-          {profile.moduleIds.length === 0 ? <p>No modules listed</p> : view.result.metadata.kind === 'unavailable' || view.metadataFailed || view.refreshing ? <p>{profile.moduleIds.length} saved modules; module information unavailable</p> : <>
-            {summary && summary.active.length > 0 ? <ul>{summary.active.slice(0, 3).map((label) => <li key={label}>{label}</li>)}</ul> : <p>No active modules available to preview</p>}
-            {summary && summary.active.length > 3 && <p>+{summary.active.length - 3} more active modules</p>}
-            {summary && summary.review > 0 && <p>{summary.review} module references need review</p>}
-            {summary && summary.unknown > 0 && <p>{summary.unknown} module details unavailable</p>}
-          </>}
-          {(view.result.metadata.kind === 'unavailable' || view.metadataFailed || view.refreshing) && <div role="alert"><p>{view.refreshing ? 'Refreshing module information…' : 'Module information is unavailable.'}</p><button className="button button-secondary" onClick={() => void read(true)}>Retry module information</button></div>}
+        <div className="mentor-dashboard-identity">
+          <span className="mentor-dashboard-avatar" aria-hidden="true">{initials(profile.displayName)}</span>
+          <div><span className="mentor-dashboard-role">MENTOR PROFILE</span><p className="mentor-dashboard-name">{profile.displayName}</p></div>
         </div>
-        {(!bio || profile.moduleIds.length === 0) && <Link className="mentor-dashboard-complete" to="/mentor/profile">Complete your profile</Link>}
+        <div className="mentor-dashboard-overview">
+          <section className="mentor-dashboard-panel" aria-labelledby="mentor-dashboard-bio-title">
+            <h3 id="mentor-dashboard-bio-title">Biography</h3>
+            <p className={bio ? 'mentor-dashboard-bio' : 'mentor-dashboard-empty'}>{bio || 'No biography provided'}</p>
+          </section>
+          <section className="mentor-dashboard-panel" aria-labelledby="mentor-dashboard-modules-title">
+            <h3 id="mentor-dashboard-modules-title">Supported modules</h3>
+            {profile.moduleIds.length === 0 ? <p className="mentor-dashboard-empty">No modules listed</p> : view.result.metadata.kind === 'unavailable' || view.metadataFailed || view.refreshing ? <p className="mentor-dashboard-empty">{profile.moduleIds.length} saved {profile.moduleIds.length === 1 ? 'module' : 'modules'}; module information unavailable</p> : <>
+              {summary && summary.active.length > 0 ? <ul className="mentor-dashboard-modules">{summary.active.slice(0, 3).map(({ id, label }) => <li key={id}>{label}</li>)}</ul> : <p className="mentor-dashboard-empty">No active modules available to preview</p>}
+              {summary && summary.active.length > 3 && <p className="mentor-dashboard-module-note">+{summary.active.length - 3} more active modules</p>}
+              {summary && summary.review > 0 && <p className="mentor-dashboard-module-note">{summary.review} module references need review</p>}
+              {summary && summary.unknown > 0 && <p className="mentor-dashboard-module-note">{summary.unknown} module details unavailable</p>}
+            </>}
+            {(view.result.metadata.kind === 'unavailable' || view.metadataFailed || view.refreshing) && <div className="mentor-dashboard-metadata-message" role="alert"><p>{view.refreshing ? 'Refreshing module information…' : 'Module information is unavailable.'}</p><button className="button button-secondary" onClick={() => void read(true)}>Retry module information</button></div>}
+          </section>
+        </div>
+        {(!bio || profile.moduleIds.length === 0) && <div className="mentor-dashboard-footer"><Link className="mentor-dashboard-complete" to="/mentor/profile">Complete your profile</Link></div>}
       </div>}
     </section>
   </section>
