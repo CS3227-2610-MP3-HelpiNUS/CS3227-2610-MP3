@@ -39,3 +39,8 @@
 - The TC-17 synthetic browser recheck passed for the measured 1280 px and 320 px layout, action/retry target size, heading order, accessible names/roles, focus order, mobile navigation, and F03-to-F04-to-F03 navigation. It does **not** establish actual screen-reader listening, true 200% browser zoom, or live Firebase behavior. The browser's zoom shortcut had no effect and no screen-reader session was available. TC-18 live emulator smoke is optional and unexecuted.
 - Minor unasserted RTT variants remain: duplicate saved-ID counts (invalid under the shared schema), repeated announcements after unrelated rerenders, and separate pending sign-out/eligibility response races. Related tested UID/service and guard behavior passed; these unexecuted variants are not labelled passed.
 - The synthetic preview tab, files and dev server were closed/removed. The guide commit `3782d02` contains only the F03 User Guide and Developer Guide sections. The five canonical SDD files remain outside Git under the user's explicit instruction. Merge and deployment are outside this delivery.
+
+## Publication
+
+- A final `git fetch origin --prune` confirmed the F04 remote head and F03 merge-base were still `2aa480bda9c87b040a8bc231b0e685dc8afc563f`. The F03 worktree was clean before publication.
+- `git push -u origin royden/feat-mentor-dashboard` exited 0, creating the remote branch and configuring local tracking. Its first published tip was `4c761c03bfaa8f2f68a5829916e4efcd32a50e2c`. This addendum records that actual push outcome; no merge, pull request, force push, or deployment occurred.
