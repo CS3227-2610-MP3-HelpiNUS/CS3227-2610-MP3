@@ -1,4 +1,4 @@
-import { discoverMentorsOutputSchema, moduleSchema, type Appointment, type AvailabilitySlot, type CallableInput, type CallableName, type CallableOutput, type Conversation, type HelpRequest, type MentorProfile, type Module, type User } from '@helpinus/shared'
+import { callableSchemas, discoverMentorsOutputSchema, moduleSchema, type Appointment, type AvailabilitySlot, type CallableInput, type CallableName, type CallableOutput, type Conversation, type HelpRequest, type MentorProfile, type Module, type User } from '@helpinus/shared'
 import type { CallableClient, DashboardData, HelpiNUSServices } from './contracts'
 
 export type MockCallableFixtures = Partial<{
@@ -24,7 +24,7 @@ export function createMockCallableClient(fixtures: MockCallableFixtures = {}): C
         | ((value: CallableInput<Name>) => CallableOutput<Name> | Promise<CallableOutput<Name>>)
         | undefined
       if (!handler) throw new MockCallableUnavailableError(name)
-      return handler(input)
+      return callableSchemas[name].output.parse(await handler(input)) as CallableOutput<Name>
     },
   }
 }
@@ -77,6 +77,12 @@ const mentorProfile: MentorProfile = {
   moduleIds: modules.map(({ id }) => id),
   active: true,
 }
+let managedBiography = mentorProfile.biography
+let managedModuleIds = [...mentorProfile.moduleIds]
+let managedRevision = 0
+let managedUpdateTime = '1:000000000'
+const managedReceipts = new Map<string, { fingerprint: string; output: CallableOutput<'updateOwnMentorProfile'> }>()
+const managedModuleCatalog = [...modules, { id: 'cs3230', code: 'CS3230', title: 'Design and Analysis of Algorithms', active: false }]
 
 export const mockDashboard: DashboardData = {
   user: student, requests, appointments, slots, conversations,
@@ -135,6 +141,25 @@ export const mockServices: HelpiNUSServices = {
   dashboard: { getStudentDashboard: async () => mockDashboard },
   modules: createMockModuleLookup(discoveryModules),
   callables: createMockCallableClient({
+    readOwnMentorProfile: async () => ({ kind: 'ready', profile: { displayName: mentor.displayName, biography: managedBiography, moduleIds: [...managedModuleIds], version: { revision: managedRevision, updateTime: managedUpdateTime } }, metadata: { kind: 'ready', modules: managedModuleIds.map((id) => { const found = managedModuleCatalog.find((module) => module.id === id); return found ? { id, state: found.active ? 'active' as const : 'inactive' as const, code: found.code, title: found.title } : { id, state: 'missing' as const } }) } }),
+    searchMentorModules: async ({ query, cursor }) => {
+      const normalized = query.normalize('NFKC').trim().toLowerCase()
+      const matches = managedModuleCatalog.filter((module) => module.active && [module.code, module.title].some((text) => text.toLowerCase().startsWith(normalized))).sort((a, b) => a.id.localeCompare(b.id))
+      const start = cursor ? matches.findIndex((module) => module.id === cursor) + 1 : 0
+      const page = matches.slice(start, start + 20)
+      return { modules: page.map(({ id, code, title }) => ({ id, code, title })), nextCursor: start + 20 < matches.length ? page[page.length - 1].id : null }
+    },
+    updateOwnMentorProfile: async (input) => {
+      const fingerprint = JSON.stringify({ baseline: input.baseline, biography: input.biography.trim(), moduleIds: [...input.moduleIds].sort() })
+      const prior = managedReceipts.get(input.requestId)
+      if (prior) { if (prior.fingerprint !== fingerprint) throw new Error('Request ID reused for a different change.'); return prior.output }
+      let output: CallableOutput<'updateOwnMentorProfile'>
+      if (input.baseline.revision !== managedRevision || input.baseline.updateTime !== managedUpdateTime) output = { kind: 'rejected', reason: 'CONFLICT' }
+      else if (input.moduleIds.some((id) => !managedModuleIds.includes(id) && !managedModuleCatalog.some((module) => module.id === id && module.active))) output = { kind: 'rejected', reason: 'MODULE_INELIGIBLE' }
+      else { managedBiography = input.biography.trim(); managedModuleIds = [...input.moduleIds]; managedRevision += 1; managedUpdateTime = `${managedRevision + 1}:000000000`; output = { kind: 'accepted', stored: { biography: managedBiography, moduleIds: [...managedModuleIds], revision: managedRevision } } }
+      managedReceipts.set(input.requestId, { fingerprint, output })
+      return output
+    },
     discoverMentors: async ({ cursor, limit }) => {
       if (limit !== 20) throw new Error('Mock discovery expects a page size of 20.')
       if (cursor === undefined) return discoveryPages.first

@@ -1,4 +1,5 @@
 import { getFirestore } from 'firebase-admin/firestore'
+import { getAuth } from 'firebase-admin/auth'
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https'
 import { userSchema, type UserRole } from '@helpinus/shared'
 
@@ -49,5 +50,26 @@ export async function requireActiveUser(request: CallableRequest<unknown>): Prom
 export async function requireRole(request: CallableRequest<unknown>, role: UserRole): Promise<AuthorizedUser> {
   const user = await requireActiveUser(request)
   if (user.role !== role) throw new HttpsError('permission-denied', `This operation requires ${role}.`)
+  return user
+}
+
+export function assertCurrentMentorRecord(data: unknown, uid: string, email: string): void {
+  const record = data as Record<string, unknown> | undefined
+  const createdAt = record?.createdAt as { toDate?: () => Date } | undefined
+  const parsed = userSchema.safeParse({ ...record, createdAt: createdAt && typeof createdAt.toDate === 'function' ? createdAt.toDate().toISOString() : record?.createdAt })
+  if (!parsed.success || parsed.data.id !== uid || parsed.data.email !== email || parsed.data.role !== 'MENTOR' || parsed.data.status !== 'ACTIVE') {
+    throw new HttpsError('permission-denied', 'Mentor account access has changed.')
+  }
+}
+
+export async function requireCurrentMentor(request: CallableRequest<unknown>): Promise<AuthorizedUser> {
+  const user = await requireRole(request, 'MENTOR')
+  let authUser
+  try { authUser = await getAuth().getUser(user.uid) }
+  catch { throw new HttpsError('permission-denied', 'Mentor account access has changed.') }
+  const synthetic = process.env.FUNCTIONS_EMULATOR === 'true' && user.email.endsWith('@example.test')
+  if (authUser.disabled || authUser.email !== user.email || (!authUser.emailVerified && !synthetic)) {
+    throw new HttpsError('permission-denied', 'Mentor account access has changed.')
+  }
   return user
 }

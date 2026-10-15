@@ -7,6 +7,8 @@ import { callableSchemas } from '@helpinus/shared'
 import type { ZodType } from 'zod'
 import { initializeStudentProfileHandler } from './profile.js'
 import { discoverMentorsHandler } from './mentorDiscovery.js'
+import { readOwnMentorProfileHandler, updateOwnMentorProfileHandler } from './mentorProfileManagement.js'
+import { searchMentorModulesHandler } from './mentorModuleSearch.js'
 
 initializeApp()
 const db = getFirestore()
@@ -26,6 +28,9 @@ export const discoverMentors = callable(
   callableSchemas.discoverMentors.input,
   (input, request) => discoverMentorsHandler(input, request, db),
 )
+export const readOwnMentorProfile = callable(callableSchemas.readOwnMentorProfile.input, (input, request) => readOwnMentorProfileHandler(input, request, db))
+export const searchMentorModules = callable(callableSchemas.searchMentorModules.input, (input, request) => searchMentorModulesHandler(input, request, db))
+export const updateOwnMentorProfile = callable(callableSchemas.updateOwnMentorProfile.input, (input, request) => updateOwnMentorProfileHandler(input, request, db))
 
 function notImplemented(name: string, role?: 'STUDENT' | 'MENTOR') {
   return callable(callableSchemas[name as keyof typeof callableSchemas].input as ZodType<unknown>, async (_input, request) => {
