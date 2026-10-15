@@ -380,6 +380,40 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledTimes(4))
   })
 
+  it('TC-14 keeps the denial marker through a deferred same-UID guard unmount and remount', async () => {
+    const refresh = deferred<{ user: typeof mentor }>()
+    let calls = 0
+    const { invoke, router, getCurrent } = setup({ read: async () => {
+      calls++
+      if (calls === 1) return ready({ displayName: 'Private Name', moduleIds: ['a'] }, { kind: 'unavailable' })
+      if (calls === 2) throw { code: 'functions/permission-denied' }
+      return ready({ displayName: 'Recovered Name' })
+    } })
+    await screen.findByText('Private Name')
+    let refreshStarted = false
+    getCurrent.mockImplementation(() => {
+      if (!refreshStarted && invoke.mock.calls.length === 2) {
+        expect(router.state.location.state).toEqual({ f03AccessDenied: mentor.id })
+        refreshStarted = true
+        return refresh.promise
+      }
+      return Promise.resolve({ user: mentor })
+    })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Retry module information' }))
+    await waitFor(() => expect(refreshStarted).toBe(true))
+    expect(await screen.findByRole('status')).toHaveTextContent('Loading your workspace')
+    expect(screen.queryByRole('heading', { name: 'Welcome to your Mentor space' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Private Name')).not.toBeInTheDocument()
+    expect(invoke).toHaveBeenCalledTimes(2)
+    await act(async () => refresh.resolve({ user: mentor }))
+    expect(await screen.findByRole('heading', { name: 'Welcome to your Mentor space' })).toBeInTheDocument()
+    expect(screen.getByText(/Your account access may have changed/)).toBeInTheDocument()
+    expect(invoke).toHaveBeenCalledTimes(2)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Recovered Name')).toBeInTheDocument()
+    expect(invoke).toHaveBeenCalledTimes(3)
+  })
+
   it('TC-15 denies Student sessions before reading profile data', async () => {
     const student = mockDashboard.user
     const invoke = vi.fn()
