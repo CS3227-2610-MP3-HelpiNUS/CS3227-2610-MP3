@@ -42,11 +42,14 @@ describe('S1-D2-F03 Mentor dashboard', () => {
   })
 
   it('TC-02 navigates to F04 and rereads on return', async () => {
-    let result = ready({ biography: 'First full biography.' })
+    const fullBiography = `First ${'detailed '.repeat(25)}biography.`
+    let result = ready({ biography: fullBiography })
     const { invoke, router } = setup({ read: async () => result })
-    await screen.findByText('First full biography.')
+    await screen.findByText(/First detailed detailed/u)
+    expect(screen.queryByText(fullBiography)).not.toBeInTheDocument()
     await userEvent.setup().click(within(screen.getByRole('main')).getByRole('link', { name: 'My profile' }))
     expect(await screen.findByRole('heading', { name: 'My Profile' })).toBeInTheDocument()
+    expect(screen.getByText(fullBiography)).toBeInTheDocument()
     result = ready({ biography: 'Changed saved biography.' })
     await act(async () => { await router.navigate('/mentor/dashboard') })
     expect(await screen.findByText('Changed saved biography.')).toBeInTheDocument()
@@ -80,6 +83,20 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     const excerpt = screen.getByText(/<img src=x onerror=alert\(1\)>/).textContent!
     expect(Array.from(excerpt).length).toBeLessThanOrEqual(181)
     expect(excerpt.endsWith('…')).toBe(true)
+  })
+
+  it('TC-03 applies the exact code-point limit and last-space boundary', async () => {
+    const biography = `  Alpha\n\t${'🙂'.repeat(173)} beta and more  `
+    setup({ read: async () => ready({ biography }) })
+    const shown = await screen.findByText(/^Alpha 🙂+…$/u)
+    expect(shown.textContent).toBe(`Alpha ${'🙂'.repeat(173)}…`)
+    expect(Array.from(shown.textContent ?? '').length).toBe(180)
+    expect(screen.queryByText('1:000000000')).not.toBeInTheDocument()
+  })
+
+  it('TC-03 cuts an unbroken token at 180 code points', async () => {
+    setup({ read: async () => ready({ biography: '🙂'.repeat(200) }) })
+    expect(await screen.findByText(`${'🙂'.repeat(180)}…`)).toBeInTheDocument()
   })
 
   it('TC-04 previews active saved modules and counts review and unknown entries', async () => {
@@ -118,6 +135,12 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     expect(screen.getAllByRole('link', { name: 'Complete your profile' })).toHaveLength(1)
   })
 
+  it('TC-05 does not invite completion when both fields are populated', async () => {
+    setup({ read: async () => ready({ moduleIds: ['a'] }, { kind: 'ready', modules: [{ id: 'a', state: 'active', code: 'CS1', title: 'One' }] }) })
+    await screen.findByText('CS1 — One')
+    expect(screen.queryByRole('link', { name: 'Complete your profile' })).not.toBeInTheDocument()
+  })
+
   it('TC-06 preserves the profile when module metadata is unavailable', async () => {
     setup({ read: async () => ready({ moduleIds: ['a', 'b'] }, { kind: 'unavailable' }) })
     expect(await screen.findByText('2 saved modules; module information unavailable')).toBeInTheDocument()
@@ -134,6 +157,19 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     expect(screen.getByText('CS2 — New module')).toBeInTheDocument()
     expect(screen.queryByText('Saved Mentor Name')).not.toBeInTheDocument()
     expect(invoke).toHaveBeenCalledTimes(2)
+  })
+
+  it('TC-07 marks module information refreshing while a retry is pending', async () => {
+    const pending = deferred<ReadOwnMentorProfileOutput>()
+    let calls = 0
+    setup({ read: () => ++calls === 1 ? Promise.resolve(ready({ moduleIds: ['a'] }, { kind: 'unavailable' })) : pending.promise })
+    await screen.findByText('Saved Mentor Name')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Retry module information' }))
+    expect(screen.getByText('Saved Mentor Name')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Refreshing module information')
+    await act(async () => pending.resolve(ready({ displayName: 'New Name', moduleIds: ['b'] }, { kind: 'ready', modules: [{ id: 'b', state: 'active', code: 'CS2', title: 'Two' }] })))
+    expect(await screen.findByText('CS2 — Two')).toBeInTheDocument()
+    expect(screen.queryByText('Saved Mentor Name')).not.toBeInTheDocument()
   })
 
   it('TC-07 discards the old profile when metadata retry returns missing', async () => {
@@ -163,6 +199,17 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     expect(await screen.findByText('Saved Mentor Name')).toBeInTheDocument()
   })
 
+  it('TC-08 announces deferred loading and error without an empty-profile claim', async () => {
+    const pending = deferred<ReadOwnMentorProfileOutput>()
+    setup({ read: () => pending.promise })
+    expect(await screen.findByText('Loading your profile…')).toHaveAttribute('role', 'status')
+    expect(within(screen.getByRole('main')).getByRole('link', { name: 'My profile' })).toHaveAttribute('href', '/mentor/profile')
+    await act(async () => pending.reject(new Error('offline')))
+    expect(await screen.findByRole('alert')).toHaveTextContent('We could not load your profile.')
+    expect(screen.queryByText('No biography provided')).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it.each(['missing', 'inactive', 'invalid'] as const)('TC-09 handles %s without an edit invitation', async (kind) => {
     setup({ read: async () => ({ kind }) })
     expect(await screen.findByText('Profile unavailable')).toBeInTheDocument()
@@ -182,6 +229,19 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     await act(async () => { pending.resolve(ready({ displayName: 'Old Name' })) })
     expect(screen.queryByText('Old Name')).not.toBeInTheDocument()
     expect(screen.getByText('CS2 — Current module')).toBeInTheDocument()
+  })
+
+  it('TC-10 lets a newer unavailable result supersede an older ready retry', async () => {
+    const old = deferred<ReadOwnMentorProfileOutput>()
+    let calls = 0
+    setup({ read: () => ++calls === 1 ? Promise.resolve(ready({ moduleIds: ['a'] }, { kind: 'unavailable' })) : calls === 2 ? old.promise : Promise.resolve({ kind: 'inactive' }) })
+    await screen.findByText('Saved Mentor Name')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Retry module information' }))
+    await user.click(screen.getByRole('button', { name: 'Retry module information' }))
+    expect(await screen.findByText('Profile unavailable')).toBeInTheDocument()
+    await act(async () => old.resolve(ready({ displayName: 'Stale Name' })))
+    expect(screen.queryByText('Stale Name')).not.toBeInTheDocument()
   })
 
   it('TC-11 clears old identity when the provider publishes another Mentor', async () => {
@@ -208,6 +268,18 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     act(() => publish(next))
     expect(screen.queryByText('Private Name')).not.toBeInTheDocument()
     await waitFor(() => expect(router.state.location.pathname).toBe(destination))
+  })
+
+  it('TC-11 discards an old pending read after a UID change', async () => {
+    const old = deferred<ReadOwnMentorProfileOutput>()
+    let current = mentor
+    const { publish } = setup({ current: () => current, read: () => current.id === mentor.id ? old.promise : Promise.resolve(ready({ displayName: 'New Identity' })) })
+    await screen.findByRole('status')
+    current = { ...mentor, id: 'mentor-02' }
+    act(() => publish(current))
+    expect(await screen.findByText('New Identity')).toBeInTheDocument()
+    await act(async () => old.resolve(ready({ displayName: 'Old Identity' })))
+    expect(screen.queryByText('Old Identity')).not.toBeInTheDocument()
   })
 
   it('TC-12 ignores a late result after leaving the route', async () => {
@@ -249,6 +321,19 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     expect(invoke).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ['Student role', mockDashboard.user, '/student/dashboard'],
+    ['suspended Mentor', { ...mentor, status: 'SUSPENDED' as const }, '/account-access'],
+  ])('TC-13 rejects a stale provider Mentor after entry reports %s', async (_, next, destination) => {
+    let calls = 0
+    const invoke = vi.fn()
+    const services: HelpiNUSServices = { ...mockServices, session: { ...mockServices.session, getCurrent: async () => ({ user: ++calls === 1 ? mentor : next }), subscribe: (listener) => { listener({ user: mentor }); return () => {} } }, callables: { invoke: invoke as HelpiNUSServices['callables']['invoke'] } }
+    const router = createMemoryRouter(appRoutes, { initialEntries: ['/mentor/dashboard'] })
+    render(<ServiceProvider servicesOverride={services}><RouterProvider router={router} /></ServiceProvider>)
+    await waitFor(() => expect(router.state.location.pathname).toBe(destination))
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
   it('TC-13 treats a transient entry check failure as an account-check error', async () => {
     let calls = 0
     const original = mentor
@@ -263,9 +348,9 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     expect(invoke).toHaveBeenCalledTimes(1)
   })
 
-  it('TC-14 marks access denial before refresh and avoids an automatic read loop', async () => {
+  it.each(['permission-denied', 'unauthenticated', 'failed-precondition'])('TC-14 marks %s before refresh and avoids an automatic read loop', async (code) => {
     let calls = 0
-    const { invoke, router, getCurrent } = setup({ read: async () => { calls++; if (calls === 1) return ready({ displayName: 'Private Name', moduleIds: ['a'] }, { kind: 'unavailable' }); throw { code: 'functions/permission-denied' } } })
+    const { invoke, router, getCurrent } = setup({ read: async () => { calls++; if (calls === 1) return ready({ displayName: 'Private Name', moduleIds: ['a'] }, { kind: 'unavailable' }); throw { code: `functions/${code}` } } })
     await screen.findByText('Private Name')
     let markerObservedBeforeRefresh = false
     getCurrent.mockImplementation(async () => {
