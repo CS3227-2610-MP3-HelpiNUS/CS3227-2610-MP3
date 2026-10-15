@@ -8,6 +8,7 @@ import { StudentDashboard } from '../pages/StudentDashboard'
 import { WorkspacePage } from '../pages/WorkspacePage'
 import { MentorDiscoveryPage } from '../pages/MentorDiscoveryPage'
 import { MentorProfilePage } from '../pages/MentorProfilePage'
+import { MentorDashboard } from '../pages/MentorDashboard'
 import { ProtectedRoute } from '../routes/ProtectedRoute'
 import { ServiceProvider } from '../services/ServiceProvider'
 import type { HelpiNUSServices } from '../services/contracts'
@@ -25,7 +26,7 @@ function renderStudentAt(path: string, services: HelpiNUSServices = mockServices
     ] }] },
     { path: '/login', element: <LoginPage /> },
     { element: <ProtectedRoute role="MENTOR" />, children: [{ element: <AppShell />, children: [
-      { path: '/mentor/dashboard', element: <WorkspacePage /> },
+      { path: '/mentor/dashboard', element: <MentorDashboard /> },
       { path: '/mentor/profile', element: <MentorProfilePage /> },
     ] }] },
   ], { initialEntries: [path] })
@@ -84,9 +85,9 @@ describe('Student application foundation', () => {
     }
     renderStudentAt('/mentor/dashboard', mentorServices)
 
-    expect(await screen.findByRole('heading', { name: 'Mentor dashboard' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Welcome to your Mentor space' })).toBeInTheDocument()
     expect(screen.getAllByRole('navigation', { name: 'Mentor navigation' })).toHaveLength(2)
-    expect(screen.getAllByRole('link', { name: 'My profile' })).toHaveLength(2)
+    expect(screen.getAllByRole('link', { name: 'My profile' })).toHaveLength(3)
   })
 
   it('fails closed and sends a signed-out visitor to the public sign-in route', async () => {
