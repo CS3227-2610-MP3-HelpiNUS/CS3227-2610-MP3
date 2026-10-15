@@ -128,7 +128,53 @@ Mentor with a trusted backend script. After provisioning, the Mentor signs in
 with the supplied Firebase Authentication identity and is routed to the Mentor
 dashboard. Student URLs redirect back to the Mentor dashboard.
 
-The Mentor dashboard and future Mentor workflows are scaffolds in Sprint 1.
+The Mentor dashboard and other Mentor workflows are scaffolds in Sprint 1.
+
+### Manage your Mentor profile
+
+1. Choose **My profile** in the Mentor navigation. The page shows your saved
+   display name, biography, and supported modules. These are the public details
+   Students can see in **Find a mentor**. Your display name is read-only here.
+   A blank biography says **No biography provided**; an empty module list says
+   **No modules listed**.
+2. Choose **Edit profile** to change your biography or supported modules. The
+   biography is plain text, can include line breaks, and is limited to 1,000
+   characters after outer whitespace is trimmed. An empty biography is allowed.
+3. Enter the beginning of a module **code or title** in **Find modules by code
+   or title prefix**. Search ignores letter case. Results offer active modules
+   only. Choose **Add** for a result, and **Remove** beside a selected module
+   to remove it. **Load more** retrieves the next page when available. Selected
+   modules stay visible when you change the search. You may select up to 30
+   unique modules, including any previously saved inactive or unavailable ones.
+4. Review the biography and selected modules, then choose **Save profile**.
+   An unchanged draft cannot be saved. Wait for **Profile saved.**, which appears
+   only after HelpiNUS confirms the stored profile with a fresh read. A Student
+   opening or refreshing discovery afterward can see the accepted public
+   biography and modules; a Student page already open may still show its
+   previously loaded results.
+
+Previously saved inactive modules are labelled **Inactive**. If a saved module
+record is missing, this page shows **Module information unavailable** and its
+ID so you can identify or remove it. Neither kind can be newly added. If module
+information is temporarily unavailable, choose **Retry**; you can keep editing
+the biography, but module changes pause until the information recovers. A
+failed module search has **Retry search** and keeps your selected modules;
+module changes remain paused until search succeeds. A
+newly selected module that becomes ineligible before Save must be removed or
+replaced before the profile can be saved.
+
+**Cancel** or navigating within the app with unsaved changes asks whether to
+**Keep editing** or **Discard changes**. Leaving the page does not store the
+draft. If a save may have completed but confirmation failed, keep the draft and
+use **Retry save or confirmation**; do not assume the change was saved. If the
+profile changed elsewhere, review the latest profile and choose **Discard
+draft and show latest** or **Reapply my draft**. Reapplying requires another
+explicit Save and cannot overwrite the latest version silently.
+
+If the profile cannot load temporarily, choose **Try again**. If the profile is
+missing, inactive, or invalid, the page stays read-only and directs you to an
+administrator or HelpiNUS support. A sign-out or loss of Mentor access clears
+the draft and requires you to sign in or resolve account access before editing.
 
 ## 7. Sign out
 
@@ -196,14 +242,17 @@ npm run dev --workspace src/frontend
 | Student | `student@example.test` | `Student-demo-123!` |
 | Mentor | `mentor@example.test` | `Mentor-demo-123!` |
 
-These synthetic accounts bypass email verification only while the application
-is explicitly connected to the local emulators. Do not create or use them in a
-real Firebase project.
+The seed marks both demo emails verified so Firestore Rules allow module reads.
+The accounts and synthetic emulator-only verification fallback must not be used
+in a real Firebase project.
 
-The current emulator seed has one Mentor with no listed modules and does not
-populate a module catalogue. Use mock mode to explore module filtering with
-sample data. Live Firebase mode displays the eligible Mentor records and
-module information available in that environment.
+The current emulator seed has one Mentor with no listed modules and a module
+catalogue with two active examples (`CS2103T`, `CS2040S`) and one inactive
+example (`CS3230`). Search can add the active examples; the inactive example
+does not appear as a new selection. Re-running the seed preserves existing demo
+profile edits and module records while the emulators are running. Live Firebase
+mode displays the eligible Mentor records and module information available in
+that environment.
 
 ## 10. Manual Sprint 1 verification
 
