@@ -374,9 +374,13 @@ profile editing remounts the dashboard and starts a fresh read.
 
 The page displays the saved name and a plain-text biography excerpt cut after
 at most 180 Unicode code points, with an ellipsis only when shortened and a
-word boundary when possible. For
-ready metadata, it walks saved module IDs in order, previews at most three
+word boundary when possible. For ready metadata, it walks saved module IDs in
+order, previews at most three
 explicitly active code/title labels, and counts additional active entries.
+The page uses initials derived from the saved name as a decorative avatar,
+separate biography/module panels, and stable module-ID keys for the compact
+active labels. The two panels stack on narrow screens; actions retain visible
+keyboard focus and the existing 320 px scoped layout fix.
 Only explicit inactive or missing metadata is counted as needing review;
 unmatched saved IDs are reported separately as details unavailable. When all
 module metadata is unavailable, the page retains the name, biography, and

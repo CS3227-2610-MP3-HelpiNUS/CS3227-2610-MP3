@@ -136,11 +136,14 @@ profile. Choose **My profile** from the dashboard or Mentor navigation to open
 the full profile at `/mentor/profile`; changes are made there. Returning to the
 dashboard loads a fresh summary, so a confirmed profile edit can appear.
 
-The summary shows your saved display name and a shortened biography. A blank
+The profile overview shows your saved display name beside initials derived from
+that name. Biography and supported modules appear in separate sections. The
+summary shows a shortened biography. A blank
 biography says **No biography provided**; an empty saved module list says
 **No modules listed**. If either field is blank, **Complete your profile** opens
 the profile page. With module information available, the dashboard previews up
-to three verified active modules and counts further active modules. Inactive
+to three verified active modules as compact labels and counts further active
+modules. Inactive
 or missing saved module references are counted as needing review. If a saved
 module's details cannot be checked, the dashboard identifies them as
 unavailable rather than calling them supported.
