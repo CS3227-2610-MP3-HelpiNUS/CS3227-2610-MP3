@@ -2,13 +2,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { HttpsError } from 'firebase-functions/v2/https'
 
 const get = vi.fn()
+const getUser = vi.fn()
 vi.mock('firebase-admin/firestore', () => ({ getFirestore: () => ({ collection: () => ({ doc: () => ({ get }) }) }) }))
-import { requireActiveUser, requireAuthenticated, requireRole } from './auth.js'
+vi.mock('firebase-admin/auth', () => ({ getAuth: () => ({ getUser }) }))
+import { assertCurrentMentorRecord, requireActiveUser, requireAuthenticated, requireCurrentMentor, requireRole } from './auth.js'
 
 const request = { auth: { uid: 'u1', token: { email: 'u1@example.test', email_verified: true } } } as never
 const validProfile = { id: 'u1', displayName: 'Student', email: 'u1@example.test', role: 'STUDENT', status: 'ACTIVE', createdAt: '2026-10-13T02:00:00.000Z' }
 describe('profile authorization', () => {
-  beforeEach(() => { get.mockReset() })
+  beforeEach(() => { get.mockReset(); getUser.mockReset() })
+  it('checks current Auth state and transaction user eligibility for Mentor operations', async () => {
+    const mentor = { ...validProfile, role: 'MENTOR' }
+    get.mockResolvedValue({ exists: true, data: () => mentor })
+    getUser.mockResolvedValue({ email: mentor.email, emailVerified: true, disabled: false })
+    await expect(requireCurrentMentor(request)).resolves.toMatchObject({ uid: 'u1', role: 'MENTOR' })
+    getUser.mockResolvedValue({ email: mentor.email, emailVerified: true, disabled: true })
+    await expect(requireCurrentMentor(request)).rejects.toMatchObject({ code: 'permission-denied' })
+    expect(() => assertCurrentMentorRecord(mentor, 'u1', mentor.email)).not.toThrow()
+    expect(() => assertCurrentMentorRecord({ ...mentor, status: 'SUSPENDED' }, 'u1', mentor.email)).toThrow()
+  })
   it('rejects unauthenticated callers', async () => {
     await expect(requireAuthenticated({ auth: null } as never)).rejects.toMatchObject({ code: 'unauthenticated' })
   })
@@ -33,8 +45,45 @@ describe('profile authorization', () => {
     await expect(requireActiveUser(request)).rejects.toMatchObject({ code: 'permission-denied' })
   })
   it('requires verified email outside the emulator', async () => {
-    get.mockResolvedValue({ exists: true, data: () => validProfile })
-    await expect(requireActiveUser({ auth: { uid: 'u1', token: { email: 'u1@example.test', email_verified: false } } } as never))
-      .rejects.toMatchObject({ code: 'failed-precondition' })
+    const original = process.env.FUNCTIONS_EMULATOR
+    try {
+      process.env.FUNCTIONS_EMULATOR = 'false'
+      get.mockResolvedValue({ exists: true, data: () => validProfile })
+      await expect(requireActiveUser({ auth: { uid: 'u1', token: { email: 'u1@example.test', email_verified: false } } } as never))
+        .rejects.toMatchObject({ code: 'failed-precondition' })
+      process.env.FUNCTIONS_EMULATOR = 'true'
+      await expect(requireActiveUser({ auth: { uid: 'u1', token: { email: 'u1@example.test', email_verified: false } } } as never))
+        .resolves.toMatchObject({ uid: 'u1', role: 'STUDENT' })
+      get.mockResolvedValue({ exists: true, data: () => ({ ...validProfile, email: 'u1@example.edu' }) })
+      await expect(requireActiveUser({ auth: { uid: 'u1', token: { email: 'u1@example.edu', email_verified: false } } } as never))
+        .rejects.toMatchObject({ code: 'failed-precondition' })
+    } finally {
+      if (original === undefined) delete process.env.FUNCTIONS_EMULATOR
+      else process.env.FUNCTIONS_EMULATOR = original
+    }
+  })
+  it('keeps the synthetic Mentor exception disabled when FUNCTIONS_EMULATOR is false', async () => {
+    const original = process.env.FUNCTIONS_EMULATOR
+    try {
+      process.env.FUNCTIONS_EMULATOR = 'false'
+      const synthetic = { ...validProfile, role: 'MENTOR' }
+      get.mockResolvedValue({ exists: true, data: () => synthetic })
+      getUser.mockResolvedValue({ email: synthetic.email, emailVerified: false, disabled: false })
+      await expect(requireCurrentMentor({ auth: { uid: 'u1', token: { email: synthetic.email, email_verified: false } } } as never))
+        .rejects.toMatchObject({ code: 'failed-precondition' })
+
+      const ordinary = { ...synthetic, email: 'u1@example.edu' }
+      get.mockResolvedValue({ exists: true, data: () => ordinary })
+      getUser.mockResolvedValue({ email: ordinary.email, emailVerified: false, disabled: false })
+      await expect(requireCurrentMentor({ auth: { uid: 'u1', token: { email: ordinary.email, email_verified: false } } } as never))
+        .rejects.toMatchObject({ code: 'failed-precondition' })
+
+      getUser.mockResolvedValue({ email: ordinary.email, emailVerified: true, disabled: false })
+      await expect(requireCurrentMentor({ auth: { uid: 'u1', token: { email: ordinary.email, email_verified: true } } } as never))
+        .resolves.toMatchObject({ uid: 'u1', role: 'MENTOR' })
+    } finally {
+      if (original === undefined) delete process.env.FUNCTIONS_EMULATOR
+      else process.env.FUNCTIONS_EMULATOR = original
+    }
   })
 })

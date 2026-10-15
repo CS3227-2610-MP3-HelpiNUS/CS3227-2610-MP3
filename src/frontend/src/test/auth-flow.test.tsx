@@ -1,11 +1,12 @@
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { AccountAccessPage, LoginPage, RegisterPage } from '../pages/AuthPages'
 import { AppShell } from '../components/AppShell'
 import { ProtectedRoute } from '../routes/ProtectedRoute'
 import { ServiceProvider } from '../services/ServiceProvider'
+import { useServices } from '../services/useServices'
 import type { HelpiNUSServices, Session } from '../services/contracts'
 import { mockServices } from '../services/mockServices'
 
@@ -143,16 +144,91 @@ describe('authentication and role routing', () => {
 
   it('restores an existing session from the auth listener', async () => {
     let notify: (session: Session) => void = () => {}; let subscribed = false
-    const svc = services({ user: null }, { subscribe: (listener) => { notify = listener; subscribed = true; return () => {} }, getCurrent: async () => ({ user: null }) })
+    let current: Session = { user: null }
+    const svc = services({ user: null }, { subscribe: (listener) => { notify = listener; subscribed = true; return () => {} }, getCurrent: async () => current })
     renderAt('/student/dashboard', svc)
     await waitFor(() => expect(subscribed).toBe(true))
+    current = { user: student }
     notify({ user: student })
     expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
   })
 
+  it('preserves the current Mentor page and draft after a same-user Auth callback', async () => {
+    const user = userEvent.setup()
+    let notify: (session: Session) => void = () => {}
+    let holdRevalidation = false
+    let releaseRevalidation: (() => void) | undefined
+    const getCurrent = vi.fn((): Promise<Session> => holdRevalidation
+      ? new Promise((resolve) => { releaseRevalidation = () => resolve({ user: mentor }) })
+      : Promise.resolve({ user: mentor }))
+    const svc = services({ user: mentor }, {
+      getCurrent,
+      subscribe: (listener) => { notify = listener; listener({ user: mentor }); return () => {} },
+    })
+    const router = createMemoryRouter([
+      { element: <ProtectedRoute role="MENTOR" />, children: [{ path: '/mentor/dashboard', element: <input aria-label="Draft marker" /> }] },
+    ], { initialEntries: ['/mentor/dashboard'] })
+    render(<ServiceProvider servicesOverride={svc}><RouterProvider router={router} /></ServiceProvider>)
+
+    const draft = await screen.findByRole('textbox', { name: 'Draft marker' })
+    await user.type(draft, 'Keep this draft')
+    const readsBeforeCallback = getCurrent.mock.calls.length
+    holdRevalidation = true
+    act(() => { notify({ user: mentor }) })
+
+    await waitFor(() => expect(getCurrent.mock.calls.length).toBeGreaterThan(readsBeforeCallback))
+    expect(screen.getByRole('textbox', { name: 'Draft marker' })).toBe(draft)
+    expect(draft).toHaveValue('Keep this draft')
+    await act(async () => { releaseRevalidation?.() })
+    expect(screen.getByRole('textbox', { name: 'Draft marker' })).toBe(draft)
+  })
+
+  it('keeps the latest session across concurrent refreshes, stale callbacks, and a service switch', async () => {
+    let notifyOld: (session: Session) => void = () => {}
+    let currentOld: Session = { user: mentor }
+    let deferOld = false
+    const pending: Array<(value: Session) => void> = []
+    const oldServices = services({ user: mentor }, {
+      getCurrent: () => deferOld ? new Promise((resolve) => { pending.push(resolve) }) : Promise.resolve(currentOld),
+      subscribe: (listener) => { notifyOld = listener; listener({ user: mentor }); return () => {} },
+    })
+    let refresh: () => Promise<void> = async () => {}
+    function Probe() {
+      const state = useServices()
+      refresh = state.refreshSession
+      return <div data-testid="current-session">{state.loading ? 'loading' : state.session?.user?.id ?? 'none'}:{state.session?.user?.status ?? 'none'}</div>
+    }
+    const rendered = render(<ServiceProvider servicesOverride={oldServices}><Probe /></ServiceProvider>)
+    await waitFor(() => expect(screen.getByTestId('current-session')).toHaveTextContent('m1:ACTIVE'))
+
+    deferOld = true
+    act(() => { void refresh(); void refresh() })
+    expect(pending).toHaveLength(2)
+    const suspended: Session = { user: { ...mentor, status: 'SUSPENDED' } }
+    await act(async () => { pending[1]!(suspended) })
+    expect(screen.getByTestId('current-session')).toHaveTextContent('m1:SUSPENDED')
+    await act(async () => { pending[0]!({ user: mentor }) })
+    expect(screen.getByTestId('current-session')).toHaveTextContent('m1:SUSPENDED')
+
+    deferOld = false
+    currentOld = suspended
+    act(() => { notifyOld({ user: mentor }) })
+    await waitFor(() => expect(screen.getByTestId('current-session')).toHaveTextContent('m1:SUSPENDED'))
+
+    deferOld = true
+    act(() => { void refresh() })
+    expect(pending).toHaveLength(3)
+    const newServices = services({ user: student })
+    rendered.rerender(<ServiceProvider servicesOverride={newServices}><Probe /></ServiceProvider>)
+    await waitFor(() => expect(screen.getByTestId('current-session')).toHaveTextContent('u1:ACTIVE'))
+    await act(async () => { pending[2]!({ user: mentor }); notifyOld({ user: mentor }) })
+    expect(screen.getByTestId('current-session')).toHaveTextContent('u1:ACTIVE')
+  })
+
   it('signs out and returns the user to the public login screen', async () => {
-    const user = userEvent.setup(); const signOut = vi.fn().mockResolvedValue(undefined)
-    const svc = services({ user: student }, { signOut, getCurrent: async () => ({ user: null }), subscribe: (listener) => { listener({ user: student }); return () => {} } })
+    const user = userEvent.setup(); let current: Session = { user: student }
+    const signOut = vi.fn(async () => { current = { user: null } })
+    const svc = services({ user: student }, { signOut, getCurrent: async () => current, subscribe: (listener) => { listener({ user: student }); return () => {} } })
     const router = createMemoryRouter([
       { element: <ProtectedRoute role="STUDENT" />, children: [{ element: <AppShell />, children: [{ path: '/student/dashboard', element: <h1>Student dashboard</h1> }] }] },
       { path: '/login', element: <LoginPage /> },
