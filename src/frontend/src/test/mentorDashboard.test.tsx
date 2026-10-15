@@ -267,6 +267,14 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     let calls = 0
     const { invoke, router, getCurrent } = setup({ read: async () => { calls++; if (calls === 1) return ready({ displayName: 'Private Name', moduleIds: ['a'] }, { kind: 'unavailable' }); throw { code: 'functions/permission-denied' } } })
     await screen.findByText('Private Name')
+    let markerObservedBeforeRefresh = false
+    getCurrent.mockImplementation(async () => {
+      if (!markerObservedBeforeRefresh && invoke.mock.calls.length === 2) {
+        expect(router.state.location.state).toEqual({ f03AccessDenied: mentor.id })
+        markerObservedBeforeRefresh = true
+      }
+      return { user: mentor }
+    })
     await userEvent.setup().click(screen.getByRole('button', { name: 'Retry module information' }))
     await screen.findByText(/Your account access may have changed/)
     expect(router.state.location.state).toEqual({ f03AccessDenied: mentor.id })
@@ -274,6 +282,7 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     expect(screen.queryByText('Private Name')).not.toBeInTheDocument()
     // The provider's initial check, the two page entry checks, and the refresh all finish.
     await waitFor(() => expect(getCurrent.mock.calls.length).toBeGreaterThanOrEqual(4))
+    expect(markerObservedBeforeRefresh).toBe(true)
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeEnabled()
     await act(async () => { await Promise.resolve(); await Promise.resolve() })
     expect(invoke).toHaveBeenCalledTimes(2)
