@@ -10,9 +10,9 @@ summaries.
 Sprint 1 provides account creation, sign-in, sign-out, session restoration,
 role-based access, Mentor discovery, and Mentor profile management. Sprint 2
 F01 adds Student help-request submission and history, a persisted Student
-request summary, and a Mentor request inbox with rejection. Conversation
-provisioning and request acceptance await F02; consultations and AI actions
-remain scaffolds.
+request summary, and a Mentor request inbox. The local F02 implementation adds
+atomic Mentor acceptance and private request-linked text conversations for
+the Student and addressed Mentor. Consultations and AI actions remain scaffolds.
 
 ## 2. Supported users and devices
 
@@ -151,6 +151,30 @@ Your dashboard request panel uses saved request counts and recent records.
 Its other activity widgets are still previews. A missing or changed account
 permission shows an access/error state; it is not treated as an empty history.
 
+### Use a conversation
+
+After your addressed Mentor accepts a request, open its detail and choose
+**Open conversation**, or use **Conversations** in Student navigation. Each
+accepted request has its own conversation, even if you have other requests
+with the same Mentor. The list shows the Mentor, module and question title,
+newest acceptance first. **Load more** reaches older accepted requests. A
+request with an inconsistent or missing conversation shows support guidance
+instead of a chat link.
+
+The conversation shows the original question and saved messages. **Load
+earlier messages** reaches older history. Enter plain text up to 4,000
+characters after outer whitespace is removed; internal line breaks remain.
+The page shows **Sending** while a message is unresolved, **Sent** after it is
+saved, and **Read** when the other participant's account has acknowledged it.
+A question mark means saving is uncertain: **Retry** checks the server for
+the same message ID before trying again. A definitive failure is labelled
+**Failed**. Same-account refresh in the same browser session retains pending
+message recovery; signing out or changing accounts clears it.
+
+The official app acknowledges an incoming saved message when it enters the
+foreground conversation viewport. Read does not prove the recipient paid
+attention: a modified client can acknowledge early or withhold acknowledgement.
+
 ## 6. Mentor access
 
 Mentors cannot register through the public form. An administrator provisions a
@@ -196,12 +220,15 @@ history, newest first. Use **Load more requests** for another page and open a
 row for the question, Student display name, module, status, and times. The
 request page does not show the Student's email address.
 
-To reject a pending request, choose **Reject**, review the confirmation, then
-choose **Confirm**. The request moves to Decided after the saved result is
-confirmed. If confirmation is interrupted, check the live status and use
-**Retry same decision** while it remains pending. Acceptance is currently
-disabled until F02 can create the conversation in the same transaction; no
-accepted result is claimed by the F01 interface.
+To decide a pending request, choose **Accept** or **Reject**, review the
+confirmation, then choose **Confirm**. Acceptance saves the request and its
+matching conversation in one transaction; the page checks the accepted pair
+before offering **Open conversation**. If confirmation is interrupted, check
+the live status and use **Retry same decision** while it remains pending.
+The Mentor **Conversations** list and detail use the same request-linked chat
+as the Student view, with the Student's historical display name and question
+context. The message, history, retry and read-status behavior above applies
+to both roles.
 
 ### Manage your Mentor profile
 
