@@ -101,7 +101,7 @@ role.
    information is missing, the page says **Module information unavailable**;
    if the Mentor lists none, it says **No modules listed**.
 5. Within the details, choose **Ask for help** to review the Mentor and your
-   selected module, if any, in a centered dialog. Choose **Request help** to open the request form, or
+   selected module, if any, in a centered dialog with a bold title and spaced action buttons. Choose **Request help** to open the request form, or
    **Close** or Escape to return to discovery. Opening the form does not send a
    request.
 
@@ -163,10 +163,12 @@ acceptance first. **Load more** reaches older accepted requests. A
 request with an inconsistent or missing conversation shows support guidance
 instead of a chat link.
 
-The compact conversation header shows the other participant, module, and
-question title. Expand **Request context** to read the original question.
-**Load earlier messages** reaches older history. The chat fills the available
-space beside navigation. Enter plain text up to 4,000 characters in the
+The conversation fills the space beside the desktop navigation. Its header
+contains **Back to conversations**, the other participant, module, and
+question title. Expand **Request context** to read the full request title and
+original question; long details scroll inside that section. On small screens the header also
+keeps **Sign out** available. **Load earlier messages** reaches older history.
+Enter plain text up to 4,000 characters in the
 **Write a message…** field and choose the send icon, labelled **Send
 message** for assistive technology. The field grows as you type multiple
 lines, then scrolls vertically; internal line breaks remain and outer

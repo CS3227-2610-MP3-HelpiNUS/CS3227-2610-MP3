@@ -482,6 +482,21 @@ label, and list cards separate labelled request, participant and module
 details from the explicit conversation button. Request and conversation data
 contracts are unchanged by this UI revision.
 
+The approved third UI refinement is in the F01 and F02
+`UIRefinementRound3.md` files. The discovery dialog uses a bold heading and
+an action row with a 10 px gap, 44 px targets, and narrow-screen wrapping.
+Conversation detail removes the separate large page heading and shared top
+bar; its routed back link, participant/module/title context, and expandable
+request question sit inside the edge-to-edge chat header. History flexes to
+fill the remaining viewport and scrolls independently of the composer. The
+expanded question has bounded height and keyboard-accessible internal
+scrolling. At 400 px and below, the header previews the participant and
+title on one line each; the complete title remains readable in the expanded
+details. Since the mobile top bar is absent on this route, `AppShell`
+passes its existing sign-out action through the outlet context to a
+mobile-only header button. Other routes retain their shell layout and sign-out
+controls. No conversation data contract changed.
+
 Local `npm run check` at `305af72` used Node 22.23.3: root lint, typecheck,
 unit tests and build passed; the earlier focused real Functions integration suite
 passed 9/9 and the Rules Emulator suite passed 14/14. The current F02 ledger
