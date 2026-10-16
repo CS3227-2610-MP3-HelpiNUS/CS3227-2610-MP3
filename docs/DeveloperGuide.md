@@ -459,6 +459,17 @@ The shared Student/Mentor routes are `/student/conversations` and
 `/mentor/conversations`, with `/:requestId` detail routes. The mock adapter is
 only component evidence.
 
+The approved 2026-10-17 UI amendment is recorded in the F01 and F02
+`UIAmendment.md` files. `HelpRequestPages` renders labelled metadata and a
+separate question section for both roles; request cards expose an explicit
+`View details` route. Decision confirmation uses a portalled modal with an
+inert background, keyboard focus containment/return, and the existing
+operation-ID recovery path. `ConversationPages` uses a compact expandable
+request context, scrollable message panel, and a full-width composer row.
+Its textarea grows from one line to a 168 px cap before vertical scrolling;
+the send icon retains the accessible name `Send message`. Message and composer
+text wrap without horizontal scrolling.
+
 Local `npm run check` at `305af72` used Node 22.23.3: root lint, typecheck,
 unit tests and build passed; the earlier focused real Functions integration suite
 passed 9/9 and the Rules Emulator suite passed 14/14. The current F02 ledger

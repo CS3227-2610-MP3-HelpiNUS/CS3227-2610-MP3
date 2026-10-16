@@ -138,10 +138,11 @@ search or filter finds nothing, clear the controls or load more when offered.
    new question is delivered. The form keeps your draft and links to the
    existing request. Once that request is decided, you can send a new one.
 4. Open **Help requests** to see your own recent and older requests. **Load
-   more requests** appears when a page may contain further results. Open a
-   request to read the original question, Mentor, module, status, and decision
-   time. Module metadata that is no longer available is labelled **Module
-   information unavailable**.
+   more requests** appears when a page may contain further results. Choose
+   **View details** on a request card to read its labelled request information
+   and full question. The detail shows the Mentor, module, status, and decision
+   time when decided. Module metadata that is no longer available is labelled
+   **Module information unavailable**.
 
 If supported modules fail to load, choose **Try again** on the request form.
 If the app says a request needs support review, contact HelpiNUS support
@@ -161,9 +162,13 @@ newest acceptance first. **Load more** reaches older accepted requests. A
 request with an inconsistent or missing conversation shows support guidance
 instead of a chat link.
 
-The conversation shows the original question and saved messages. **Load
-earlier messages** reaches older history. Enter plain text up to 4,000
-characters after outer whitespace is removed; internal line breaks remain.
+The compact conversation header shows the other participant, module, and
+question title. Expand **Request context** to read the original question.
+**Load earlier messages** reaches older history. Enter plain text up to 4,000
+characters in the message field and choose the send icon, labelled **Send
+message** for assistive technology. The field grows as you type multiple
+lines, then scrolls vertically; internal line breaks remain and outer
+whitespace is removed when sent.
 The page shows **Sending** while a message is unresolved, **Sent** after it is
 saved, and **Read** when the other participant's account has acknowledged it.
 A question mark means saving is uncertain: **Retry** checks the server for
@@ -216,13 +221,15 @@ other activity totals.
 
 Choose **Help requests** in Mentor navigation. **Pending** shows requests
 addressed to you, oldest first. **Decided** shows accepted and rejected
-history, newest first. Use **Load more requests** for another page and open a
-row for the question, Student display name, module, status, and times. The
-request page does not show the Student's email address.
+history, newest first. Use **Load more requests** for another page and choose
+**View details** on a request card for the question, Student display name,
+module, status, and times. The request page does not show the Student's email
+address.
 
 To decide a pending request, choose **Accept** or **Reject**, review the
-confirmation, then choose **Confirm**. Acceptance saves the request and its
-matching conversation in one transaction; the page checks the accepted pair
+pop-up confirmation, then choose **Accept request** or **Reject request**.
+**Cancel** or Escape closes the pop-up without deciding. Acceptance saves the
+request and its matching conversation in one transaction; the page checks the accepted pair
 before offering **Open conversation**. If confirmation is interrupted, check
 the live status and use **Retry same decision** while it remains pending.
 The Mentor **Conversations** list and detail use the same request-linked chat
