@@ -39,13 +39,14 @@ describe('F02 conversation screens', () => {
       subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} },
     } }))
     expect(await screen.findByText('No messages yet. Start the conversation below.')).toBeInTheDocument()
-    expect(screen.getByText('Sequence diagrams').closest('summary')).toBeInTheDocument()
+    expect(document.querySelector('.chat-context summary')).toHaveTextContent('Sequence diagrams')
     expect(screen.getByRole('link', { name: 'Back to conversations' })).toHaveAttribute('href', '/student/conversations')
     expect(screen.getByRole('link', { name: 'Back to conversations' }).closest('.chat-header')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: `Conversation with ${mentor.displayName}` })).toHaveClass('visually-hidden')
     expect(document.querySelector('.chat-page-detail .page-heading')).toBeNull()
     await user.click(screen.getByText('Request context'))
-    expect(screen.getByRole('region', { name: 'Request question' })).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('region', { name: 'Request details' })).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('region', { name: 'Request details' })).toHaveTextContent('Sequence diagrams')
     const field = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement
     expect(screen.queryByText('Message')).not.toBeInTheDocument()
     expect(field).toHaveAttribute('rows', '1')
