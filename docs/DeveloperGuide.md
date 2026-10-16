@@ -459,9 +459,8 @@ The shared Student/Mentor routes are `/student/conversations` and
 `/mentor/conversations`, with `/:requestId` detail routes. The mock adapter is
 only component evidence.
 
-Local checks after `d77dc39540f9b8e5a82d2ef77af3747f248703d2` and
-follow-up corrections used Node 22.23.3: root lint, typecheck,
-unit tests and build passed; the focused real Functions integration suite
+Local `npm run check` at `305af72` used Node 22.23.3: root lint, typecheck,
+unit tests and build passed; the earlier focused real Functions integration suite
 passed 9/9 and the Rules Emulator suite passed 14/14. The current F02 ledger
 records exact commands and remaining RTT evidence. Node 22 CI, manual 320 px
 keyboard/screen-reader observations, a production accepted-pair audit, and

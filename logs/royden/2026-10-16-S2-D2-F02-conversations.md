@@ -14,7 +14,7 @@ The UI explains that Read is an authenticated recipient acknowledgement, not pro
 
 ## Local verification
 
-Node 22.23.3; Java 25.0.4. With `TEMP` and `TMP` set to the worktree `.tmp` directory, `npm test` passed: frontend 186/186, Functions 35/35, shared 12/12. `npm run lint`, `npm run typecheck`, and `npm run build` passed. The focused Auth/Firestore/Functions Emulator run passed 9/9 across `conversations.test.ts`, `helpRequests.test.ts`, and `helpRequestAdapter.test.ts`; the Rules Emulator `access.test.ts` run passed 14/14. The complete root test/build pass preceded the final service error-classification correction; lint and typecheck passed afterward.
+Node 22.23.3; Java 25.0.4. With `TEMP` and `TMP` set to the worktree `.tmp` directory, `npm run check` passed against commit `305af72`: lint, typecheck, tests, and build. Tests passed frontend 186/186, Functions 35/35, shared 12/12. The earlier focused Auth/Firestore/Functions Emulator run passed 9/9 across `conversations.test.ts`, `helpRequests.test.ts`, and `helpRequestAdapter.test.ts`; the Rules Emulator `access.test.ts` run passed 14/14.
 
 The first parallel test attempt failed before tests loaded due Windows temp-directory `EPERM` rename errors; the isolated workspace-temp rerun passed. An offline `npm ci` lacked an esbuild archive and an online attempt failed with `ECONNRESET`; the local node_modules tree came from a sibling checkout with the same lockfile hash. `git fetch origin` failed with `getaddrinfo() thread failed to start`, so remote freshness is unconfirmed.
 
