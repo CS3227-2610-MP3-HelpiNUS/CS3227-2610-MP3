@@ -6,6 +6,7 @@ import { MentorDiscoveryPage } from '../pages/MentorDiscoveryPage'
 import { MentorProfilePage } from '../pages/MentorProfilePage'
 import { MentorDashboard } from '../pages/MentorDashboard'
 import { MentorRequestsPage, RequestDetailPage, RequestHelpPage, StudentRequestsPage } from '../pages/HelpRequestPages'
+import { ConversationDetailPage, ConversationListPage } from '../pages/ConversationPages'
 import { AccountAccessPage, ForgotPasswordPage, LoginPage, RegisterPage } from '../pages/AuthPages'
 import { ErrorPage } from '../pages/ErrorPage'
 import { ProtectedRoute } from './ProtectedRoute'
@@ -23,7 +24,8 @@ export const appRoutes: RouteObject[] = [
     { path: '/student/mentors/:mentorId/request', element: <RequestHelpPage /> },
     { path: '/student/requests', element: <StudentRequestsPage /> },
     { path: '/student/requests/:id', element: <RequestDetailPage role="student" /> },
-    { path: '/student/conversations', element: <WorkspacePage /> },
+    { path: '/student/conversations', element: <ConversationListPage role="student" /> },
+    { path: '/student/conversations/:requestId', element: <ConversationDetailPage role="student" /> },
     { path: '/student/consultations', element: <WorkspacePage /> },
     { path: '/student/study-assistant', element: <WorkspacePage /> },
   ] }] },
@@ -32,6 +34,8 @@ export const appRoutes: RouteObject[] = [
     { path: '/mentor/profile', element: <MentorProfilePage /> },
     { path: '/mentor/requests', element: <MentorRequestsPage /> },
     { path: '/mentor/requests/:id', element: <RequestDetailPage role="mentor" /> },
+    { path: '/mentor/conversations', element: <ConversationListPage role="mentor" /> },
+    { path: '/mentor/conversations/:requestId', element: <ConversationDetailPage role="mentor" /> },
   ] }] },
   { path: '*', element: <ErrorPage /> },
 ]

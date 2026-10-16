@@ -7,6 +7,7 @@ import { firebaseEnvironment, isEmulatorConnectionAllowed } from './firebaseConf
 import type { DashboardData, HelpiNUSServices, Session } from './contracts'
 import { mockDashboard } from './mockServices'
 import { isStaleAuthIdentityError, normalizeFirestoreTimestamp } from './firestoreData'
+import { firebaseConversations } from './firebaseConversations'
 
 function configured() {
   if (!firebase) throw new Error('Firebase is not configured. Add the development Firebase settings to continue.')
@@ -164,6 +165,7 @@ export const firebaseServices: HelpiNUSServices = {
       }, onError)
     },
   },
+  conversations: firebaseConversations,
   callables: { invoke: invokeCallable },
 }
 

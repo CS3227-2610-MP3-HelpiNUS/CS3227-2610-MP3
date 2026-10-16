@@ -158,6 +158,12 @@ export const mockServices: HelpiNUSServices = {
     subscribeDetail(id, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.id === id), (items) => onData(items[0] ?? null)) },
     subscribeStudentSummary(uid, onData) { const listener = () => { const own = f01Requests.filter((item) => item.studentId === uid); const pendingCount = own.filter((item) => item.status === 'PENDING').length; const acceptedCount = own.filter((item) => item.status === 'ACCEPTED').length; onData({ pendingCount, acceptedCount, rejectedCount: own.filter((item) => item.status === 'REJECTED').length, openCount: pendingCount + acceptedCount, updatedAt: new Date().toISOString() }) }; requestListeners.add(listener); listener(); return () => { requestListeners.delete(listener) } },
   },
+  conversations: {
+    subscribeList(_uid, _role, _cursor, onData) { onData([], null); return () => {} },
+    subscribeDetail(_id, onData) { onData(null); return () => {} },
+    subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} },
+    async getMessageFromServer() { return null },
+  },
   callables: createMockCallableClient({
     createHelpRequest: async (input) => {
       const existing = f01Requests.find((item) => item.studentId === student.id && item.mentorId === input.mentorId && item.moduleId === input.moduleId && item.status === 'PENDING')

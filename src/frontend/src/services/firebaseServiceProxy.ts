@@ -28,6 +28,12 @@ export const firebaseServiceProxy: HelpiNUSServices = {
     subscribeDetail(id, onData, onError) { return proxySubscription((s) => s.helpRequests.subscribeDetail(id, onData, onError), onError) },
     subscribeStudentSummary(uid, onData, onError) { return proxySubscription((s) => s.helpRequests.subscribeStudentSummary(uid, onData, onError), onError) },
   },
+  conversations: {
+    subscribeList(uid, role, cursor, onData, onError) { return proxySubscription((s) => s.conversations.subscribeList(uid, role, cursor, onData, onError), onError) },
+    subscribeDetail(id, onData, onError) { return proxySubscription((s) => s.conversations.subscribeDetail(id, onData, onError), onError) },
+    subscribeMessages(id, cursor, onData, onError) { return proxySubscription((s) => s.conversations.subscribeMessages(id, cursor, onData, onError), onError) },
+    async getMessageFromServer(id, messageId) { return (await loadFirebaseServices()).conversations.getMessageFromServer(id, messageId) },
+  },
   callables: {
     async invoke(name, input) { return (await loadFirebaseServices()).callables.invoke(name, input) },
   },

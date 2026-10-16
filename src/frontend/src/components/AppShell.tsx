@@ -14,6 +14,7 @@ const studentLinks = [
 const mentorLinks = [
   { to: '/mentor/dashboard', label: 'Dashboard', icon: 'home' },
   { to: '/mentor/requests', label: 'Help requests', icon: 'requests' },
+  { to: '/mentor/conversations', label: 'Conversations', icon: 'messages' },
   { to: '/mentor/profile', label: 'My profile', icon: 'mentors' },
 ] as const
 

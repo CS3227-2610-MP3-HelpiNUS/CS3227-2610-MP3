@@ -215,6 +215,8 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
   const [confirm, setConfirm] = useState<'ACCEPTED' | 'REJECTED' | null>(null)
   const [decision, setDecision] = useState<'idle' | 'working' | 'uncertain'>('idle')
   const [message, setMessage] = useState('')
+  const [chatReady, setChatReady] = useState(false)
+  const [chatChecked, setChatChecked] = useState(false)
   const operation = useRef<string | null>(null)
   const decisionGeneration = useRef(0)
   useEffect(() => {
@@ -228,6 +230,18 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
     const generation = decisionGeneration
     return () => { active = false; ++generation.current; unsubscribe() }
   }, [id, role, services, session?.user?.id])
+  useEffect(() => {
+    let active = true
+    let settled = false
+    queueMicrotask(() => { if (active && !settled) { setChatReady(false); setChatChecked(false) } })
+    if (!id || item?.status !== 'ACCEPTED') return () => { active = false }
+    const unsubscribe = services.conversations.subscribeDetail(id, (value) => { if (active) { settled = true; setChatReady(Boolean(value)); setChatChecked(true) } }, () => { if (active) { settled = true; setChatReady(false); setChatChecked(true) } })
+    return () => { active = false; unsubscribe() }
+  }, [id, item?.status, services])
+  useEffect(() => {
+    if (message !== 'Checking accepted conversation…' || !chatChecked || item?.status !== 'ACCEPTED') return
+    queueMicrotask(() => setMessage(chatReady ? 'Request accepted.' : 'This request needs support review. Contact HelpiNUS support.'))
+  }, [chatChecked, chatReady, item?.status, message])
   async function decide() {
     if (!id || !confirm) return
     const response = confirm
@@ -239,13 +253,13 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
       const result = await services.callables.invoke('respondToHelpRequest', { operationId, helpRequestId: id, response })
       if (token !== decisionGeneration.current) return
       if (result.kind === 'conflict') setMessage(`This request was already ${result.actualStatus.toLowerCase()}.`)
-      else setMessage(result.helpRequest.status === 'REJECTED' ? 'Request rejected.' : 'Request accepted.')
+      else setMessage(result.helpRequest.status === 'REJECTED' ? 'Request rejected.' : 'Checking accepted conversation…')
       setDecision('idle'); setConfirm(null); operation.current = null
     } catch (error) {
       if (token !== decisionGeneration.current) return
       const reason = (error as { details?: { reason?: string } })?.details?.reason
       setDecision('uncertain')
-      setMessage(reason === 'INTEGRITY_ERROR' ? 'This request needs support review. Contact HelpiNUS support before trying again.' : response === 'ACCEPTED' ? 'Acceptance is unavailable until conversations are integrated. No acceptance has been confirmed.' : denied(error) ? 'You can no longer decide this request. Check your account access.' : 'We could not confirm the decision. Check the live status, then retry this same action if still pending.')
+      setMessage(reason === 'INTEGRITY_ERROR' ? 'This request needs support review. Contact HelpiNUS support before trying again.' : denied(error) ? 'You can no longer decide this request. Check your account access.' : 'We could not confirm the decision. Check the live status, then retry this same action if still pending.')
     }
   }
   return <section className="help-page"><header className="page-heading"><Link to={`/${role}/requests`}>← Help requests</Link><h1>Request details</h1></header>
@@ -255,7 +269,8 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
     {item && <article className="help-card help-detail"><div className="help-detail-heading"><h2>{item.title}</h2><span className={`status-pill status-${item.status.toLowerCase()}`}>{item.status}</span></div>
       <p><strong>{role === 'student' ? 'Mentor' : 'Student'}:</strong> {role === 'student' ? item.mentorDisplayName : item.studentDisplayName}</p><p><strong>Module:</strong> <ModuleName id={item.moduleId} /></p>
       <p className="help-description">{item.description}</p><p>Sent: <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('en-SG')}</time></p>{item.status !== 'PENDING' && <p>Decided: <time dateTime={item.updatedAt}>{new Date(item.updatedAt).toLocaleString('en-SG')}</time></p>}
-      {role === 'mentor' && item.status === 'PENDING' && <div className="help-actions"><button className="button button-primary" disabled title="Acceptance needs conversation integration" onClick={() => { setConfirm('ACCEPTED'); operation.current = null }}>Accept</button><button className="button button-secondary" disabled={decision === 'working'} onClick={() => { setConfirm('REJECTED'); operation.current = null }}>Reject</button><p>Acceptance will be available after conversations are integrated.</p></div>}
+      {item.status === 'ACCEPTED' && (chatReady ? <p><Link to={`/${role}/conversations/${item.id}`}>Open conversation</Link></p> : <p>This conversation needs support review. Contact HelpiNUS support.</p>)}
+      {role === 'mentor' && item.status === 'PENDING' && <div className="help-actions"><button className="button button-primary" disabled={decision === 'working'} onClick={() => { setConfirm('ACCEPTED'); operation.current = null }}>Accept</button><button className="button button-secondary" disabled={decision === 'working'} onClick={() => { setConfirm('REJECTED'); operation.current = null }}>Reject</button></div>}
       {confirm && item.status === 'PENDING' && <div className="help-confirm" role="group" aria-label="Confirm decision"><p>Confirm {confirm.toLowerCase()} for this request?</p><button className="button button-primary" disabled={decision === 'working'} onClick={() => void decide()}>{decision === 'working' ? 'Checking…' : decision === 'uncertain' ? 'Retry same decision' : 'Confirm'}</button><button className="button button-secondary" disabled={decision === 'working'} onClick={() => { setConfirm(null); setDecision('idle'); operation.current = null }}>Cancel</button></div>}
       {message && <p role="alert" className="help-notice">{message}</p>}{(location.state as { created?: boolean } | null)?.created && role === 'student' && <p role="status">Your request was saved.</p>}
     </article>}
