@@ -402,6 +402,26 @@ describe('F01 request screens', () => {
     await waitFor(() => expect(decide).toHaveBeenCalledOnce())
   })
 
+  it('shows the accepted state and conversation action without a duplicate success notice', async () => {
+    const user = userEvent.setup()
+    const accepted = { ...saved, status: 'ACCEPTED' as const }
+    let publishRequest: ((value: F01HelpRequest | null) => void) | null = null
+    mount('/mentor/requests/saved-request', servicesFor('mentor', {
+      helpRequests: { ...mockServices.helpRequests, subscribeDetail: (_id, onData) => { publishRequest = onData; onData(saved); return () => {} } },
+      conversations: { ...mockServices.conversations, subscribeDetail: (_id, onData) => { onData({ request: accepted }); return () => {} } },
+      callables: createMockCallableClient({ respondToHelpRequest: async () => ({ kind: 'decided', helpRequest: accepted, conversationId: saved.id }) }),
+    }))
+    await user.click(await screen.findByRole('button', { name: 'Accept' }))
+    await user.click(screen.getByRole('button', { name: 'Accept request' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    act(() => publishRequest?.(accepted))
+    const open = await screen.findByRole('link', { name: 'Open conversation' })
+    expect(open).toHaveClass('button', 'button-primary')
+    expect(screen.getByText('ACCEPTED')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Checking accepted conversation…')).not.toBeInTheDocument())
+    expect(screen.queryByText('Request accepted.')).not.toBeInTheDocument()
+  })
+
   it('keeps the same decision attempt available after closing an uncertain dialog', async () => {
     const user = userEvent.setup()
     const operationIds: string[] = []

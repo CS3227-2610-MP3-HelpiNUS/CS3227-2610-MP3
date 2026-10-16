@@ -2,6 +2,7 @@
 .help-page .page-heading h1 { margin: 8px 0; }
 .help-page .page-heading p { color: var(--muted); }
 .help-page a { color: var(--green-dark); }
+.help-page a.button-primary, .help-page a.button-primary:visited, .help-page a.button-primary:hover, .help-page a.button-primary:focus-visible { color: #fff; }
 .help-card { padding: 20px; border: 1px solid var(--line); border-radius: 10px; background: #fff; margin: 0 0 14px; }
 .help-form { display: grid; gap: 18px; }
 .help-field { display: grid; gap: 7px; }

@@ -259,7 +259,13 @@ function MentorDiscoveryContent({ services, sessionId }: { services: HelpiNUSSer
     </>}
     <dialog ref={dialogRef} aria-label="Ask for help" onCancel={(event) => { event.preventDefault(); closeDialog() }} onKeyDown={(event) => {
       if (event.key === 'Escape') { event.preventDefault(); closeDialog() }
-      if (event.key === 'Tab') { event.preventDefault(); dialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus() }
+      if (event.key === 'Tab') {
+        const controls = dialogRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])')
+        const first = controls?.[0]
+        const last = controls?.[controls.length - 1]
+        if (event.shiftKey && document.activeElement === first && last) { event.preventDefault(); last.focus() }
+        else if (!event.shiftKey && document.activeElement === last && first) { event.preventDefault(); first.focus() }
+      }
     }} className="mentor-dialog">
       {dialogContext && <><h2>Ask {dialogContext.mentorName} for help</h2>{dialogContext.moduleName && <p>Selected module: {dialogContext.moduleName}</p>}<p>Choose a supported module and describe your question on the next page.</p><Link className="button button-primary" to={`/student/mentors/${encodeURIComponent(dialogContext.mentorId)}/request${selectedModuleId ? `?moduleId=${encodeURIComponent(selectedModuleId)}` : ''}`} state={{ mentorName: dialogContext.mentorName }} onClick={closeDialog}>Request help</Link><button className="button button-secondary" onClick={closeDialog}>Close</button></>}
     </dialog>

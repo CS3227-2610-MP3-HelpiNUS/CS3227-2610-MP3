@@ -112,7 +112,7 @@
 .mentor-state p, .mentor-notice p { margin-bottom: 12px; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .mentor-notice { margin: 12px 0 18px; border-color: #e8c6c1; background: #fff7f5; }
 .mentor-more { min-height: 44px; }
-.mentor-dialog { width: min(440px, calc(100vw - 32px)); padding: 24px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); box-shadow: 0 18px 70px #14281f33; }
+.mentor-dialog { position: fixed; inset: 50% auto auto 50%; transform: translate(-50%, -50%); width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); margin: 0; overflow-y: auto; padding: 24px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); box-shadow: 0 18px 70px #14281f33; }
 .mentor-dialog::backdrop { background: #14281f99; }
 .mentor-dialog h2 { margin-bottom: 12px; font-size: 19px; }
 .mentor-dialog p { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }

@@ -41,6 +41,7 @@ describe('F02 conversation screens', () => {
     expect(await screen.findByText('No messages yet. Start the conversation below.')).toBeInTheDocument()
     expect(screen.getByText('Sequence diagrams').closest('summary')).toBeInTheDocument()
     const field = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement
+    expect(screen.queryByText('Message')).not.toBeInTheDocument()
     expect(field).toHaveAttribute('rows', '1')
     const send = screen.getByRole('button', { name: 'Send message' })
     expect(send.querySelector('svg')).not.toBeNull()
@@ -57,7 +58,13 @@ describe('F02 conversation screens', () => {
       return () => {}
     })
     mount('/student/conversations', servicesFor('student', { conversations: { ...mockServices.conversations, subscribeList: subscribe } }))
-    expect(await screen.findByRole('link', { name: 'Open conversation' })).toHaveAttribute('href', '/student/conversations/f02-request')
+    const open = await screen.findByRole('link', { name: 'Open conversation' })
+    expect(open).toHaveAttribute('href', '/student/conversations/f02-request')
+    expect(open).toHaveClass('button', 'button-primary')
+    expect(screen.getByText('Request')).toBeInTheDocument()
+    expect(screen.getByText('Mentor')).toBeInTheDocument()
+    expect(screen.getByText(mentor.displayName)).toBeInTheDocument()
+    expect(screen.getByText('Module')).toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Load more' }))
     expect(await screen.findByText('Conversation needs support')).toBeInTheDocument()
     expect(subscribe).toHaveBeenCalledWith(student.id, 'STUDENT', cursor, expect.any(Function), expect.any(Function))

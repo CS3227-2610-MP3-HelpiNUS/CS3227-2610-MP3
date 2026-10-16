@@ -83,8 +83,8 @@ export function ConversationListPage({ role }: { role: 'student' | 'mentor' }) {
     {state === 'error' && <p role="alert">Conversation access is unavailable. Check your account and try again. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
     {state === 'stale' && <p role="alert">The conversation list may be out of date. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
     {state === 'ready' && sorted.length === 0 && <p className="help-card">No accepted conversations yet.</p>}
-    <ul className="chat-list">{sorted.map((row) => <li className="help-card" key={row.kind === 'ready' ? row.request.id : row.requestId}>
-      {row.kind === 'ready' ? <><h2>{row.request.title}</h2><p>{role === 'student' ? row.request.mentorDisplayName : row.request.studentDisplayName} · <ModuleName id={row.request.moduleId} /></p><Link to={`/${role}/conversations/${row.request.id}`}>Open conversation</Link></> : <><h2>Conversation needs support</h2><p>{support}</p></>}
+    <ul className="chat-list">{sorted.map((row) => <li className="chat-list-card" key={row.kind === 'ready' ? row.request.id : row.requestId}>
+      {row.kind === 'ready' ? <><div className="chat-list-information"><span className="chat-list-label">Request</span><h2>{row.request.title}</h2><dl className="chat-list-metadata"><dt>{role === 'student' ? 'Mentor' : 'Student'}</dt><dd>{role === 'student' ? row.request.mentorDisplayName : row.request.studentDisplayName}</dd><dt>Module</dt><dd><ModuleName id={row.request.moduleId} /></dd></dl></div><div className="chat-list-action"><Link className="button button-primary" to={`/${role}/conversations/${row.request.id}`}>Open conversation</Link></div></> : <div className="chat-list-information"><h2>Conversation needs support</h2><p>{support}</p></div>}
     </li>)}</ul>
     {next && <button className="button button-secondary" disabled={loadingMore} onClick={() => { setLoadingMore(true); more.current?.(next) }}>{loadingMore ? 'Loading…' : 'Load more'}</button>}
   </section>
@@ -307,7 +307,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
     return () => observer.disconnect()
   }, [detail, foreground, messages, receiptRetry, requestId, services, uid])
 
-  return <section className="chat-page"><header className="page-heading"><Link to={`/${role}/conversations`}>← Conversations</Link><h1>Conversation</h1></header>
+  return <section className="chat-page chat-page-detail"><header className="page-heading"><Link to={`/${role}/conversations`}>← Conversations</Link><h1>Conversation</h1></header>
     {detailState === 'loading' && <p role="status">Loading conversation…</p>}
     {detailState === 'error' && <p role="alert">Conversation access is unavailable. Check your account and try again. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
     {detailState === 'support' && <p className="help-card" role="alert">{support}</p>}
@@ -323,7 +323,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
         </div>)}{unresolved.map((item) => <div className="chat-bubble mine" role="group" aria-label="Your pending message" key={item.messageId}><p className="chat-body">{item.normalizedBody}</p><span className="chat-status">{item.state === 'sending' ? '✓ Sending' : item.state === 'uncertain' ? '? Save uncertain' : 'Failed'}</span>{item.state !== 'sending' && <button className="button button-secondary" onClick={() => void retry(item)}>Retry</button>}{item.note && <small>{item.note}</small>}</div>)}</div>
       <p className="visually-hidden" aria-live="polite">{announcement}</p>
       {notice && <p className="chat-state" role="alert">{notice}</p>}
-      <form className="chat-compose" onSubmit={submit}><label className="visually-hidden" htmlFor="chat-message">Message</label><textarea id="chat-message" ref={composerRef} value={body} onChange={(event) => setBody(event.target.value)} rows={1} placeholder="Write a message…" /><button className="chat-send" type="submit" aria-label="Send message" title="Send message"><Icon name="send" /></button></form>
+      <form className="chat-compose" onSubmit={submit}><textarea id="chat-message" aria-label="Message" ref={composerRef} value={body} onChange={(event) => setBody(event.target.value)} rows={1} placeholder="Write a message…" /><button className="chat-send" type="submit" aria-label="Send message" title="Send message"><Icon name="send" /></button></form>
     </div>}
   </section>
 }

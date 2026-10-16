@@ -270,7 +270,7 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
   }, [id, item?.status, services])
   useEffect(() => {
     if (message !== 'Checking accepted conversation…' || !chatChecked || item?.status !== 'ACCEPTED') return
-    queueMicrotask(() => setMessage(chatReady ? 'Request accepted.' : 'This request needs support review. Contact HelpiNUS support.'))
+    queueMicrotask(() => setMessage(chatReady ? '' : 'This request needs support review. Contact HelpiNUS support.'))
   }, [chatChecked, chatReady, item?.status, message])
   async function decide() {
     if (!id || !confirm) return
