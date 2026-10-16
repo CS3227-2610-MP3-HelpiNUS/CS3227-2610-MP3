@@ -7,6 +7,7 @@ import { ConversationDetailPage, ConversationListPage } from '../pages/Conversat
 import { ServiceProvider } from '../services/ServiceProvider'
 import type { ChatCursor, HelpiNUSServices } from '../services/contracts'
 import { createMockCallableClient, mockDashboard, mockServices } from '../services/mockServices'
+import { loadChatRetries, saveChatRetry, type ChatRetry } from '../services/chatRetryStore'
 
 const student = mockDashboard.user
 const mentor = mockDashboard.mentors[0].user
@@ -95,5 +96,34 @@ describe('F02 conversation screens', () => {
     act(() => { emitLive?.([{ ...saved, id: crypto.randomUUID(), createdAt: '2026-10-16T09:02:00.000Z' }, ...initial.slice(0, 19)], shiftedCursor) })
     await waitFor(() => expect(subscribe).toHaveBeenCalledWith(accepted.id, shiftedCursor, expect.any(Function), expect.any(Function)))
     expect(screen.getAllByText(initial[19]!.body)).toHaveLength(21)
+  })
+  it('reconciles a restored send by server ID before reusing its original ID', async () => {
+    const pending: ChatRetry = { version: 1, uid: student.id, requestId: accepted.id, messageId: crypto.randomUUID(), normalizedBody: 'Recover this', localSequence: 1, state: 'uncertain' }
+    saveChatRetry(pending)
+    const serverRead = vi.fn(async () => null)
+    const send = vi.fn(async () => ({ message: { ...saved, id: pending.messageId, body: pending.normalizedBody } }))
+    mount('/student/conversations/f02-request', servicesFor('student', {
+      conversations: { ...mockServices.conversations, subscribeDetail(_id, onData) { onData({ request: accepted }); return () => {} }, subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} }, getMessageFromServer: serverRead },
+      callables: createMockCallableClient({ sendMessage: send }),
+    }))
+    await waitFor(() => expect(send).toHaveBeenCalledWith({ requestId: accepted.id, messageId: pending.messageId, body: pending.normalizedBody }))
+    expect(serverRead).toHaveBeenCalledWith(accepted.id, pending.messageId)
+    expect(await screen.findByText('Recover this')).toBeInTheDocument()
+    await waitFor(() => expect(loadChatRetries(student.id, accepted.id)).toEqual([]))
+  })
+  it('clears private retry records when a message listener loses permission', async () => {
+    const pending: ChatRetry = { version: 1, uid: student.id, requestId: accepted.id, messageId: crypto.randomUUID(), normalizedBody: 'Private pending', localSequence: 1, state: 'uncertain' }
+    let failMessages: ((error: unknown) => void) | null = null
+    mount('/student/conversations/f02-request', servicesFor('student', { conversations: {
+      ...mockServices.conversations,
+      subscribeDetail(_id, onData) { onData({ request: accepted }); return () => {} },
+      subscribeMessages(_id, _cursor, onData, onError) { failMessages = onError; onData([], null); return () => {} },
+    } }))
+    await waitFor(() => expect(failMessages).not.toBeNull())
+    saveChatRetry(pending)
+    act(() => failMessages?.({ code: 'permission-denied' }))
+    expect(await screen.findByText(/Conversation access is unavailable/)).toBeInTheDocument()
+    expect(loadChatRetries(student.id, accepted.id)).toEqual([])
+    expect(screen.queryByText('Private pending')).not.toBeInTheDocument()
   })
 })

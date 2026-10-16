@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { messageBodySchema, type F02SavedMessage } from '@helpinus/shared'
 import { useServices } from '../services/useServices'
 import { clearChatRetries, loadChatRetries, removeChatRetry, saveChatRetry, type ChatRetry } from '../services/chatRetryStore'
 import type { ChatCursor, ChatDetail, ChatRow } from '../services/contracts'
+import { ModuleName } from './HelpRequestPages'
 import './ConversationPages.css'
 
 const denied = (error: unknown) => ['permission-denied', 'unauthenticated'].some((code) => String((error as { code?: unknown })?.code ?? '').includes(code))
@@ -82,7 +83,7 @@ export function ConversationListPage({ role }: { role: 'student' | 'mentor' }) {
     {state === 'stale' && <p role="alert">The conversation list may be out of date. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
     {state === 'ready' && sorted.length === 0 && <p className="help-card">No accepted conversations yet.</p>}
     <ul className="chat-list">{sorted.map((row) => <li className="help-card" key={row.kind === 'ready' ? row.request.id : row.requestId}>
-      {row.kind === 'ready' ? <><h2>{row.request.title}</h2><p>{role === 'student' ? row.request.mentorDisplayName : row.request.studentDisplayName} · {row.request.moduleId}</p><Link to={`/${role}/conversations/${row.request.id}`}>Open conversation</Link></> : <><h2>Conversation needs support</h2><p>{support}</p></>}
+      {row.kind === 'ready' ? <><h2>{row.request.title}</h2><p>{role === 'student' ? row.request.mentorDisplayName : row.request.studentDisplayName} · <ModuleName id={row.request.moduleId} /></p><Link to={`/${role}/conversations/${row.request.id}`}>Open conversation</Link></> : <><h2>Conversation needs support</h2><p>{support}</p></>}
     </li>)}</ul>
     {next && <button className="button button-secondary" disabled={loadingMore} onClick={() => { setLoadingMore(true); more.current?.(next) }}>{loadingMore ? 'Loading…' : 'Load more'}</button>}
   </section>
@@ -104,6 +105,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
   const [notice, setNotice] = useState('')
   const [generation, setGeneration] = useState(0)
   const [announcement, setAnnouncement] = useState('')
+  const [loadingEarlier, setLoadingEarlier] = useState(false)
   const [foreground, setForeground] = useState(() => document.visibilityState === 'visible' && document.hasFocus())
   const [receiptRetry, setReceiptRetry] = useState(0)
   const epoch = useRef(0)
@@ -114,6 +116,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
   const restoredIds = useRef(new Set<string>())
   const retryRef = useRef<((item: Pending, verifiedDetail?: ChatDetail) => Promise<void>) | null>(null)
   const historyRef = useRef<HTMLDivElement>(null)
+  const scrollRestore = useRef<{ height: number; top: number } | null>(null)
 
   useEffect(() => {
     const update = () => setForeground(document.visibilityState === 'visible' && document.hasFocus())
@@ -163,7 +166,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
     let previousLive: F02SavedMessage[] | null = null
     const subscribe = (cursor: ChatCursor | null, bridgeTarget?: Set<string>) => {
       const key = JSON.stringify(cursor)
-      if (anchored.has(key)) return
+      if (anchored.has(key)) { setLoadingEarlier(false); return }
       anchored.add(key)
       const unsubscribe = services.conversations.subscribeMessages(requestId, cursor, (messages, next) => {
         if (!live || epoch.current !== current) return
@@ -185,6 +188,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
           return updated
         })
         setHistoryState('ready')
+        if (cursor !== null) setLoadingEarlier(false)
         setPending((prior) => prior.filter((item) => {
           const saved = messages.find((message) => message.id === item.messageId && message.senderId === uid && message.body === item.normalizedBody)
           if (saved) { try { removeChatRetry(item) } catch { /* Next restore reconciles. */ }; return false }
@@ -199,6 +203,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
         if (!live || epoch.current !== current) return
         if (denied(error)) { clearChatRetries(); live = false; unsubscribes.forEach((unsubscribe) => unsubscribe()); setDetail(null); setPages([]); setConfirmed([]); setPending([]); setBody(''); setDetailState('error'); setHistoryState('error') }
         else setHistoryState('stale')
+        setLoadingEarlier(false)
       })
       unsubscribes.push(unsubscribe)
     }
@@ -218,6 +223,14 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
     return oldestA.createdAt.localeCompare(oldestB.createdAt) || oldestA.id.localeCompare(oldestB.id)
   })[0]
   const next = oldestPage?.next ?? null
+  useLayoutEffect(() => {
+    const restore = scrollRestore.current
+    const history = historyRef.current
+    if (!restore || !history || loadingEarlier) return
+    history.scrollTop = restore.top + history.scrollHeight - restore.height
+    if (!next) history.focus()
+    scrollRestore.current = null
+  }, [pages, loadingEarlier, next])
 
   async function retry(item: Pending, verifiedDetail: ChatDetail | null = detail) {
     const current = epoch.current
@@ -288,12 +301,12 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
     {detailState === 'loading' && <p role="status">Loading conversation…</p>}
     {detailState === 'error' && <p role="alert">Conversation access is unavailable. Check your account and try again. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
     {detailState === 'support' && <p className="help-card" role="alert">{support}</p>}
-    {detail && <><section className="help-card" aria-label="Request context"><h2>{detail.request.title}</h2><p>{role === 'student' ? detail.request.mentorDisplayName : detail.request.studentDisplayName} · {detail.request.moduleId}</p><p className="chat-body">{detail.request.description}</p></section>
+    {detail && <><section className="help-card" aria-label="Request context"><h2>{detail.request.title}</h2><p>{role === 'student' ? detail.request.mentorDisplayName : detail.request.studentDisplayName} · <ModuleName id={detail.request.moduleId} /></p><p className="chat-body">{detail.request.description}</p></section>
       {historyState === 'loading' && <p role="status">Loading messages…</p>}
       {historyState === 'stale' && <p role="alert">Messages may be out of date. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
       {historyState === 'ready' && messages.length === 0 && unresolved.length === 0 && <p>No messages yet.</p>}
-      {next && <button className="button button-secondary" onClick={() => more.current?.(next)}>Load earlier messages</button>}
-      <div className="chat-history" ref={historyRef} role="log" aria-label="Messages">{messages.map((message) => <div className={`chat-bubble ${message.senderId === uid ? 'mine' : 'theirs'}`} key={message.id} data-message-id={message.id}>
+      {next && <button className="button button-secondary" disabled={loadingEarlier} onClick={() => { const history = historyRef.current; if (history) scrollRestore.current = { height: history.scrollHeight, top: history.scrollTop }; setLoadingEarlier(true); more.current?.(next) }}>{loadingEarlier ? 'Loading earlier messages…' : 'Load earlier messages'}</button>}
+      <div className="chat-history" ref={historyRef} role="log" aria-label="Messages" tabIndex={-1}>{messages.map((message) => <div className={`chat-bubble ${message.senderId === uid ? 'mine' : 'theirs'}`} key={message.id} data-message-id={message.id}>
         <p className="chat-body">{message.body}</p><small>{new Date(message.createdAt).toLocaleString('en-SG')}</small>
         {message.senderId === uid && <span className="chat-status">{message.readAt ? '✓✓ Read' : '✓✓ Sent'}</span>}
       </div>)}{unresolved.map((item) => <div className="chat-bubble mine" key={item.messageId}><p className="chat-body">{item.normalizedBody}</p><span className="chat-status">{item.state === 'sending' ? '✓ Sending' : item.state === 'uncertain' ? '? Save uncertain' : 'Failed'}</span>{item.state !== 'sending' && <button className="button button-secondary" onClick={() => void retry(item)}>Retry</button>}{item.note && <small>{item.note}</small>}</div>)}</div>

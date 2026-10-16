@@ -38,7 +38,7 @@ function useRequestPage(kind: 'student' | 'pending' | 'decided', uid: string | n
   return { state, retry: () => { setState({ kind: 'loading' }); setRetry((value) => value + 1) } }
 }
 
-function ModuleName({ id }: { id: string }) {
+export function ModuleName({ id }: { id: string }) {
   const { services, session } = useServices()
   const [label, setLabel] = useState('Loading module…')
   useEffect(() => {

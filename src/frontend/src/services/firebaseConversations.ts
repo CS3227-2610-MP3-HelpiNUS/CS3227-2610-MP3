@@ -54,10 +54,11 @@ async function rowFor(snapshot: DocumentSnapshot<DocumentData>): Promise<ChatRow
   try {
     const conversation = await getDocFromServer(doc(client(), 'conversations', request.id))
     if (validPair(request, snapshot, conversation)) return { kind: 'ready', request }
-  } catch {
+  } catch (error) {
+    if (typeof error !== 'object' || error === null || !('code' in error) || error.code !== 'permission-denied') throw error
     // Recheck the owner-readable parent before presenting a generic anomaly.
     const current = await getDocFromServer(doc(client(), 'helpRequests', request.id))
-    if (!current.exists() || parseRequest(current).status !== 'ACCEPTED') throw new Error('Conversation access changed.')
+    if (!current.exists() || parseRequest(current).status !== 'ACCEPTED') throw new Error('Conversation access changed.', { cause: error })
   }
   return { kind: 'support_needed', requestId: request.id, acceptedAt: request.updatedAt }
 }
