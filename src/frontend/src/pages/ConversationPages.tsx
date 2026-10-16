@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useOutletContext, useParams } from 'react-router-dom'
 import { messageBodySchema, type F02SavedMessage } from '@helpinus/shared'
 import { useServices } from '../services/useServices'
 import { clearChatRetries, loadChatRetries, removeChatRetry, saveChatRetry, type ChatRetry } from '../services/chatRetryStore'
 import type { ChatCursor, ChatDetail, ChatRow } from '../services/contracts'
 import { ModuleName } from './HelpRequestPages'
 import { Icon } from '../components/Icon'
+import type { AppShellOutletContext } from '../components/AppShell'
 import './ConversationPages.css'
 
 const denied = (error: unknown) => ['permission-denied', 'unauthenticated'].some((code) => String((error as { code?: unknown })?.code ?? '').includes(code))
@@ -94,6 +95,7 @@ type Pending = ChatRetry & { note?: string }
 
 export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' }) {
   const { requestId = '' } = useParams()
+  const shellActions = useOutletContext<AppShellOutletContext | undefined>()
   const { services, session } = useServices()
   const uid = session?.user?.id ?? ''
   const [detail, setDetail] = useState<ChatDetail | null>(null)
@@ -307,11 +309,14 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
     return () => observer.disconnect()
   }, [detail, foreground, messages, receiptRetry, requestId, services, uid])
 
-  return <section className="chat-page chat-page-detail"><header className="page-heading"><Link to={`/${role}/conversations`}>← Conversations</Link><h1>Conversation</h1></header>
+  return <section className="chat-page chat-page-detail"><div className="chat-surface"><header className="chat-header"><h1 className="visually-hidden">Conversation{detail ? ` with ${role === 'student' ? detail.request.mentorDisplayName : detail.request.studentDisplayName}` : ''}</h1><Link className="chat-back" to={`/${role}/conversations`} aria-label="Back to conversations">← <span>Conversations</span></Link><span className="chat-header-divider" aria-hidden="true" />
+    {detail ? <details className="chat-context"><summary><span className="chat-context-title">{role === 'student' ? detail.request.mentorDisplayName : detail.request.studentDisplayName} · <ModuleName id={detail.request.moduleId} /></span><span className="chat-context-subtitle">{detail.request.title}</span><span className="chat-context-label">Request context</span></summary><div className="chat-context-question" role="region" aria-label="Request question" tabIndex={0}><strong>Question</strong><p className="chat-body">{detail.request.description}</p></div></details> : <span className="chat-header-fallback">Conversation</span>}
+    {shellActions && <button className="chat-mobile-signout" type="button" onClick={shellActions.signOut} disabled={shellActions.signingOut}>{shellActions.signingOut ? 'Signing out…' : 'Sign out'}</button>}
+  </header>
     {detailState === 'loading' && <p role="status">Loading conversation…</p>}
     {detailState === 'error' && <p role="alert">Conversation access is unavailable. Check your account and try again. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
     {detailState === 'support' && <p className="help-card" role="alert">{support}</p>}
-    {detail && <div className="chat-surface"><details className="chat-context"><summary><span className="chat-context-title">{role === 'student' ? detail.request.mentorDisplayName : detail.request.studentDisplayName} · <ModuleName id={detail.request.moduleId} /></span><span className="chat-context-subtitle">{detail.request.title}</span><span className="chat-context-label">Request context</span></summary><div className="chat-context-question"><strong>Question</strong><p className="chat-body">{detail.request.description}</p></div></details>
+    {detail && <>
       {historyState === 'stale' && <p className="chat-state" role="alert">Messages may be out of date. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
       {next && <div className="chat-history-actions"><button className="button button-secondary" disabled={loadingEarlier} onClick={() => { const history = historyRef.current; if (history) scrollRestore.current = { height: history.scrollHeight, top: history.scrollTop }; setLoadingEarlier(true); more.current?.(next) }}>{loadingEarlier ? 'Loading earlier messages…' : 'Load earlier messages'}</button></div>}
       <div className="chat-history" ref={historyRef} role="log" aria-label="Messages" tabIndex={-1}>
@@ -324,6 +329,6 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
       <p className="visually-hidden" aria-live="polite">{announcement}</p>
       {notice && <p className="chat-state" role="alert">{notice}</p>}
       <form className="chat-compose" onSubmit={submit}><textarea id="chat-message" aria-label="Message" ref={composerRef} value={body} onChange={(event) => setBody(event.target.value)} rows={1} placeholder="Write a message…" /><button className="chat-send" type="submit" aria-label="Send message" title="Send message"><Icon name="send" /></button></form>
-    </div>}
-  </section>
+    </>}
+  </div></section>
 }

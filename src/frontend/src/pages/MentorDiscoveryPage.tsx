@@ -267,7 +267,7 @@ function MentorDiscoveryContent({ services, sessionId }: { services: HelpiNUSSer
         else if (!event.shiftKey && document.activeElement === last && first) { event.preventDefault(); first.focus() }
       }
     }} className="mentor-dialog">
-      {dialogContext && <><h2>Ask {dialogContext.mentorName} for help</h2>{dialogContext.moduleName && <p>Selected module: {dialogContext.moduleName}</p>}<p>Choose a supported module and describe your question on the next page.</p><Link className="button button-primary" to={`/student/mentors/${encodeURIComponent(dialogContext.mentorId)}/request${selectedModuleId ? `?moduleId=${encodeURIComponent(selectedModuleId)}` : ''}`} state={{ mentorName: dialogContext.mentorName }} onClick={closeDialog}>Request help</Link><button className="button button-secondary" onClick={closeDialog}>Close</button></>}
+      {dialogContext && <><h2>Ask {dialogContext.mentorName} for help</h2>{dialogContext.moduleName && <p>Selected module: {dialogContext.moduleName}</p>}<p>Choose a supported module and describe your question on the next page.</p><div className="mentor-dialog-actions"><Link className="button button-primary" to={`/student/mentors/${encodeURIComponent(dialogContext.mentorId)}/request${selectedModuleId ? `?moduleId=${encodeURIComponent(selectedModuleId)}` : ''}`} state={{ mentorName: dialogContext.mentorName }} onClick={closeDialog}>Request help</Link><button className="button button-secondary" onClick={closeDialog}>Close</button></div></>}
     </dialog>
   </section>
 }

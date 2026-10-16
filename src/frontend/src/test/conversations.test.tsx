@@ -40,6 +40,12 @@ describe('F02 conversation screens', () => {
     } }))
     expect(await screen.findByText('No messages yet. Start the conversation below.')).toBeInTheDocument()
     expect(screen.getByText('Sequence diagrams').closest('summary')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to conversations' })).toHaveAttribute('href', '/student/conversations')
+    expect(screen.getByRole('link', { name: 'Back to conversations' }).closest('.chat-header')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: `Conversation with ${mentor.displayName}` })).toHaveClass('visually-hidden')
+    expect(document.querySelector('.chat-page-detail .page-heading')).toBeNull()
+    await user.click(screen.getByText('Request context'))
+    expect(screen.getByRole('region', { name: 'Request question' })).toHaveAttribute('tabindex', '0')
     const field = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement
     expect(screen.queryByText('Message')).not.toBeInTheDocument()
     expect(field).toHaveAttribute('rows', '1')
@@ -68,6 +74,16 @@ describe('F02 conversation screens', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Load more' }))
     expect(await screen.findByText('Conversation needs support')).toBeInTheDocument()
     expect(subscribe).toHaveBeenCalledWith(student.id, 'STUDENT', cursor, expect.any(Function), expect.any(Function))
+  })
+  it('keeps a back control in the Mentor chat header when detail access fails', async () => {
+    mount('/mentor/conversations/f02-request', servicesFor('mentor', { conversations: {
+      ...mockServices.conversations,
+      subscribeDetail(_id, _onData, onError) { onError({ code: 'permission-denied' }); return () => {} },
+    } }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Conversation access is unavailable')
+    const back = screen.getByRole('link', { name: 'Back to conversations' })
+    expect(back).toHaveAttribute('href', '/mentor/conversations')
+    expect(back.closest('.chat-header')).toBeInTheDocument()
   })
   it('discards late detail callbacks after navigating to another request', async () => {
     const callbacks = new Map<string, (value: { request: F01HelpRequest } | null) => void>()
