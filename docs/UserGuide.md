@@ -353,18 +353,32 @@ npm run dev --workspace src/frontend
 | --- | --- | --- |
 | Student | `student@example.test` | `Student-demo-123!` |
 | Mentor | `mentor@example.test` | `Mentor-demo-123!` |
+| Jamie Tan (Student) | `jamie.tan@example.test` | `Jamie-demo-123!` |
+| Sample Aisha (Mentor) | `aisha@example.test` | `Aisha-demo-123!` |
 
-The seed marks both demo emails verified so Firestore Rules allow module reads.
+The seed marks all demo emails verified so Firestore Rules allow module reads.
 The accounts and synthetic emulator-only verification fallback must not be used
 in a real Firebase project.
 
-The current emulator seed has one Mentor with no listed modules and a module
-catalogue with two active examples (`CS2103T`, `CS2040S`) and one inactive
-example (`CS3230`). Search can add the active examples; the inactive example
-does not appear as a new selection. Re-running the seed preserves existing demo
-profile edits and module records while the emulators are running. Live Firebase
-mode displays the eligible Mentor records and module information available in
-that environment.
+The emulator seed has a Demo Mentor with no listed modules and Sample Aisha
+with `CS2103T` and `CS2040S`. Jamie Tan can request help from Sample Aisha for
+either module. The catalogue also has inactive `CS3230`; it does not appear
+as a new selection. Re-running the seed preserves existing demo profile edits
+and module records while the emulators are running. Live Firebase mode displays
+the eligible Mentor records and module information available in that environment.
+
+Use `npm run dev:emulators` from the repository root for this two-account
+conversation walkthrough. A plain frontend `npm run dev` without Firebase web
+configuration opens a mock preview: it initially shows Jamie Tan, does not
+authenticate entered credentials, and cannot accept a request.
+
+To try the conversation flow, sign in as Jamie Tan with the emulator credentials
+above, find **Sample Aisha**, and request help for `CS2103T` or `CS2040S`.
+Sign out, sign in as Sample Aisha, open **Help requests**, and accept Jamie's
+pending request. Choose **Open conversation** on the accepted request, or open
+it from **Conversations**. Sign back in as Jamie to see the same saved chat.
+Requests made in the mock preview are separate fixtures and do not transfer
+into the emulator.
 
 ## 10. Manual Sprint 1 verification
 

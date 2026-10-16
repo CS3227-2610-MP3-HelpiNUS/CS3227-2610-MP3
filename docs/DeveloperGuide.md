@@ -645,6 +645,10 @@ $env:FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080'
 $env:GCLOUD_PROJECT = 'helpinus-dev'
 fnm exec --using 22 node node_modules/tsx/dist/cli.mjs src/functions/scripts/seed-emulator.ts
 $env:VITE_USE_FIREBASE_EMULATORS = 'true'
+$env:VITE_FIREBASE_DEV_API_KEY = 'fake-api-key'
+$env:VITE_FIREBASE_DEV_AUTH_DOMAIN = 'helpinus-dev.firebaseapp.com'
+$env:VITE_FIREBASE_DEV_PROJECT_ID = 'helpinus-dev'
+$env:VITE_FIREBASE_DEV_APP_ID = 'demo-helpinus-dev'
 Push-Location src/frontend
 try { fnm exec --using 22 node ../../node_modules/vite/bin/vite.js --host 127.0.0.1 }
 finally { Pop-Location }
@@ -659,11 +663,17 @@ them; seed again on restart.
 | --- | --- | --- |
 | Student | `student@example.test` | `Student-demo-123!` |
 | Mentor | `mentor@example.test` | `Mentor-demo-123!` |
+| Jamie Tan (Student) | `jamie.tan@example.test` | `Jamie-demo-123!` |
+| Sample Aisha (Mentor) | `aisha@example.test` | `Aisha-demo-123!` |
 
-The seed marks both demo emails verified so Firestore Rules allow module reads.
+The seed marks all demo emails verified so Firestore Rules allow module reads.
 The accounts and synthetic verification fallback are emulator-only. It creates
 two active module records (`CS2103T`, `CS2040S`) and one inactive record
-(`CS3230`) when they are missing.
+(`CS3230`) when they are missing. Sample Aisha's new Mentor profile lists the
+two active modules, allowing Jamie Tan to request help without profile setup.
+The root `npm run dev:emulators` launcher supplies the same harmless Firebase
+web configuration automatically so Vite uses the seeded emulators rather than
+the mock Jamie Tan preview.
 
 Provision a trusted Mentor in a selected real project with Application Default
 Credentials:
