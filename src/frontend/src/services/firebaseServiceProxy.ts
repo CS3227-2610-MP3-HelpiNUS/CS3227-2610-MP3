@@ -20,7 +20,22 @@ export const firebaseServiceProxy: HelpiNUSServices = {
   modules: {
     async getById(id) { return (await loadFirebaseServices()).modules.getById(id) },
   },
+  helpRequests: {
+    async getSelection(id) { return (await loadFirebaseServices()).helpRequests.getSelection(id) },
+    subscribeStudentPage(uid, cursor, onData, onError) { return proxySubscription((s) => s.helpRequests.subscribeStudentPage(uid, cursor, onData, onError), onError) },
+    subscribeMentorPendingPage(uid, cursor, onData, onError) { return proxySubscription((s) => s.helpRequests.subscribeMentorPendingPage(uid, cursor, onData, onError), onError) },
+    subscribeMentorDecidedPage(uid, cursor, onData, onError) { return proxySubscription((s) => s.helpRequests.subscribeMentorDecidedPage(uid, cursor, onData, onError), onError) },
+    subscribeDetail(id, onData, onError) { return proxySubscription((s) => s.helpRequests.subscribeDetail(id, onData, onError), onError) },
+    subscribeStudentSummary(uid, onData, onError) { return proxySubscription((s) => s.helpRequests.subscribeStudentSummary(uid, onData, onError), onError) },
+  },
   callables: {
     async invoke(name, input) { return (await loadFirebaseServices()).callables.invoke(name, input) },
   },
+}
+
+function proxySubscription(subscribe: (services: HelpiNUSServices) => () => void, onError: (error: unknown) => void) {
+  let unsubscribe = () => {}
+  let cancelled = false
+  void loadFirebaseServices().then((services) => { if (!cancelled) unsubscribe = subscribe(services) }).catch(onError)
+  return () => { cancelled = true; unsubscribe() }
 }

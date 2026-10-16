@@ -1,7 +1,7 @@
 import { createUserWithEmailAndPassword, onAuthStateChanged, sendEmailVerification, signInWithEmailAndPassword, signOut, updateProfile, type User as AuthUser } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { Timestamp, collection, doc, documentId, getDoc, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { callableSchemas, initializeStudentProfileOutputSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
+import { callableSchemas, f01HelpRequestSchema, helpRequestSummarySchema, initializeStudentProfileOutputSchema, mentorProfileSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
 import { firebase } from './firebase'
 import { firebaseEnvironment, isEmulatorConnectionAllowed } from './firebaseConfig'
 import type { DashboardData, HelpiNUSServices, Session } from './contracts'
@@ -139,5 +139,45 @@ export const firebaseServices: HelpiNUSServices = {
       return moduleSchema.parse({ ...data, id: snapshot.id })
     },
   },
+  helpRequests: {
+    async getSelection(mentorId) {
+      const snapshot = await getDoc(doc(configured().firestore, 'mentorProfiles', mentorId))
+      if (!snapshot.exists()) return null
+      const parsed = mentorProfileSchema.safeParse(snapshot.data())
+      if (!parsed.success || parsed.data.userId !== mentorId || !parsed.data.active) return null
+      return { moduleIds: parsed.data.moduleIds }
+    },
+    subscribeStudentPage(uid, cursor, onData, onError) { return subscribeRequestPage('studentId', uid, null, 'desc', cursor, onData, onError) },
+    subscribeMentorPendingPage(uid, cursor, onData, onError) { return subscribeRequestPage('mentorId', uid, 'PENDING', 'asc', cursor, onData, onError) },
+    subscribeMentorDecidedPage(uid, cursor, onData, onError) { return subscribeRequestPage('mentorId', uid, ['ACCEPTED', 'REJECTED'], 'desc', cursor, onData, onError) },
+    subscribeDetail(id, onData, onError) {
+      return onSnapshot(doc(configured().firestore, 'helpRequests', id), (snapshot) => {
+        try { onData(snapshot.exists() ? parseHelpRequest(snapshot.id, snapshot.data()) : null) }
+        catch (error) { onError(error) }
+      }, onError)
+    },
+    subscribeStudentSummary(uid, onData, onError) {
+      return onSnapshot(doc(configured().firestore, 'helpRequestSummaries', uid), (snapshot) => {
+        if (!snapshot.exists()) { onData({ pendingCount: 0, acceptedCount: 0, rejectedCount: 0, openCount: 0, updatedAt: new Date(0).toISOString() }); return }
+        try { onData(helpRequestSummarySchema.parse({ ...snapshot.data(), updatedAt: normalizeFirestoreTimestamp(snapshot.data().updatedAt) })) }
+        catch (error) { onError(error) }
+      }, onError)
+    },
+  },
   callables: { invoke: invokeCallable },
+}
+
+function parseHelpRequest(id: string, data: Record<string, unknown>) {
+  return f01HelpRequestSchema.parse({ ...data, id, createdAt: normalizeFirestoreTimestamp(data.createdAt), updatedAt: normalizeFirestoreTimestamp(data.updatedAt) })
+}
+
+function subscribeRequestPage(ownerField: 'studentId' | 'mentorId', uid: string, status: null | 'PENDING' | ['ACCEPTED', 'REJECTED'], direction: 'asc' | 'desc', cursor: { createdAt: string; id: string } | null, onData: Parameters<HelpiNUSServices['helpRequests']['subscribeStudentPage']>[2], onError: (error: unknown) => void) {
+  const clauses = [where(ownerField, '==', uid)]
+  if (status === 'PENDING') clauses.push(where('status', '==', status))
+  if (Array.isArray(status)) clauses.push(where('status', 'in', status))
+  const order = [orderBy('createdAt', direction), orderBy(documentId(), direction)]
+  const page = cursor
+    ? query(collection(configured().firestore, 'helpRequests'), ...clauses, ...order, startAfter(Timestamp.fromDate(new Date(cursor.createdAt)), cursor.id), limit(20))
+    : query(collection(configured().firestore, 'helpRequests'), ...clauses, ...order, limit(20))
+  return onSnapshot(page, (snapshot) => { try { onData(snapshot.docs.map((item) => parseHelpRequest(item.id, item.data()))) } catch (error) { onError(error) } }, onError)
 }

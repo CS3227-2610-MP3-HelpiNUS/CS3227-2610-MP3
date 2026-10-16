@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { DiscoverMentorsOutput, Module } from '@helpinus/shared'
 import { useServices } from '../services/useServices'
 import type { HelpiNUSServices } from '../services/contracts'
@@ -260,7 +261,7 @@ function MentorDiscoveryContent({ services, sessionId }: { services: HelpiNUSSer
       if (event.key === 'Escape') { event.preventDefault(); closeDialog() }
       if (event.key === 'Tab') { event.preventDefault(); dialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus() }
     }} className="mentor-dialog">
-      {dialogContext && <><h2>Ask {dialogContext.mentorName} for help</h2>{dialogContext.moduleName && <p>Selected module: {dialogContext.moduleName}</p>}<p>Help requests cannot yet be sent from this page.</p><button className="button button-primary" onClick={closeDialog}>Close</button></>}
+      {dialogContext && <><h2>Ask {dialogContext.mentorName} for help</h2>{dialogContext.moduleName && <p>Selected module: {dialogContext.moduleName}</p>}<p>Choose a supported module and describe your question on the next page.</p><Link className="button button-primary" to={`/student/mentors/${encodeURIComponent(dialogContext.mentorId)}/request${selectedModuleId ? `?moduleId=${encodeURIComponent(selectedModuleId)}` : ''}`} state={{ mentorName: dialogContext.mentorName }} onClick={closeDialog}>Request help</Link><button className="button button-secondary" onClick={closeDialog}>Close</button></>}
     </dialog>
   </section>
 }

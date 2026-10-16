@@ -9,6 +9,7 @@ import { initializeStudentProfileHandler } from './profile.js'
 import { discoverMentorsHandler } from './mentorDiscovery.js'
 import { readOwnMentorProfileHandler, updateOwnMentorProfileHandler } from './mentorProfileManagement.js'
 import { searchMentorModulesHandler } from './mentorModuleSearch.js'
+import { createHelpRequestHandler, respondToHelpRequestHandler } from './helpRequests.js'
 
 initializeApp()
 const db = getFirestore()
@@ -40,8 +41,8 @@ function notImplemented(name: string, role?: 'STUDENT' | 'MENTOR') {
   })
 }
 
-export const createHelpRequest = notImplemented('createHelpRequest', 'STUDENT')
-export const respondToHelpRequest = notImplemented('respondToHelpRequest', 'MENTOR')
+export const createHelpRequest = callable(callableSchemas.createHelpRequest.input, (input, request) => createHelpRequestHandler(input, request, db))
+export const respondToHelpRequest = callable(callableSchemas.respondToHelpRequest.input, (input, request) => respondToHelpRequestHandler(input, request, db))
 export const closeHelpRequest = notImplemented('closeHelpRequest', 'STUDENT')
 export const createAvailabilitySlot = notImplemented('createAvailabilitySlot', 'MENTOR')
 export const withdrawAvailabilitySlot = notImplemented('withdrawAvailabilitySlot', 'MENTOR')

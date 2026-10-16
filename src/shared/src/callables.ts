@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   appointmentSchema,
   helpRequestSchema,
+  f01HelpRequestSchema,
   userSchema,
 } from './domain.js'
 
@@ -59,19 +60,27 @@ export const updateOwnMentorProfileOutputSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('rejected'), reason: z.enum(['CONFLICT', 'MODULE_INELIGIBLE']), fieldErrors: z.record(z.string(), z.array(z.string())).optional() }).strict(),
 ])
 
-export const createHelpRequestInputSchema = nonEmptyInputSchema.extend({
-  mentorId: identifierSchema.nullable().default(null),
-  moduleId: identifierSchema,
+export const createHelpRequestInputSchema = z.object({
+  operationId: z.string().uuid(),
+  mentorId: canonicalDocumentIdSchema,
+  moduleId: canonicalDocumentIdSchema,
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().min(1).max(2000),
-})
-export const createHelpRequestOutputSchema = z.object({ helpRequest: helpRequestSchema })
+}).strict()
+export const createHelpRequestOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('created'), helpRequest: f01HelpRequestSchema }).strict(),
+  z.object({ kind: z.literal('duplicate'), existingHelpRequestId: canonicalDocumentIdSchema, currentStatus: z.enum(['PENDING', 'ACCEPTED', 'REJECTED']) }).strict(),
+])
 
-export const respondToHelpRequestInputSchema = nonEmptyInputSchema.extend({
-  helpRequestId: identifierSchema,
+export const respondToHelpRequestInputSchema = z.object({
+  operationId: z.string().uuid(),
+  helpRequestId: canonicalDocumentIdSchema,
   response: z.enum(['ACCEPTED', 'REJECTED']),
-})
-export const respondToHelpRequestOutputSchema = z.object({ helpRequest: helpRequestSchema })
+}).strict()
+export const respondToHelpRequestOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.enum(['decided', 'already_decided']), helpRequest: f01HelpRequestSchema, conversationId: canonicalDocumentIdSchema.nullable() }).strict(),
+  z.object({ kind: z.literal('conflict'), actualStatus: z.enum(['ACCEPTED', 'REJECTED']) }).strict(),
+])
 
 export const closeHelpRequestInputSchema = nonEmptyInputSchema.extend({
   helpRequestId: identifierSchema,

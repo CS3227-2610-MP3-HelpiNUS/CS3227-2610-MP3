@@ -8,11 +8,11 @@ Mentors manage requests, availability, consultations, and AI-supported
 summaries.
 
 Sprint 1 provides account creation, sign-in, sign-out, session restoration,
-role-based access, a Student dashboard with clearly labelled sample data, and
-Mentor discovery for Students, and a read-only Mentor dashboard and profile
-management. Help-request management, conversations,
-consultation booking, and AI actions are currently scaffolds and do not yet
-complete their domain workflows.
+role-based access, Mentor discovery, and Mentor profile management. Sprint 2
+F01 adds Student help-request submission and history, a persisted Student
+request summary, and a Mentor request inbox with rejection. Conversation
+provisioning and request acceptance await F02; consultations and AI actions
+remain scaffolds.
 
 ## 2. Supported users and devices
 
@@ -69,11 +69,11 @@ Desktop navigation appears in the left sidebar. On smaller screens, primary
 destinations move to the bottom navigation and sign-out remains available in
 the header.
 
-| Destination | Current Sprint 1 behaviour |
+| Destination | Current behaviour |
 | --- | --- |
-| Dashboard | Shows representative, clearly labelled sample data |
+| Dashboard | Shows persisted help-request counts and recent requests; other widgets use labelled sample data |
 | Find a mentor | Browse available Mentors, search and filter loaded results, and inspect public details |
-| Help requests | Route and interface scaffold |
+| Help requests | Submit, review, and track your own requests |
 | Conversations | Route and interface scaffold |
 | Consultations | Route and interface scaffold |
 | Study assistant | Route and interface scaffold; no live LLM call |
@@ -100,10 +100,10 @@ role.
    time. A known inactive module is labelled **Inactive**. If module
    information is missing, the page says **Module information unavailable**;
    if the Mentor lists none, it says **No modules listed**.
-5. Within the details, choose **Ask for help** to see an informational dialog
-   naming the Mentor and your selected module, if any. Help requests cannot
-   yet be sent from this page. Choose **Close** or press Escape to return to
-   discovery; nothing is submitted or saved.
+5. Within the details, choose **Ask for help** to review the Mentor and your
+   selected module, if any. Choose **Request help** to open the request form, or
+   **Close** or Escape to return to discovery. Opening the form does not send a
+   request.
 
 Search and module filtering apply only to Mentors already loaded. **Load more**
 may reveal further matches or module choices. The list retains the order
@@ -121,6 +121,35 @@ again. If module information fails, choose **Retry module information**. An
 empty list says **No mentors available** when there are no further pages. If a
 page is empty but **Load more** remains available, continue loading. If your
 search or filter finds nothing, clear the controls or load more when offered.
+
+### Send and track a help request
+
+1. From a Mentor's **Ask for help** dialog, choose **Request help**. Select one
+   active module that Mentor supports, enter a question title (up to 120
+   characters) and a detailed question (up to 2,000 characters), then choose
+   **Send request**. The form preserves line breaks and trims outer spaces.
+2. Wait for the saved confirmation and request detail. A network interruption
+   may leave the result uncertain. Keep the draft and choose **Check this
+   attempt again**; the app reuses the same operation ID and content. It also
+   keeps an uncertain draft for the current account and selection across a
+   refresh in the same browser tab. Signing out clears the private draft from
+   that tab.
+3. If a request to the same Mentor for the same module is already pending, no
+   new question is delivered. The form keeps your draft and links to the
+   existing request. Once that request is decided, you can send a new one.
+4. Open **Help requests** to see your own recent and older requests. **Load
+   more requests** appears when a page may contain further results. Open a
+   request to read the original question, Mentor, module, status, and decision
+   time. Module metadata that is no longer available is labelled **Module
+   information unavailable**.
+
+If supported modules fail to load, choose **Try again** on the request form.
+If the app says a request needs support review, contact HelpiNUS support
+before retrying that operation.
+
+Your dashboard request panel uses saved request counts and recent records.
+Its other activity widgets are still previews. A missing or changed account
+permission shows an access/error state; it is not treated as an empty history.
 
 ## 6. Mentor access
 
@@ -158,6 +187,21 @@ access is denied during a read, the page clears the summary and checks the
 session again; use its explicit **Try again** only after access is resolved.
 The dashboard does not show request, booking, consultation, conversation, or
 other activity totals.
+
+### Review help requests
+
+Choose **Help requests** in Mentor navigation. **Pending** shows requests
+addressed to you, oldest first. **Decided** shows accepted and rejected
+history, newest first. Use **Load more requests** for another page and open a
+row for the question, Student display name, module, status, and times. The
+request page does not show the Student's email address.
+
+To reject a pending request, choose **Reject**, review the confirmation, then
+choose **Confirm**. The request moves to Decided after the saved result is
+confirmed. If confirmation is interrupted, check the live status and use
+**Retry same decision** while it remains pending. Acceptance is currently
+disabled until F02 can create the conversation in the same transaction; no
+accepted result is claimed by the F01 interface.
 
 ### Manage your Mentor profile
 
@@ -223,8 +267,9 @@ npm run dev --workspace src/frontend
 
 If no Firebase Web configuration is present, HelpiNUS intentionally uses its
 mock service adapter. Open the URL printed by Vite. This mode demonstrates the
-Student dashboard, navigation, and Mentor discovery without contacting
-Firebase. Mentor names beginning with **Sample** and their
+Student dashboard, navigation, Mentor discovery, and a simulated help-request
+flow without contacting Firebase. These mock requests are not persisted to
+Firestore. Mentor names beginning with **Sample** and their
 module information are demonstration data, not live Mentor profiles.
 
 ## 9. Run with Firebase emulators
@@ -242,7 +287,18 @@ VITE_FIREBASE_ENV=development
 VITE_USE_FIREBASE_EMULATORS=true
 ```
 
-Start Auth, Firestore, and Functions emulators:
+From the repository root, use Node 22 and Java 21 or newer to start the
+emulators, seed the demo accounts, and serve the frontend:
+
+```bash
+npm run dev:emulators
+```
+
+Open `http://127.0.0.1:5173/`. Press `q` then Enter in the terminal to stop
+the session and export emulator data to `.emulator-data/`. The next run imports
+that data before seeding missing records.
+
+Alternatively, start Auth, Firestore, and Functions manually:
 
 ```bash
 npx firebase-tools emulators:start --only auth,firestore,functions \
@@ -291,8 +347,9 @@ that environment.
 2. Start the frontend.
 3. Confirm the Student dashboard renders sample data.
 4. Open **Find a mentor** and confirm the Sample Mentor list, search, module
-   filter, details, and informational **Ask for help** dialog work. Open the
-   other Student destinations and confirm their labelled scaffolds render.
+   filter, details, **Ask for help** dialog, and **Request help** form work.
+   Confirm **Help requests** shows the simulated result. Open the remaining
+   Student destinations and confirm their labelled scaffolds render.
 5. Narrow the browser to a phone-sized viewport.
 6. Confirm bottom navigation, header branding, and mobile sign-out are usable.
 7. Use only the keyboard to reach navigation, form controls, and sign-out;

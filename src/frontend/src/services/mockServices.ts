@@ -1,4 +1,4 @@
-import { callableSchemas, discoverMentorsOutputSchema, moduleSchema, type Appointment, type AvailabilitySlot, type CallableInput, type CallableName, type CallableOutput, type Conversation, type HelpRequest, type MentorProfile, type Module, type User } from '@helpinus/shared'
+import { callableSchemas, discoverMentorsOutputSchema, moduleSchema, type Appointment, type AvailabilitySlot, type CallableInput, type CallableName, type CallableOutput, type Conversation, type F01HelpRequest, type HelpRequest, type MentorProfile, type Module, type User } from '@helpinus/shared'
 import type { CallableClient, DashboardData, HelpiNUSServices } from './contracts'
 
 export type MockCallableFixtures = Partial<{
@@ -128,6 +128,16 @@ export function createMockModuleLookup(records: ReadonlyMap<string, unknown>): H
   }
 }
 
+const f01Requests: F01HelpRequest[] = []
+const requestListeners = new Set<() => void>()
+const notifyRequests = () => { for (const listener of requestListeners) listener() }
+function mockSubscribe(read: () => F01HelpRequest[], onData: (items: F01HelpRequest[]) => void) {
+  const listener = () => onData(read())
+  requestListeners.add(listener)
+  listener()
+  return () => { requestListeners.delete(listener) }
+}
+
 export const mockServices: HelpiNUSServices = {
   session: {
     getCurrent: async () => ({ user: signedInUser }),
@@ -140,7 +150,29 @@ export const mockServices: HelpiNUSServices = {
   },
   dashboard: { getStudentDashboard: async () => mockDashboard },
   modules: createMockModuleLookup(discoveryModules),
+  helpRequests: {
+    async getSelection(mentorId) { const found = Object.values(discoveryPages).flatMap((page) => page.mentors).find((item) => item.userId === mentorId); return found ? { moduleIds: found.moduleIds } : null },
+    subscribeStudentPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.studentId === uid).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20), onData) },
+    subscribeMentorPendingPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.mentorId === uid && item.status === 'PENDING').sort((a, b) => a.createdAt.localeCompare(b.createdAt)).slice(0, 20), onData) },
+    subscribeMentorDecidedPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.mentorId === uid && item.status !== 'PENDING').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20), onData) },
+    subscribeDetail(id, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.id === id), (items) => onData(items[0] ?? null)) },
+    subscribeStudentSummary(uid, onData) { const listener = () => { const own = f01Requests.filter((item) => item.studentId === uid); const pendingCount = own.filter((item) => item.status === 'PENDING').length; const acceptedCount = own.filter((item) => item.status === 'ACCEPTED').length; onData({ pendingCount, acceptedCount, rejectedCount: own.filter((item) => item.status === 'REJECTED').length, openCount: pendingCount + acceptedCount, updatedAt: new Date().toISOString() }) }; requestListeners.add(listener); listener(); return () => { requestListeners.delete(listener) } },
+  },
   callables: createMockCallableClient({
+    createHelpRequest: async (input) => {
+      const existing = f01Requests.find((item) => item.studentId === student.id && item.mentorId === input.mentorId && item.moduleId === input.moduleId && item.status === 'PENDING')
+      if (existing) return { kind: 'duplicate', existingHelpRequestId: existing.id, currentStatus: existing.status }
+      const now = new Date().toISOString()
+      const helpRequest: F01HelpRequest = { id: crypto.randomUUID(), studentId: student.id, mentorId: input.mentorId, moduleId: input.moduleId, title: input.title.trim(), description: input.description.trim(), studentDisplayName: student.displayName, mentorDisplayName: Object.values(discoveryPages).flatMap((page) => page.mentors).find((item) => item.userId === input.mentorId)?.displayName ?? 'Mentor', status: 'PENDING', createdAt: now, updatedAt: now }
+      f01Requests.unshift(helpRequest); notifyRequests(); return { kind: 'created', helpRequest }
+    },
+    respondToHelpRequest: async (input) => {
+      const found = f01Requests.find((item) => item.id === input.helpRequestId)
+      if (!found) throw new Error('Request unavailable')
+      if (input.response === 'ACCEPTED') throw new Error('Acceptance is waiting for conversation integration.')
+      if (found.status !== 'PENDING') return found.status === input.response ? { kind: 'already_decided', helpRequest: found, conversationId: null } : { kind: 'conflict', actualStatus: found.status }
+      found.status = 'REJECTED'; found.updatedAt = new Date().toISOString(); notifyRequests(); return { kind: 'decided', helpRequest: found, conversationId: null }
+    },
     readOwnMentorProfile: async () => ({ kind: 'ready', profile: { displayName: mentor.displayName, biography: managedBiography, moduleIds: [...managedModuleIds], version: { revision: managedRevision, updateTime: managedUpdateTime } }, metadata: { kind: 'ready', modules: managedModuleIds.map((id) => { const found = managedModuleCatalog.find((module) => module.id === id); return found ? { id, state: found.active ? 'active' as const : 'inactive' as const, code: found.code, title: found.title } : { id, state: 'missing' as const } }) } }),
     searchMentorModules: async ({ query, cursor }) => {
       const normalized = query.normalize('NFKC').trim().toLowerCase()

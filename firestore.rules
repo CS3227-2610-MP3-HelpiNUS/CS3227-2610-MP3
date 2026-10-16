@@ -10,7 +10,19 @@ service cloud.firestore {
         && request.auth.token.email_verified == true
         && request.auth.token.email == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email;
     }
-    function participant(ids) { return activeUser() && request.auth.uid in ids; }
+    function acceptedConversation(data, id) {
+      return activeUser()
+        && data.helpRequestId == id
+        && data.studentId is string
+        && data.mentorId is string
+        && data.participantIds == [data.studentId, data.mentorId]
+        && ((role() == 'STUDENT' && request.auth.uid == data.studentId) || (role() == 'MENTOR' && request.auth.uid == data.mentorId))
+        && exists(/databases/$(database)/documents/helpRequests/$(id))
+        && get(/databases/$(database)/documents/helpRequests/$(id)).data.status == 'ACCEPTED'
+        && get(/databases/$(database)/documents/helpRequests/$(id)).data.studentId == data.studentId
+        && get(/databases/$(database)/documents/helpRequests/$(id)).data.mentorId == data.mentorId;
+    }
+    function role() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; }
     function activeMentor(mentorId) {
       return exists(/databases/$(database)/documents/users/$(mentorId))
         && get(/databases/$(database)/documents/users/$(mentorId)).data.role == 'MENTOR'
@@ -27,17 +39,27 @@ service cloud.firestore {
     }
     match /modules/{id} { allow read: if activeUser(); allow write: if false; }
     match /helpRequests/{id} {
-      allow read: if activeUser() && (resource.data.studentId == request.auth.uid || resource.data.mentorId == request.auth.uid);
+      allow get: if activeUser() && ((role() == 'STUDENT' && resource.data.studentId == request.auth.uid) || (role() == 'MENTOR' && resource.data.mentorId == request.auth.uid));
+      allow list: if activeUser() && request.query.limit != null && request.query.limit <= 20
+        && ((role() == 'STUDENT' && resource.data.studentId == request.auth.uid) || (role() == 'MENTOR' && resource.data.mentorId == request.auth.uid));
       allow write: if false;
     }
+    match /helpRequestSummaries/{uid} {
+      allow get: if activeUser() && role() == 'STUDENT' && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+    match /helpRequestOperations/{uid}/operations/{operationId} { allow read, write: if false; }
+    match /pendingHelpRequestKeys/{key} { allow read, write: if false; }
     match /conversations/{id} {
-      allow read: if participant(resource.data.participantIds);
+      allow get: if acceptedConversation(resource.data, id);
+      // F02 must supply an authorized list strategy and prove it in Emulator.
+      allow list: if false;
       allow write: if false;
       match /messages/{messageId} {
         function conversation() { return get(/databases/$(database)/documents/conversations/$(id)).data; }
-        allow read: if exists(/databases/$(database)/documents/conversations/$(id)) && participant(conversation().participantIds);
+        allow read: if exists(/databases/$(database)/documents/conversations/$(id)) && acceptedConversation(conversation(), id);
         allow create: if exists(/databases/$(database)/documents/conversations/$(id))
-          && participant(conversation().participantIds)
+          && acceptedConversation(conversation(), id)
           && request.resource.data.keys().hasOnly(['senderId', 'body', 'createdAt'])
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.body is string

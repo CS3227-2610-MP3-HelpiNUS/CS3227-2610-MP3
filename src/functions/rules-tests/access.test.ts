@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
-import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { initializeTestEnvironment, type RulesTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing'
-import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore'
 
 let env: RulesTestEnvironment
 beforeAll(async () => {
@@ -26,7 +26,8 @@ beforeEach(async () => {
     await setDoc(doc(db, 'mentorProfiles/mentor/saveRequests/request'), { outcome: 'accepted' })
     await setDoc(doc(db, 'modules/module'), { code: 'CS3227' })
     await setDoc(doc(db, 'helpRequests/request'), { studentId: 'student', mentorId: 'mentor', status: 'PENDING' })
-    await setDoc(doc(db, 'conversations/chat'), { participantIds: ['student', 'mentor'] })
+    await setDoc(doc(db, 'helpRequests/chat'), { studentId: 'student', mentorId: 'mentor', status: 'ACCEPTED' })
+    await setDoc(doc(db, 'conversations/chat'), { helpRequestId: 'chat', studentId: 'student', mentorId: 'mentor', participantIds: ['student', 'mentor'] })
     await setDoc(doc(db, 'conversations/chat/messages/old'), { senderId: 'mentor', body: 'Hi', createdAt: new Date() })
     await setDoc(doc(db, 'availabilitySlots/slot'), { mentorId: 'mentor', withdrawn: false, startsAt: new Date(Date.now() + 60 * 60 * 1000) })
     await setDoc(doc(db, 'appointments/appointment'), { studentId: 'student', mentorId: 'mentor', status: 'PENDING' })
@@ -44,8 +45,8 @@ describe('approved direct access matrix', () => {
     await assertSucceeds(getDoc(doc(db, 'conversations/chat')))
     await assertSucceeds(getDoc(doc(db, 'availabilitySlots/slot')))
     await assertSucceeds(getDoc(doc(db, 'appointments/appointment')))
-    await assertSucceeds(getDocs(query(collection(db, 'helpRequests'), where('studentId', '==', 'student'))))
-    await assertSucceeds(getDocs(query(collection(db, 'conversations'), where('participantIds', 'array-contains', 'student'))))
+    await assertSucceeds(getDocs(query(collection(db, 'helpRequests'), where('studentId', '==', 'student'), limit(20))))
+    await assertFails(getDocs(query(collection(db, 'conversations'), where('participantIds', 'array-contains', 'student'))))
     await assertSucceeds(getDocs(query(collection(db, 'availabilitySlots'), where('mentorId', '==', 'mentor'), where('withdrawn', '==', false), where('startsAt', '>', new Date()))))
   })
   it('denies cross-user, unauthenticated, inactive, and privileged profile access', async () => {
@@ -116,5 +117,105 @@ describe('approved direct access matrix', () => {
     await assertFails(setDoc(doc(db, 'availabilitySlots/new'), { mentorId: 'mentor', withdrawn: false }))
     await assertFails(updateDoc(doc(db, 'appointments/appointment'), { status: 'CONFIRMED' }))
     await assertFails(getDoc(doc(db, 'aiAuditEvents/event')))
+  })
+})
+
+describe('F01 owner queries and private coordination', () => {
+  it('applies the same participant policy to get, bounded list and listeners', async () => {
+    const student = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
+    const mentor = env.authenticatedContext('mentor', { email: 'mentor@example.test', email_verified: true }).firestore()
+    const foreign = env.authenticatedContext('otherMentor', { email: 'other@example.test', email_verified: true }).firestore()
+    expect((await assertSucceeds(getDoc(doc(student, 'helpRequests/request')))).data()?.status).toBe('PENDING')
+    expect((await assertSucceeds(getDoc(doc(mentor, 'helpRequests/request')))).data()?.status).toBe('PENDING')
+    await assertFails(getDoc(doc(foreign, 'helpRequests/request')))
+    await assertFails(getDoc(doc(student, 'helpRequests/guessed')))
+    expect((await assertSucceeds(getDocs(query(collection(student, 'helpRequests'), where('studentId', '==', 'student'), limit(20))))).docs.map((item) => item.id)).toEqual(['chat', 'request'])
+    expect((await assertSucceeds(getDocs(query(collection(mentor, 'helpRequests'), where('mentorId', '==', 'mentor'), limit(20))))).size).toBe(2)
+
+    const statuses: string[] = []
+    await new Promise<void>((resolve, reject) => {
+      const unsubscribe = onSnapshot(doc(student, 'helpRequests/request'), (snapshot) => {
+        statuses.push(snapshot.data()?.status as string)
+        if (statuses.length === 1) {
+          env.withSecurityRulesDisabled(async (context) => updateDoc(doc(context.firestore(), 'helpRequests/request'), { status: 'REJECTED' })).catch(reject)
+        } else { unsubscribe(); resolve() }
+      }, reject)
+    })
+    expect(statuses).toEqual(['PENDING', 'REJECTED'])
+  }, 10000)
+
+  it('denies fresh request reads after current account role, status or email changes', async () => {
+    const student = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
+    await assertSucceeds(getDoc(doc(student, 'helpRequests/request')))
+    for (const change of [{ role: 'MENTOR' }, { status: 'SUSPENDED' }, { email: 'changed@example.test' }]) {
+      await env.withSecurityRulesDisabled(async (context) => updateDoc(doc(context.firestore(), 'users/student'), change))
+      await assertFails(getDoc(doc(student, 'helpRequests/request')))
+      await assertFails(getDocs(query(collection(student, 'helpRequests'), where('studentId', '==', 'student'), limit(20))))
+      await env.withSecurityRulesDisabled(async (context) => updateDoc(doc(context.firestore(), 'users/student'), { role: 'STUDENT', status: 'ACTIVE', email: 'student@example.test' }))
+    }
+    const unverified = env.authenticatedContext('student', { email: 'student@example.test', email_verified: false }).firestore()
+    await assertFails(getDoc(doc(unverified, 'helpRequests/request')))
+  }, 10000)
+
+  it('allows bounded owner queries and denies broad, foreign or unbounded queries', async () => {
+    const student = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
+    const mentor = env.authenticatedContext('mentor', { email: 'mentor@example.test', email_verified: true }).firestore()
+    await assertSucceeds(getDocs(query(collection(student, 'helpRequests'), where('studentId', '==', 'student'), limit(20))))
+    await assertSucceeds(getDocs(query(collection(mentor, 'helpRequests'), where('mentorId', '==', 'mentor'), limit(20))))
+    await assertFails(getDocs(query(collection(student, 'helpRequests'), where('studentId', '==', 'mentor'), limit(20))))
+    await assertFails(getDocs(query(collection(mentor, 'helpRequests'), where('studentId', '==', 'student'), limit(20))))
+    await assertFails(getDocs(query(collection(student, 'helpRequests'), where('studentId', '==', 'student'))))
+    await assertFails(getDocs(query(collection(student, 'helpRequests'), limit(20))))
+    await assertFails(getDocs(query(collection(student, 'helpRequests'), where('studentId', '==', 'student'), limit(21))))
+  })
+  it('keeps request writes and receipts, keys and summaries private', async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'helpRequestSummaries/student'), { pendingCount: 1, acceptedCount: 0, rejectedCount: 0, openCount: 1 })
+      await setDoc(doc(context.firestore(), 'pendingHelpRequestKeys/key'), { helpRequestId: 'request' })
+      await setDoc(doc(context.firestore(), 'helpRequestOperations/student/operations/op'), { kind: 'CREATED' })
+    })
+    const student = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
+    const mentor = env.authenticatedContext('mentor', { email: 'mentor@example.test', email_verified: true }).firestore()
+    await assertSucceeds(getDoc(doc(student, 'helpRequestSummaries/student')))
+    for (const db of [student, mentor]) {
+      await assertFails(setDoc(doc(db, 'helpRequests/new'), { studentId: 'student', mentorId: 'mentor', status: 'PENDING' }))
+      await assertFails(updateDoc(doc(db, 'helpRequests/request'), { status: 'ACCEPTED' }))
+      await assertFails(deleteDoc(doc(db, 'helpRequests/request')))
+      await assertFails(getDoc(doc(db, 'pendingHelpRequestKeys/key')))
+      await assertFails(getDoc(doc(db, 'helpRequestOperations/student/operations/op')))
+      await assertFails(setDoc(doc(db, 'pendingHelpRequestKeys/new'), { helpRequestId: 'new' }))
+      await assertFails(setDoc(doc(db, 'helpRequestOperations/student/operations/new'), { kind: 'CREATED' }))
+      await assertFails(setDoc(doc(db, 'helpRequestSummaries/student'), { openCount: 999 }))
+    }
+    await assertFails(getDoc(doc(mentor, 'helpRequestSummaries/student')))
+  })
+})
+
+describe('F01/F02 accepted-parent access boundary', () => {
+  it('denies chats and messages for pending, rejected and mismatched parents', async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(doc(db, 'conversations/request'), { helpRequestId: 'request', studentId: 'student', mentorId: 'mentor', participantIds: ['student', 'mentor'] })
+      await setDoc(doc(db, 'helpRequests/rejected'), { studentId: 'student', mentorId: 'mentor', status: 'REJECTED' })
+      await setDoc(doc(db, 'conversations/rejected'), { helpRequestId: 'rejected', studentId: 'student', mentorId: 'mentor', participantIds: ['student', 'mentor'] })
+      await setDoc(doc(db, 'conversations/mismatch'), { helpRequestId: 'chat', studentId: 'student', mentorId: 'otherMentor', participantIds: ['student', 'otherMentor'] })
+    })
+    const student = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
+    for (const id of ['request', 'rejected', 'mismatch']) {
+      await assertFails(getDoc(doc(student, `conversations/${id}`)))
+      await assertFails(setDoc(doc(student, `conversations/${id}/messages/hostile`), { senderId: 'student', body: 'Hello', createdAt: serverTimestamp() }))
+    }
+    await assertSucceeds(getDoc(doc(student, 'conversations/chat')))
+    await assertFails(setDoc(doc(student, 'conversations/new'), { helpRequestId: 'chat', studentId: 'student', mentorId: 'mentor', participantIds: ['student', 'mentor'] }))
+  })
+
+  it('revokes accepted conversation access when a participant no longer has the parent role', async () => {
+    const student = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
+    await assertSucceeds(getDoc(doc(student, 'conversations/chat')))
+    await env.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users/student'), { role: 'MENTOR' })
+    })
+    await assertFails(getDoc(doc(student, 'conversations/chat')))
+    await assertFails(getDoc(doc(student, 'conversations/chat/messages/old')))
   })
 })

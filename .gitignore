@@ -5,6 +5,7 @@ src/functions/deploy/index.js
 src/functions/deploy/node_modules/
 coverage/
 .firebase/
+.emulator-data/
 firebase-debug.log*
 firestore-debug.log*
 ui-debug.log*

@@ -14,7 +14,8 @@
     "test:rules": "firebase emulators:exec --only firestore --project helpinus-rules-test 'vitest run rules-tests'",
     "test:integration": "npm run build && firebase emulators:exec --only auth,firestore,functions --project helpinus-integration-test 'npm --prefix src/functions exec -- vitest run integration-tests --no-file-parallelism'",
     "seed:emulator": "tsx scripts/seed-emulator.ts",
-    "provision:mentor": "tsx scripts/provision-mentor.ts"
+    "provision:mentor": "tsx scripts/provision-mentor.ts",
+    "audit:help-requests": "tsx scripts/audit-help-requests.ts"
   },
   "dependencies": {
     "firebase-admin": "^14.5.0",

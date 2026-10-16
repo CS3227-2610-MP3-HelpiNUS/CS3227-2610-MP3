@@ -7,6 +7,21 @@ import { ServiceContext } from './serviceContext'
 
 const defaultServices: HelpiNUSServices = isFirebaseConfigured ? firebaseServiceProxy : mockServices
 
+function clearRequestDrafts() {
+  try {
+    for (let index = sessionStorage.length - 1; index >= 0; index--) {
+      const key = sessionStorage.key(index)
+      if (key?.startsWith('f01-draft:') || key === 'f01-draft-owner') sessionStorage.removeItem(key)
+    }
+  } catch { /* Session storage is optional. */ }
+}
+
+function clearDraftsForSession(previousUid: string | null, nextUid: string | null, active: boolean) {
+  let storedOwner: string | null = null
+  try { storedOwner = sessionStorage.getItem('f01-draft-owner') } catch { /* Session storage is optional. */ }
+  if ((previousUid && (!active || previousUid !== nextUid)) || (storedOwner && (!active || storedOwner !== nextUid))) clearRequestDrafts()
+}
+
 export function ServiceProvider({ children, servicesOverride }: { children: ReactNode; servicesOverride?: HelpiNUSServices }) {
   const currentServices = servicesOverride ?? defaultServices
   const [session, setSession] = useState<Session | null>(null)
@@ -35,6 +50,7 @@ export function ServiceProvider({ children, servicesOverride }: { children: Reac
     try {
       const next = await currentServices.session.getCurrent()
       if (epoch.current === requestEpoch && servicesRef.current === currentServices) {
+        clearDraftsForSession(publishedUid.current, next?.user?.id ?? null, next?.user?.status === 'ACTIVE')
         setSessionServices(currentServices)
         publishedUid.current = next?.user?.id ?? null
         setSession(next)
@@ -50,6 +66,7 @@ export function ServiceProvider({ children, servicesOverride }: { children: Reac
     const unsubscribe = currentServices.session.subscribe((value) => {
       if (!active) return
       const requestEpoch = ++epoch.current
+      clearDraftsForSession(publishedUid.current, value.user?.id ?? null, value.user?.status === 'ACTIVE')
       if (!value.user || value.user.status !== 'ACTIVE') {
         setSessionServices(currentServices)
         publishedUid.current = value.user?.id ?? null
@@ -65,7 +82,7 @@ export function ServiceProvider({ children, servicesOverride }: { children: Reac
         setLoading(true)
       }
       void currentServices.session.getCurrent().then((fresh) => {
-        if (active && epoch.current === requestEpoch && servicesRef.current === currentServices) { setSessionServices(currentServices); publishedUid.current = fresh?.user?.id ?? null; setSession(fresh); setError(null); setLoading(false) }
+        if (active && epoch.current === requestEpoch && servicesRef.current === currentServices) { clearDraftsForSession(publishedUid.current, fresh?.user?.id ?? null, fresh?.user?.status === 'ACTIVE'); setSessionServices(currentServices); publishedUid.current = fresh?.user?.id ?? null; setSession(fresh); setError(null); setLoading(false) }
       }).catch(() => {
         if (active && epoch.current === requestEpoch && servicesRef.current === currentServices) { setSessionServices(currentServices); publishedUid.current = null; setSession(null); setError('We could not load your account. Check your connection and try again.'); setLoading(false) }
       })

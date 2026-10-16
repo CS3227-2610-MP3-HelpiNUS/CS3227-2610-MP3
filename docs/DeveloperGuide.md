@@ -20,9 +20,10 @@ Sprint 1 establishes the production-shaped foundation:
 - separate development and production deployment paths; and
 - specification, handoff, testing, and interaction evidence.
 
-The help-request, messaging, appointment, and AI pages are interface or
-contract scaffolds in Sprint 1. Their complete domain behaviour is intentionally
-deferred.
+Sprint 2 F01 implements help-request creation, rejection, owner reads and
+summaries. Acceptance remains unavailable until F02 supplies real conversation
+provisioning in the same transaction. Messaging, appointment, and AI workflows
+remain outside F01.
 
 ## 2. Technology baseline
 
@@ -169,7 +170,10 @@ erDiagram
 | `users/{uid}` | `id`, `displayName`, `email`, `role`, `status`, `createdAt` |
 | `mentorProfiles/{uid}` | `userId`, `biography`, `moduleIds`, `active` |
 | `modules/{moduleId}` | `id`, `code`, `title`, `active` |
-| `helpRequests/{requestId}` | Student/Mentor/module ownership, content, status, timestamps |
+| `helpRequests/{helpRequestId}` | Server-generated ID, Student/Mentor/module ownership, historical display names, content, F01 status and timestamps |
+| `helpRequestOperations/{studentId}/operations/{operationId}` | Private immutable create receipt and payload fingerprint |
+| `pendingHelpRequestKeys/{tupleHash}` | Private unique pending Student/Mentor/module tuple lock |
+| `helpRequestSummaries/{studentId}` | Trusted pending, accepted, rejected and open counts |
 | `conversations/{conversationId}` | two participant IDs, optional help request, timestamps |
 | `conversations/{conversationId}/messages/{messageId}` | sender, body, server timestamp |
 | `availabilitySlots/{slotId}` | Mentor, start/end, withdrawal state, creation time |
@@ -189,7 +193,6 @@ stateDiagram-v2
     [*] --> PENDING: createHelpRequest
     PENDING --> ACCEPTED: respondToHelpRequest
     PENDING --> REJECTED: respondToHelpRequest
-    ACCEPTED --> CLOSED: closeHelpRequest
 ```
 
 ### Appointment
@@ -204,8 +207,10 @@ stateDiagram-v2
     CONFIRMED --> COMPLETED: completeAppointment
 ```
 
-These functions are contract and authorization seams in Sprint 1. Full
-transactional implementations arrive with their domain features.
+F01 creates PENDING requests and supports PENDING to REJECTED. The ACCEPTED
+transition in the diagram is a transaction seam that fails closed in this
+branch until F02 provides the real conversation helper. `closeHelpRequest`
+remains dormant and unavailable. The appointment functions remain scaffolds.
 
 ## 8. Authorization design
 
@@ -216,9 +221,11 @@ transactional implementations arrive with their domain features.
 | Own profile | Own `users/{uid}` document | Denied |
 | Mentor profiles | ACTIVE users may get an active profile; discovery uses `discoverMentors` | Denied |
 | Modules | ACTIVE users | Denied |
-| Help requests | Owning Student or assigned Mentor | Denied; callable transitions only |
-| Conversations | Participants | Denied |
-| Messages | Participants | Participant may create as self with bounded non-blank body and server time; update/delete denied |
+| Help requests | Bounded owner queries and individual reads for owning Student or assigned Mentor | Denied; callable transitions only |
+| Request receipts and tuple keys | Denied | Denied |
+| Request summary | Owning Student only | Denied |
+| Conversations | Accepted parent request's matching Student/Mentor may get an individual conversation; list currently denied | Denied |
+| Messages | Accepted parent request's matching participants | Participant may create as self with bounded non-blank body and server time; update/delete denied |
 | Availability slots | ACTIVE users; available future slots only | Denied; callable operations only |
 | Appointments | Involved Student or Mentor | Denied; callable transitions only |
 | AI audit events | Denied | Denied; backend only |
@@ -228,8 +235,9 @@ transactional implementations arrive with their domain features.
 | Operation | Student | Mentor | Unauthenticated/inactive |
 | --- | :---: | :---: | :---: |
 | Initialize Student profile | Own identity only | Denied if Mentor profile exists | Denied |
-| Create/close help request | Allowed | Denied | Denied |
-| Respond to help request | Denied | Allowed | Denied |
+| Create help request | Allowed | Denied | Denied |
+| Reject addressed help request | Denied | Allowed | Denied |
+| Accept/close help request | Unavailable | Unavailable | Denied |
 | Create/withdraw availability | Denied | Allowed | Denied |
 | Reserve appointment | Allowed | Denied | Denied |
 | Respond/complete appointment | Denied | Allowed | Denied |
@@ -244,16 +252,17 @@ Function must perform these checks explicitly.
 
 ## 9. Callable catalogue
 
-All state-changing domain inputs except profile initialization carry a UUID
-`requestId` for eventual idempotency.
+F01 create/respond inputs use a UUID `operationId`; `helpRequestId` is the
+server-generated persistent document ID. Other dormant domain contracts retain
+their existing `requestId` fields.
 
 | Callable | Authorized role | Purpose in approved contract |
 | --- | --- | --- |
 | `initializeStudentProfile` | Authenticated new Student | Create or return the trusted Student profile |
 | `discoverMentors` | Active Student or Mentor | Return a cursor-paginated list of public Mentor fields after verifying each profile against its authoritative ACTIVE Mentor account; sign-in email and account metadata are never returned |
-| `createHelpRequest` | Student | Create a pending request |
-| `respondToHelpRequest` | Mentor | Accept or reject a pending request |
-| `closeHelpRequest` | Student | Close an accepted request |
+| `createHelpRequest` | Student | Create a pending request or return an authorized duplicate/replay outcome |
+| `respondToHelpRequest` | Mentor | Reject an addressed pending request; acceptance fails closed pending F02 |
+| `closeHelpRequest` | Student | Dormant unavailable closure seam |
 | `createAvailabilitySlot` | Mentor | Publish availability |
 | `withdrawAvailabilitySlot` | Mentor | Withdraw an unreserved slot |
 | `reserveAppointment` | Student | Reserve an available slot |
@@ -263,9 +272,10 @@ All state-changing domain inputs except profile initialization carry a UUID
 | `studentStudyAssist` | Student | Future SoC LLM study-assistance seam |
 | `mentorConsultationSummary` | Mentor | Future SoC LLM summary seam |
 
-Only `initializeStudentProfile`, `discoverMentors`, and the authentication test
-seam execute domain behaviour in Sprint 1. Other callables validate and
-authorize, then return an explicit `unavailable` error without writing data.
+F01 additionally executes `createHelpRequest` and the rejection branch of
+`respondToHelpRequest`. Existing unrelated callables retain their own feature
+status. F01 production acceptance returns `unavailable` without changing the
+request, key, summary or conversation.
 
 The frontend exposes a typed generic callable adapter. Firebase responses are
 validated against the shared output schema. `createMockCallableClient` accepts
@@ -286,9 +296,10 @@ redirects authenticated users to their authoritative role dashboard.
 
 Student navigation:
 
-- Dashboard — implemented with labelled mock data;
+- Dashboard — persisted F01 request summary/recent requests, with other
+  activity widgets still labelled preview data;
 - Find a mentor — Student Mentor discovery and module filtering;
-- Help requests — scaffold;
+- Help requests — Student submission, history and detail;
 - Conversations — scaffold;
 - Consultations — scaffold; and
 - Study assistant — scaffold.
@@ -340,9 +351,9 @@ changing backend order or making further requests. A selected module remains
 applied during metadata degradation, with a separate Clear module action.
 
 Details expand inline from the callable's public name, biography, and module
-IDs plus authorized module labels. The Ask for help dialog carries the Mentor
-and optional selected module context only while open; it performs no write or
-`createHelpRequest` call. Initial/later loading, empty/no-match, discovery
+IDs plus authorized module labels. The Ask for help dialog passes the Mentor
+and optional selected module context to the F01 form; it performs no write.
+Initial/later loading, empty/no-match, discovery
 error, and metadata degradation have separate states. A persistent polite live
 status announces no Mentor or no-match results, including when more pages may
 remain. Page generation guards discard late results after route or
@@ -361,6 +372,57 @@ unexpected cursor or page size. For targeted cases, pass a fresh
 contain private fields. The F04 emulator seed creates one Mentor with empty
 `moduleIds` and two active example modules, so local discovery can demonstrate
 module filtering after the Mentor selects and saves a module.
+
+### Help request management (S2-D2-F01)
+
+`RequestHelpPage`, `StudentRequestsPage`, `MentorRequestsPage`, and
+`RequestDetailPage` use the `HelpiNUSServices.helpRequests` read seam. The
+Firebase adapter uses owner-scoped, 20-item `onSnapshot` queries ordered by
+`createdAt` and document ID, plus individual request and summary listeners.
+The mock adapter is a simulated UI fixture, not Firestore evidence. Routes and
+content keys bind draft, detail, and decision state to the signed-in user and
+selected Mentor/request. The Student form keeps an uncertain create operation
+and frozen payload in per-account `sessionStorage` until confirmation. The
+session service clears these private drafts on sign-out or account change.
+
+The strict shared F01 contract uses `operationId` for UUID retries and
+`helpRequestId` for the server document. `createHelpRequest` checks the current
+Auth user, authoritative ACTIVE Student record, current ACTIVE Mentor record
+and profile, and active supported catalogue module. Its Firestore transaction
+reads a private operation receipt and hashed pending tuple key before writing
+the request, immutable receipt, key and exact Student summary. An identical
+operation replay returns the authorized stored result; changed content fails.
+A different operation for a pending tuple returns `duplicate` without creating
+a new request. No client supplies the persistent ID.
+
+`respondToHelpRequest` rechecks the addressed Mentor's current account and
+transactionally rejects a PENDING request, removes the exact tuple key, and
+updates the summary. Same-outcome terminal retries return the stored result
+without writes; opposite-outcome retries return a conflict. An unexpected
+conversation or malformed coordination record fails closed. The production
+export intentionally lacks the F02 transaction provision helper: acceptance
+returns `F02_UNAVAILABLE` with no state change. The isolated test adapter in
+`helpRequestAdapter.test.ts` verifies the transaction interface and is never
+registered in production.
+
+Run `npm run audit:help-requests --workspace src/functions` with an authorized
+Admin/emulator configuration before enabling creation against an existing
+dataset. The script reads requests, keys, summaries and receipts without
+writing. Any legacy null-Mentor, `CLOSED`, malformed request, missing/duplicate
+pending key, or count mismatch requires an explicitly reviewed migration and
+read compatibility path. A deterministic conversation beside a pending or
+rejected request is also an anomaly, reported as `nonaccepted_conversation`.
+A passing empty emulator audit proves only that the
+emulator started empty. Do not treat it as production data clearance.
+
+The F01/F02 boundary still needs a real transaction-compatible conversation
+provision helper, deterministic `conversations/{helpRequestId}` persistence,
+accepted-parent Rules and an F02 list/query strategy, authenticated end-to-end
+evidence, and a real-data audit. The local Node 22 root check and full
+Auth/Firestore/Functions integration suite pass after the 2026-10-16
+stabilization; remaining standalone RTT assertions are recorded in the F01
+handoff. F01 is a local implementation checkpoint and is not ready for
+production release.
 
 ### Mentor dashboard (S1-D2-F03)
 
@@ -511,8 +573,19 @@ npm run dev --workspace src/frontend
 ## 12. Emulator development
 
 With Node 22, Java 21 or newer, dependencies installed, and the `helpinus-dev`
-Web App values in `src/frontend/.env.local`, start the emulators from the
-repository root:
+Web App values in `src/frontend/.env.local`, start the complete local stack from
+the repository root:
+
+```powershell
+fnm exec --using 22 -- cmd /c npm run dev:emulators
+```
+
+The command builds Functions, starts Auth `9099`, Firestore `8080`, and
+Functions `5001`, seeds the synthetic accounts and catalogue, and starts Vite
+at `http://127.0.0.1:5173/`. Press `q` then Enter to stop and export data to
+`.emulator-data/`; the next run imports it before seeding missing records.
+
+To start the components manually instead, run from the repository root:
 
 ```powershell
 fnm exec --using 22 node "$env:APPDATA\fnm\node-versions\v22.23.3\installation\node_modules\npm\bin\npm-cli.js" run build --workspace src/functions
@@ -535,8 +608,9 @@ finally { Pop-Location }
 ```
 
 The seed fills missing records without overwriting existing demo profile edits
-or modules while the emulators are running. Without an emulator data import,
-stopping the emulators discards their synthetic records; seed again on restart.
+or modules while the emulators are running. With the manual startup, stopping
+the emulators discards their synthetic records unless you export and import
+them; seed again on restart.
 
 | Role | Email | Password |
 | --- | --- | --- |
