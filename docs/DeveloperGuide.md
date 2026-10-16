@@ -470,6 +470,18 @@ Its textarea grows from one line to a 168 px cap before vertical scrolling;
 the send icon retains the accessible name `Send message`. Message and composer
 text wrap without horizontal scrolling.
 
+The approved second UI refinement is recorded in the F01 and F02
+`UIRefinementRound2.md` files. The discovery dialog is centered in the
+viewport with bounded height and a keyboard loop covering its link and Close
+button. Accepted request detail keeps its status badge and conversation
+action while clearing redundant success feedback; its primary link has white
+text in normal, visited, hover and focus states. Conversation detail alone
+removes the shell's content-width cap and gives message history flexible
+viewport height. The textarea has an accessible name without a visible
+label, and list cards separate labelled request, participant and module
+details from the explicit conversation button. Request and conversation data
+contracts are unchanged by this UI revision.
+
 Local `npm run check` at `305af72` used Node 22.23.3: root lint, typecheck,
 unit tests and build passed; the earlier focused real Functions integration suite
 passed 9/9 and the Rules Emulator suite passed 14/14. The current F02 ledger

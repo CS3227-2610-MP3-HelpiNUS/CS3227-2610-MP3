@@ -101,7 +101,7 @@ role.
    information is missing, the page says **Module information unavailable**;
    if the Mentor lists none, it says **No modules listed**.
 5. Within the details, choose **Ask for help** to review the Mentor and your
-   selected module, if any. Choose **Request help** to open the request form, or
+   selected module, if any, in a centered dialog. Choose **Request help** to open the request form, or
    **Close** or Escape to return to discovery. Opening the form does not send a
    request.
 
@@ -157,15 +157,17 @@ permission shows an access/error state; it is not treated as an empty history.
 After your addressed Mentor accepts a request, open its detail and choose
 **Open conversation**, or use **Conversations** in Student navigation. Each
 accepted request has its own conversation, even if you have other requests
-with the same Mentor. The list shows the Mentor, module and question title,
-newest acceptance first. **Load more** reaches older accepted requests. A
+with the same Mentor. The list labels the request title, Mentor and module,
+and each card has an **Open conversation** button. It is ordered by newest
+acceptance first. **Load more** reaches older accepted requests. A
 request with an inconsistent or missing conversation shows support guidance
 instead of a chat link.
 
 The compact conversation header shows the other participant, module, and
 question title. Expand **Request context** to read the original question.
-**Load earlier messages** reaches older history. Enter plain text up to 4,000
-characters in the message field and choose the send icon, labelled **Send
+**Load earlier messages** reaches older history. The chat fills the available
+space beside navigation. Enter plain text up to 4,000 characters in the
+**Write a message…** field and choose the send icon, labelled **Send
 message** for assistive technology. The field grows as you type multiple
 lines, then scrolls vertically; internal line breaks remain and outer
 whitespace is removed when sent.
@@ -232,6 +234,8 @@ pop-up confirmation, then choose **Accept request** or **Reject request**.
 request and its matching conversation in one transaction; the page checks the accepted pair
 before offering **Open conversation**. If confirmation is interrupted, check
 the live status and use **Retry same decision** while it remains pending.
+The accepted detail shows one **ACCEPTED** badge and a white-text
+**Open conversation** button, without a second success notice.
 The Mentor **Conversations** list and detail use the same request-linked chat
 as the Student view, with the Student's historical display name and question
 context. The message, history, retry and read-status behavior above applies
