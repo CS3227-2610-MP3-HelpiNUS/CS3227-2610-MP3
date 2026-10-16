@@ -1,5 +1,5 @@
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { F01HelpRequest } from '@helpinus/shared'
@@ -135,7 +135,7 @@ describe('F01 request screens', () => {
       callables: createMockCallableClient({ respondToHelpRequest: async () => { throw integrity } }),
     }))
     await user.click(await screen.findByRole('button', { name: 'Reject' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Reject request' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('needs support review')
   })
 
@@ -349,6 +349,80 @@ describe('F01 request screens', () => {
     expect((await screen.findAllByText('Sequence diagrams')).length).toBe(2)
     expect(screen.getAllByText(/Jamie Tan/)).toHaveLength(2)
     expect(screen.queryByText(student.email)).not.toBeInTheDocument()
+    const cards = screen.getAllByRole('listitem')
+    expect(within(cards[0]!).getByRole('link', { name: 'View details for Sequence diagrams' })).toHaveAttribute('href', '/mentor/requests/saved-request')
+    expect(within(cards[1]!).getByRole('link', { name: 'View details for Sequence diagrams' })).toHaveAttribute('href', '/mentor/requests/old')
+  })
+
+  it('separates request information from the full question on both role details', async () => {
+    const view = mount('/student/requests/saved-request', servicesFor('student', {
+      helpRequests: { ...mockServices.helpRequests, subscribeDetail: (_id, onData) => { onData(saved); return () => {} } },
+    }))
+    expect(await screen.findByRole('heading', { name: 'Request information' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Question' })).toBeInTheDocument()
+    expect(screen.getByText('Mentor')).toBeInTheDocument()
+    expect(screen.getByText('Submitted')).toBeInTheDocument()
+    expect(screen.getByText(/Line one/u)).toHaveTextContent('Line one\nLine two', { normalizeWhitespace: false })
+    view.unmount()
+    mount('/mentor/requests/saved-request', servicesFor('mentor', {
+      helpRequests: { ...mockServices.helpRequests, subscribeDetail: (_id, onData) => { onData(saved); return () => {} } },
+    }))
+    expect(await screen.findByRole('heading', { name: 'Request information' })).toBeInTheDocument()
+    expect(screen.getByText('Student')).toBeInTheDocument()
+    expect(screen.queryByText(student.email)).not.toBeInTheDocument()
+  })
+
+  it('opens an accessible acceptance dialog and cancels without deciding', async () => {
+    const user = userEvent.setup()
+    const decide = vi.fn(async () => ({ kind: 'decided' as const, helpRequest: { ...saved, status: 'ACCEPTED' as const }, conversationId: saved.id }))
+    mount('/mentor/requests/saved-request', servicesFor('mentor', {
+      helpRequests: { ...mockServices.helpRequests, subscribeDetail: (_id, onData) => { onData(saved); return () => {} } },
+      callables: createMockCallableClient({ respondToHelpRequest: decide }),
+    }))
+    const trigger = await screen.findByRole('button', { name: 'Accept' })
+    await user.click(trigger)
+    const dialog = screen.getByRole('dialog', { name: 'Accept this request?' })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(within(dialog).getAllByText(/Jamie Tan/u)).toHaveLength(2)
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    await user.tab({ shift: true })
+    expect(within(dialog).getByRole('button', { name: 'Accept request' })).toHaveFocus()
+    await user.tab()
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(decide).not.toHaveBeenCalled()
+    await user.click(trigger)
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(decide).not.toHaveBeenCalled()
+    await user.click(trigger)
+    await user.click(screen.getByRole('button', { name: 'Accept request' }))
+    await waitFor(() => expect(decide).toHaveBeenCalledOnce())
+  })
+
+  it('keeps the same decision attempt available after closing an uncertain dialog', async () => {
+    const user = userEvent.setup()
+    const operationIds: string[] = []
+    const decide = vi.fn(async (input: { operationId: string }) => {
+      operationIds.push(input.operationId)
+      if (operationIds.length === 1) throw new Error('timeout')
+      return { kind: 'decided' as const, helpRequest: { ...saved, status: 'ACCEPTED' as const }, conversationId: saved.id }
+    })
+    mount('/mentor/requests/saved-request', servicesFor('mentor', {
+      helpRequests: { ...mockServices.helpRequests, subscribeDetail: (_id, onData) => { onData(saved); return () => {} } },
+      callables: createMockCallableClient({ respondToHelpRequest: decide }),
+    }))
+    await user.click(await screen.findByRole('button', { name: 'Accept' }))
+    await user.click(screen.getByRole('button', { name: 'Accept request' }))
+    expect(await screen.findByText(/could not confirm the decision/u)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Accept' }))
+    await user.click(screen.getByRole('button', { name: 'Retry same decision' }))
+    await waitFor(() => expect(decide).toHaveBeenCalledTimes(2))
+    expect(operationIds[1]).toBe(operationIds[0])
   })
 
   it('requires confirmation before a Mentor rejects', async () => {
@@ -361,7 +435,7 @@ describe('F01 request screens', () => {
     await screen.findByRole('button', { name: 'Reject' })
     await user.click(screen.getByRole('button', { name: 'Reject' }))
     expect(decide).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Reject request' }))
     await waitFor(() => expect(decide).toHaveBeenCalledOnce())
     expect(screen.getByRole('alert')).toHaveTextContent('Request rejected')
   })
@@ -373,9 +447,9 @@ describe('F01 request screens', () => {
       helpRequests: { ...mockServices.helpRequests, subscribeDetail: (id, onData) => { if (id === saved.id) onData(saved); else emitSecond = onData; return () => {} } },
     }))
     await user.click(await screen.findByRole('button', { name: 'Reject' }))
-    expect(screen.getByRole('group', { name: 'Confirm decision' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Reject this request?' })).toBeInTheDocument()
     await act(async () => { await view.router.navigate('/mentor/requests/second') })
-    expect(screen.queryByRole('group', { name: 'Confirm decision' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Reject this request?' })).not.toBeInTheDocument()
     expect(screen.queryByText('Sequence diagrams')).not.toBeInTheDocument()
     act(() => { emitSecond?.({ ...saved, id: 'second', title: 'Another question' }) })
     expect(await screen.findByText('Another question')).toBeInTheDocument()

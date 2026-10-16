@@ -5,6 +5,7 @@ import { useServices } from '../services/useServices'
 import { clearChatRetries, loadChatRetries, removeChatRetry, saveChatRetry, type ChatRetry } from '../services/chatRetryStore'
 import type { ChatCursor, ChatDetail, ChatRow } from '../services/contracts'
 import { ModuleName } from './HelpRequestPages'
+import { Icon } from '../components/Icon'
 import './ConversationPages.css'
 
 const denied = (error: unknown) => ['permission-denied', 'unauthenticated'].some((code) => String((error as { code?: unknown })?.code ?? '').includes(code))
@@ -116,7 +117,16 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
   const restoredIds = useRef(new Set<string>())
   const retryRef = useRef<((item: Pending, verifiedDetail?: ChatDetail) => Promise<void>) | null>(null)
   const historyRef = useRef<HTMLDivElement>(null)
+  const composerRef = useRef<HTMLTextAreaElement>(null)
   const scrollRestore = useRef<{ height: number; top: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const field = composerRef.current
+    if (!field) return
+    field.style.height = 'auto'
+    field.style.height = `${Math.min(Math.max(field.scrollHeight, 44), 168)}px`
+    field.style.overflowY = field.scrollHeight > 168 ? 'auto' : 'hidden'
+  }, [body, detail])
 
   useEffect(() => {
     const update = () => setForeground(document.visibilityState === 'visible' && document.hasFocus())
@@ -301,18 +311,19 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
     {detailState === 'loading' && <p role="status">Loading conversation…</p>}
     {detailState === 'error' && <p role="alert">Conversation access is unavailable. Check your account and try again. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
     {detailState === 'support' && <p className="help-card" role="alert">{support}</p>}
-    {detail && <><section className="help-card" aria-label="Request context"><h2>{detail.request.title}</h2><p>{role === 'student' ? detail.request.mentorDisplayName : detail.request.studentDisplayName} · <ModuleName id={detail.request.moduleId} /></p><p className="chat-body">{detail.request.description}</p></section>
-      {historyState === 'loading' && <p role="status">Loading messages…</p>}
-      {historyState === 'stale' && <p role="alert">Messages may be out of date. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
-      {historyState === 'ready' && messages.length === 0 && unresolved.length === 0 && <p>No messages yet.</p>}
-      {next && <button className="button button-secondary" disabled={loadingEarlier} onClick={() => { const history = historyRef.current; if (history) scrollRestore.current = { height: history.scrollHeight, top: history.scrollTop }; setLoadingEarlier(true); more.current?.(next) }}>{loadingEarlier ? 'Loading earlier messages…' : 'Load earlier messages'}</button>}
-      <div className="chat-history" ref={historyRef} role="log" aria-label="Messages" tabIndex={-1}>{messages.map((message) => <div className={`chat-bubble ${message.senderId === uid ? 'mine' : 'theirs'}`} key={message.id} data-message-id={message.id}>
-        <p className="chat-body">{message.body}</p><small>{new Date(message.createdAt).toLocaleString('en-SG')}</small>
-        {message.senderId === uid && <span className="chat-status">{message.readAt ? '✓✓ Read' : '✓✓ Sent'}</span>}
-      </div>)}{unresolved.map((item) => <div className="chat-bubble mine" key={item.messageId}><p className="chat-body">{item.normalizedBody}</p><span className="chat-status">{item.state === 'sending' ? '✓ Sending' : item.state === 'uncertain' ? '? Save uncertain' : 'Failed'}</span>{item.state !== 'sending' && <button className="button button-secondary" onClick={() => void retry(item)}>Retry</button>}{item.note && <small>{item.note}</small>}</div>)}</div>
+    {detail && <div className="chat-surface"><details className="chat-context"><summary><span className="chat-context-title">{role === 'student' ? detail.request.mentorDisplayName : detail.request.studentDisplayName} · <ModuleName id={detail.request.moduleId} /></span><span className="chat-context-subtitle">{detail.request.title}</span><span className="chat-context-label">Request context</span></summary><div className="chat-context-question"><strong>Question</strong><p className="chat-body">{detail.request.description}</p></div></details>
+      {historyState === 'stale' && <p className="chat-state" role="alert">Messages may be out of date. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
+      {next && <div className="chat-history-actions"><button className="button button-secondary" disabled={loadingEarlier} onClick={() => { const history = historyRef.current; if (history) scrollRestore.current = { height: history.scrollHeight, top: history.scrollTop }; setLoadingEarlier(true); more.current?.(next) }}>{loadingEarlier ? 'Loading earlier messages…' : 'Load earlier messages'}</button></div>}
+      <div className="chat-history" ref={historyRef} role="log" aria-label="Messages" tabIndex={-1}>
+        {historyState === 'loading' && <p className="chat-empty" role="status">Loading messages…</p>}
+        {historyState === 'ready' && messages.length === 0 && unresolved.length === 0 && <p className="chat-empty">No messages yet. Start the conversation below.</p>}
+        {messages.map((message) => <div className={`chat-bubble ${message.senderId === uid ? 'mine' : 'theirs'}`} role="group" aria-label={message.senderId === uid ? 'Your message' : `Message from ${role === 'student' ? detail.request.mentorDisplayName : detail.request.studentDisplayName}`} key={message.id} data-message-id={message.id}>
+          <p className="chat-body">{message.body}</p><small>{new Date(message.createdAt).toLocaleString('en-SG')}</small>
+          {message.senderId === uid && <span className="chat-status">{message.readAt ? '✓✓ Read' : '✓✓ Sent'}</span>}
+        </div>)}{unresolved.map((item) => <div className="chat-bubble mine" role="group" aria-label="Your pending message" key={item.messageId}><p className="chat-body">{item.normalizedBody}</p><span className="chat-status">{item.state === 'sending' ? '✓ Sending' : item.state === 'uncertain' ? '? Save uncertain' : 'Failed'}</span>{item.state !== 'sending' && <button className="button button-secondary" onClick={() => void retry(item)}>Retry</button>}{item.note && <small>{item.note}</small>}</div>)}</div>
       <p className="visually-hidden" aria-live="polite">{announcement}</p>
-      {notice && <p role="alert">{notice}</p>}
-      <form className="chat-compose" onSubmit={submit}><label htmlFor="chat-message">Message</label><textarea id="chat-message" value={body} onChange={(event) => setBody(event.target.value)} rows={3} /><button className="button button-primary" type="submit">Send message</button></form>
-    </>}
+      {notice && <p className="chat-state" role="alert">{notice}</p>}
+      <form className="chat-compose" onSubmit={submit}><label className="visually-hidden" htmlFor="chat-message">Message</label><textarea id="chat-message" ref={composerRef} value={body} onChange={(event) => setBody(event.target.value)} rows={1} placeholder="Write a message…" /><button className="chat-send" type="submit" aria-label="Send message" title="Send message"><Icon name="send" /></button></form>
+    </div>}
   </section>
 }

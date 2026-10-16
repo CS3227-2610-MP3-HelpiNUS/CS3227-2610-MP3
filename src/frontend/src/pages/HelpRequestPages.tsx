@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { F01HelpRequest, Module } from '@helpinus/shared'
 import { useServices } from '../services/useServices'
@@ -164,7 +165,7 @@ function RequestHelpContent() {
 }
 
 function RequestRows({ items, role }: { items: F01HelpRequest[]; role: 'student' | 'mentor' }) {
-  return <ul className="help-list">{items.map((item) => <li key={item.id} className="help-card"><Link to={`/${role}/requests/${item.id}`}><strong>{item.title}</strong></Link><p>{role === 'student' ? item.mentorDisplayName : item.studentDisplayName} · <ModuleName id={item.moduleId} /></p><span className={`status-pill status-${item.status.toLowerCase()}`}>{item.status}</span><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('en-SG')}</time></li>)}</ul>
+  return <ul className="help-list">{items.map((item) => <li key={item.id} className="help-card"><h3>{item.title}</h3><p>{role === 'student' ? item.mentorDisplayName : item.studentDisplayName} · <ModuleName id={item.moduleId} /></p><span className={`status-pill status-${item.status.toLowerCase()}`}>{item.status}</span><div className="help-list-footer"><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('en-SG')}</time><Link className="button button-secondary" to={`/${role}/requests/${item.id}`} aria-label={`View details for ${item.title}`}>View details</Link></div></li>)}</ul>
 }
 
 function PagedRows({ kind, uid, services, cursor = null }: { kind: 'student' | 'pending' | 'decided'; uid: string | null; services: HelpiNUSServices; cursor?: Cursor | null }) {
@@ -214,11 +215,40 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [confirm, setConfirm] = useState<'ACCEPTED' | 'REJECTED' | null>(null)
   const [decision, setDecision] = useState<'idle' | 'working' | 'uncertain'>('idle')
+  const [uncertainAction, setUncertainAction] = useState<'ACCEPTED' | 'REJECTED' | null>(null)
   const [message, setMessage] = useState('')
   const [chatReady, setChatReady] = useState(false)
   const [chatChecked, setChatChecked] = useState(false)
   const operation = useRef<string | null>(null)
   const decisionGeneration = useRef(0)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const decisionTrigger = useRef<HTMLButtonElement>(null)
+  useEffect(() => { if (!confirm) decisionTrigger.current?.focus() }, [confirm])
+  useEffect(() => {
+    if (!confirm) return
+    const dialog = dialogRef.current
+    if (!dialog) return
+    const background = Array.from(document.body.children).filter((child) => child !== dialog.parentElement)
+    const previous = background.map((child) => ({ child, inert: child.hasAttribute('inert') }))
+    background.forEach((child) => child.setAttribute('inert', ''))
+    const focusable = () => Array.from(dialog.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
+    if (!dialog.contains(document.activeElement)) focusable()[0]?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (decision !== 'working') { event.preventDefault(); setConfirm(null) }
+        return
+      }
+      if (event.key !== 'Tab') return
+      const controls = focusable()
+      if (controls.length === 0) { event.preventDefault(); dialog.focus(); return }
+      const first = controls[0]!
+      const last = controls.at(-1)!
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => { document.removeEventListener('keydown', onKeyDown); previous.forEach(({ child, inert }) => { if (!inert) child.removeAttribute('inert') }) }
+  }, [confirm, decision])
   useEffect(() => {
     if (!id) return
     let active = true
@@ -254,11 +284,12 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
       if (token !== decisionGeneration.current) return
       if (result.kind === 'conflict') setMessage(`This request was already ${result.actualStatus.toLowerCase()}.`)
       else setMessage(result.helpRequest.status === 'REJECTED' ? 'Request rejected.' : 'Checking accepted conversation…')
-      setDecision('idle'); setConfirm(null); operation.current = null
+      setDecision('idle'); setConfirm(null); operation.current = null; setUncertainAction(null)
     } catch (error) {
       if (token !== decisionGeneration.current) return
       const reason = (error as { details?: { reason?: string } })?.details?.reason
       setDecision('uncertain')
+      setUncertainAction(response)
       setMessage(reason === 'INTEGRITY_ERROR' ? 'This request needs support review. Contact HelpiNUS support before trying again.' : denied(error) ? 'You can no longer decide this request. Check your account access.' : 'We could not confirm the decision. Check the live status, then retry this same action if still pending.')
     }
   }
@@ -267,12 +298,12 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
     {state === 'error' && <div className="help-card" role="alert">This request is unavailable or your access has changed.</div>}
     {state === 'ready' && !item && <div className="help-card">Request not found.</div>}
     {item && <article className="help-card help-detail"><div className="help-detail-heading"><h2>{item.title}</h2><span className={`status-pill status-${item.status.toLowerCase()}`}>{item.status}</span></div>
-      <p><strong>{role === 'student' ? 'Mentor' : 'Student'}:</strong> {role === 'student' ? item.mentorDisplayName : item.studentDisplayName}</p><p><strong>Module:</strong> <ModuleName id={item.moduleId} /></p>
-      <p className="help-description">{item.description}</p><p>Sent: <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('en-SG')}</time></p>{item.status !== 'PENDING' && <p>Decided: <time dateTime={item.updatedAt}>{new Date(item.updatedAt).toLocaleString('en-SG')}</time></p>}
-      {item.status === 'ACCEPTED' && (chatReady ? <p><Link to={`/${role}/conversations/${item.id}`}>Open conversation</Link></p> : <p>This conversation needs support review. Contact HelpiNUS support.</p>)}
-      {role === 'mentor' && item.status === 'PENDING' && <div className="help-actions"><button className="button button-primary" disabled={decision === 'working'} onClick={() => { setConfirm('ACCEPTED'); operation.current = null }}>Accept</button><button className="button button-secondary" disabled={decision === 'working'} onClick={() => { setConfirm('REJECTED'); operation.current = null }}>Reject</button></div>}
-      {confirm && item.status === 'PENDING' && <div className="help-confirm" role="group" aria-label="Confirm decision"><p>Confirm {confirm.toLowerCase()} for this request?</p><button className="button button-primary" disabled={decision === 'working'} onClick={() => void decide()}>{decision === 'working' ? 'Checking…' : decision === 'uncertain' ? 'Retry same decision' : 'Confirm'}</button><button className="button button-secondary" disabled={decision === 'working'} onClick={() => { setConfirm(null); setDecision('idle'); operation.current = null }}>Cancel</button></div>}
-      {message && <p role="alert" className="help-notice">{message}</p>}{(location.state as { created?: boolean } | null)?.created && role === 'student' && <p role="status">Your request was saved.</p>}
+      <div className="help-detail-sections"><section aria-labelledby="request-information-heading"><h3 id="request-information-heading">Request information</h3><dl className="help-metadata"><dt>{role === 'student' ? 'Mentor' : 'Student'}</dt><dd>{role === 'student' ? item.mentorDisplayName : item.studentDisplayName}</dd><dt>Module</dt><dd><ModuleName id={item.moduleId} /></dd><dt>Submitted</dt><dd><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('en-SG')}</time></dd>{item.status !== 'PENDING' && <><dt>Decided</dt><dd><time dateTime={item.updatedAt}>{new Date(item.updatedAt).toLocaleString('en-SG')}</time></dd></>}</dl></section>
+        <section className="help-question" aria-labelledby="request-question-heading"><h3 id="request-question-heading">Question</h3><p className="help-description">{item.description}</p></section></div>
+      {item.status === 'ACCEPTED' && (chatReady ? <div className="help-detail-footer"><Link className="button button-primary" to={`/${role}/conversations/${item.id}`}>Open conversation</Link></div> : <p>This conversation needs support review. Contact HelpiNUS support.</p>)}
+      {role === 'mentor' && item.status === 'PENDING' && <div className="help-actions help-detail-footer"><button className="button button-primary" disabled={decision === 'working' || (decision === 'uncertain' && uncertainAction !== 'ACCEPTED')} onClick={(event) => { decisionTrigger.current = event.currentTarget; setConfirm('ACCEPTED'); if (decision === 'idle') operation.current = null }}>Accept</button><button className="button button-secondary" disabled={decision === 'working' || (decision === 'uncertain' && uncertainAction !== 'REJECTED')} onClick={(event) => { decisionTrigger.current = event.currentTarget; setConfirm('REJECTED'); if (decision === 'idle') operation.current = null }}>Reject</button></div>}
+      {message && !confirm && <p role="alert" className="help-notice">{message}</p>}{(location.state as { created?: boolean } | null)?.created && role === 'student' && <p role="status">Your request was saved.</p>}
     </article>}
+    {confirm && item?.status === 'PENDING' && createPortal(<div className="help-modal-backdrop"><div className="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-dialog-title" aria-describedby="help-dialog-description" ref={dialogRef} tabIndex={-1}><h2 id="help-dialog-title">{confirm === 'ACCEPTED' ? 'Accept this request?' : 'Reject this request?'}</h2><p id="help-dialog-description">Confirming will {confirm === 'ACCEPTED' ? 'accept' : 'reject'} {item.studentDisplayName}’s help request.</p><div className="help-modal-summary"><strong>{item.title}</strong><span>{item.studentDisplayName} · <ModuleName id={item.moduleId} /></span></div>{message && <p role="alert" className="help-notice">{message}</p>}<div className="help-modal-actions"><button className="button button-secondary" disabled={decision === 'working'} onClick={() => { setConfirm(null); if (decision === 'idle') operation.current = null }}>Cancel</button><button className="button button-primary" disabled={decision === 'working'} onClick={() => void decide()}>{decision === 'working' ? 'Checking…' : decision === 'uncertain' ? 'Retry same decision' : confirm === 'ACCEPTED' ? 'Accept request' : 'Reject request'}</button></div></div></div>, document.body)}
   </section>
 }

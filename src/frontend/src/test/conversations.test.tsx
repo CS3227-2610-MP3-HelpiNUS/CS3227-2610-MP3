@@ -31,6 +31,26 @@ function mount(path: string, services: HelpiNUSServices) {
 
 describe('F02 conversation screens', () => {
   beforeEach(() => sessionStorage.clear())
+  it('uses a compact chat context and an accessible icon composer that grows for multiline text', async () => {
+    const user = userEvent.setup()
+    mount('/student/conversations/f02-request', servicesFor('student', { conversations: {
+      ...mockServices.conversations,
+      subscribeDetail(_id, onData) { onData({ request: accepted }); return () => {} },
+      subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} },
+    } }))
+    expect(await screen.findByText('No messages yet. Start the conversation below.')).toBeInTheDocument()
+    expect(screen.getByText('Sequence diagrams').closest('summary')).toBeInTheDocument()
+    const field = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement
+    expect(field).toHaveAttribute('rows', '1')
+    const send = screen.getByRole('button', { name: 'Send message' })
+    expect(send.querySelector('svg')).not.toBeNull()
+    expect(send).toHaveTextContent('')
+    Object.defineProperty(field, 'scrollHeight', { configurable: true, get: () => 240 })
+    await user.type(field, 'Line one{Enter}Line two')
+    expect(field).toHaveValue('Line one\nLine two')
+    expect(field.style.height).toBe('168px')
+    expect(field.style.overflowY).toBe('auto')
+  })
   it('shows only validated rows and loads a bounded older owner page', async () => {
     const subscribe = vi.fn<HelpiNUSServices['conversations']['subscribeList']>((_uid, _role, page, onData) => {
       onData(page ? [{ kind: 'support_needed', requestId: 'broken', acceptedAt: '2026-10-15T09:00:00.000Z' }] : [{ kind: 'ready', request: accepted }], page ? null : cursor)
