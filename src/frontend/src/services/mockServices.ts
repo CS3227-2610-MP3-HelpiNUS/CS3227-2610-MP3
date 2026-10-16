@@ -145,7 +145,7 @@ export const mockServices: HelpiNUSServices = {
     registerStudent: async () => { signedInUser = student; return { user: student } },
     retryStudentProfile: async () => ({ user: signedInUser }),
     resendVerificationEmail: async () => {},
-    signIn: async () => { signedInUser = student; return { user: student } },
+    signIn: async () => { throw Object.assign(new Error('Mock preview does not authenticate. Start npm run dev:emulators to sign in with seeded accounts.'), { code: 'mock/preview-only' }) },
     signOut: async () => { signedInUser = null },
   },
   dashboard: { getStudentDashboard: async () => mockDashboard },

@@ -64,7 +64,15 @@ if (process.argv.includes('--inside-emulators')) {
 
   const vite = start([viteCli, '--host', '127.0.0.1'], {
     cwd: frontend,
-    env: { ...env, VITE_FIREBASE_ENV: 'development', VITE_USE_FIREBASE_EMULATORS: 'true' },
+    env: {
+      ...env,
+      VITE_FIREBASE_ENV: 'development',
+      VITE_USE_FIREBASE_EMULATORS: 'true',
+      VITE_FIREBASE_DEV_API_KEY: 'fake-api-key',
+      VITE_FIREBASE_DEV_AUTH_DOMAIN: 'helpinus-dev.firebaseapp.com',
+      VITE_FIREBASE_DEV_PROJECT_ID: 'helpinus-dev',
+      VITE_FIREBASE_DEV_APP_ID: 'demo-helpinus-dev',
+    },
   })
   process.exitCode = await completed(vite)
 } else {

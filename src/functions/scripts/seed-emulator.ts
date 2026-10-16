@@ -11,8 +11,10 @@ initializeApp({ projectId })
 const auth = getAuth()
 const db = getFirestore()
 const demoUsers = [
-  { email: 'student@example.test', password: 'Student-demo-123!', displayName: 'Demo Student', role: 'STUDENT' },
-  { email: 'mentor@example.test', password: 'Mentor-demo-123!', displayName: 'Demo Mentor', role: 'MENTOR' },
+  { email: 'student@example.test', password: 'Student-demo-123!', displayName: 'Demo Student', role: 'STUDENT', moduleIds: [] },
+  { email: 'mentor@example.test', password: 'Mentor-demo-123!', displayName: 'Demo Mentor', role: 'MENTOR', moduleIds: [] },
+  { email: 'jamie.tan@example.test', password: 'Jamie-demo-123!', displayName: 'Jamie Tan', role: 'STUDENT', moduleIds: [] },
+  { email: 'aisha@example.test', password: 'Aisha-demo-123!', displayName: 'Sample Aisha', role: 'MENTOR', moduleIds: ['cs2103t', 'cs2040s'] },
 ] as const
 
 for (const demo of demoUsers) {
@@ -30,7 +32,7 @@ for (const demo of demoUsers) {
   if (demo.role === 'MENTOR') {
     const profileRef = db.collection('mentorProfiles').doc(user.uid)
     if (!(await profileRef.get()).exists) {
-      await profileRef.create({ userId: user.uid, biography: 'Emulator demo mentor', moduleIds: [], active: true })
+      await profileRef.create({ userId: user.uid, biography: 'Emulator demo mentor', moduleIds: demo.moduleIds, active: true })
     }
   }
 }
@@ -44,4 +46,4 @@ for (const module of [
     await moduleRef.create({ ...module, activeSearchPrefixes: activeSearchPrefixes(module) })
   }
 }
-console.info('Emulator demos ready: student@example.test / Student-demo-123! and mentor@example.test / Mentor-demo-123!')
+console.info('Emulator demo accounts ready; see docs/UserGuide.md for local credentials.')
