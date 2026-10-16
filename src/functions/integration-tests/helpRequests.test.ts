@@ -38,6 +38,7 @@ afterAll(async () => {
       db.collection('helpRequests').where('studentId', '==', ids.student).get(),
       db.collection('helpRequestOperations').doc(ids.student).collection('operations').get(),
     ])) for (const item of snapshot.docs) await item.ref.delete()
+    if (ids.next) await db.collection('conversations').doc(ids.next).delete()
     for (const mentorId of [ids.mentor, ids.other]) {
       const tupleHash = createHash('sha256').update(JSON.stringify([ids.student, mentorId, 'f01-module'].map((part) => `${part.length}:${part}`))).digest('hex')
       await db.collection('pendingHelpRequestKeys').doc(tupleHash).delete()
@@ -122,10 +123,13 @@ describe('F01 callable persistence and authorization', () => {
     if (next.kind === 'created') ids.next = next.helpRequest.id
   })
 
-  it('fails closed for production acceptance without F02, preserving pending state', async () => {
-    await expect(decide({ operationId: crypto.randomUUID(), helpRequestId: ids.next, response: 'ACCEPTED' })).rejects.toMatchObject({ code: 'functions/unavailable' })
-    expect((await db.collection('helpRequests').doc(ids.next).get()).data()?.status).toBe('PENDING')
-    expect((await db.collection('conversations').doc(ids.next).get()).exists).toBe(false)
+  it('atomically accepts through the real F02 provisioner', async () => {
+    const result = respondToHelpRequestOutputSchema.parse((await decide({ operationId: crypto.randomUUID(), helpRequestId: ids.next, response: 'ACCEPTED' })).data)
+    expect(result.kind).toBe('decided')
+    expect((await db.collection('helpRequests').doc(ids.next).get()).data()?.status).toBe('ACCEPTED')
+    const stored = (await db.collection('conversations').doc(ids.next).get()).data()
+    expect(stored).toMatchObject({ id: ids.next, helpRequestId: ids.next, studentId: ids.student, mentorId: ids.mentor, participantIds: [ids.student, ids.mentor] })
+    expect(stored?.createdAt.isEqual((await db.collection('helpRequests').doc(ids.next).get()).data()?.updatedAt)).toBe(true)
   })
 
   it('rejects stale Mentor/module selection and changed account authorization without writes', async () => {
@@ -143,7 +147,7 @@ describe('F01 callable persistence and authorization', () => {
     await expect(decide({ operationId: crypto.randomUUID(), helpRequestId: ids.next, response: 'REJECTED' })).rejects.toMatchObject({ code: 'functions/permission-denied' })
     await db.collection('users').doc(ids.mentor).update({ status: 'ACTIVE' })
     expect((await db.collection('helpRequests').where('studentId', '==', ids.student).get()).size).toBe(before)
-    expect((await db.collection('helpRequests').doc(ids.next).get()).data()?.status).toBe('PENDING')
+    expect((await db.collection('helpRequests').doc(ids.next).get()).data()?.status).toBe('ACCEPTED')
   }, 20000)
 
   it('fails closed on corrupt pending tuple and summary data', async () => {
@@ -157,6 +161,6 @@ describe('F01 callable persistence and authorization', () => {
     await summaryRef.update({ openCount: 999 })
     await expect(decide({ operationId: crypto.randomUUID(), helpRequestId: ids.next, response: 'REJECTED' })).rejects.toMatchObject({ code: 'functions/failed-precondition' })
     await summaryRef.set(original)
-    expect((await db.collection('helpRequests').doc(ids.next).get()).data()?.status).toBe('PENDING')
+    expect((await db.collection('helpRequests').doc(ids.next).get()).data()?.status).toBe('ACCEPTED')
   }, 20000)
 })

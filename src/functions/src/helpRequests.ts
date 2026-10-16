@@ -8,6 +8,7 @@ import {
   type F01HelpRequest, type HelpRequestSummary, type RespondToHelpRequestInput,
 } from '@helpinus/shared'
 import { requireCurrentMentor, requireRole, type AuthorizedUser } from './auth.js'
+import { assertMatchingAcceptedConversation } from './conversations.js'
 
 type Stored = Omit<F01HelpRequest, 'createdAt' | 'updatedAt'> & { createdAt: Timestamp; updatedAt: Timestamp }
 type CreateResult = { kind: 'created'; helpRequest: F01HelpRequest } | { kind: 'duplicate'; existingHelpRequestId: string; currentStatus: 'PENDING' | 'ACCEPTED' | 'REJECTED' }
@@ -112,8 +113,6 @@ export async function createHelpRequestHandler(input: CreateHelpRequestInput, re
   })
 }
 
-// The production export intentionally has no provision adapter until F02 supplies
-// its real transactional helper. Isolated tests may inject a test-only adapter.
 export async function respondToHelpRequestHandler(input: RespondToHelpRequestInput, request: CallableRequest<unknown>, db: Firestore, provision?: Provision): Promise<DecideResult> {
   const actor = await requireCurrentMentor(request)
   const requestRef = db.collection('helpRequests').doc(input.helpRequestId)
@@ -131,8 +130,7 @@ export async function respondToHelpRequestHandler(input: RespondToHelpRequestInp
     if (!priorCounts) return failIntegrity()
     if (current.public.status !== 'PENDING') {
       if (current.public.status === 'ACCEPTED') {
-        const data = conversation.data()
-        if (!conversation.exists || data?.helpRequestId !== current.public.id || data?.studentId !== current.public.studentId || data?.mentorId !== actor.uid || !Array.isArray(data.participantIds) || data.participantIds.length !== 2 || data.participantIds[0] !== current.public.studentId || data.participantIds[1] !== actor.uid) failIntegrity()
+        assertMatchingAcceptedConversation(current.stored, conversation)
       } else if (conversation.exists) failIntegrity()
       if (current.public.status !== input.response) return { kind: 'conflict', actualStatus: current.public.status }
       return { kind: 'already_decided', helpRequest: current.public, conversationId: current.public.status === 'ACCEPTED' ? current.public.id : null }

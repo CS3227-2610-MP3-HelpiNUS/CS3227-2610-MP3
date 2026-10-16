@@ -38,7 +38,7 @@ describe('F01 decision orchestration with an explicitly isolated F02 test adapte
   it('commits accepted request and deterministic test conversation together under racing accepts', async () => {
     const testAdapter: NonNullable<Parameters<typeof respondToHelpRequestHandler>[3]> = (tx, stored, existing) => {
       if (existing.exists) throw new Error('Unexpected preexisting conversation')
-      tx.create(db.collection('conversations').doc(stored.id), { helpRequestId: stored.id, studentId: stored.studentId, mentorId: stored.mentorId, participantIds: [stored.studentId, stored.mentorId], createdAt: stored.updatedAt, updatedAt: stored.updatedAt })
+      tx.create(db.collection('conversations').doc(stored.id), { id: stored.id, helpRequestId: stored.id, studentId: stored.studentId, mentorId: stored.mentorId, participantIds: [stored.studentId, stored.mentorId], createdAt: stored.updatedAt, updatedAt: stored.updatedAt })
       return stored.id
     }
     const attempt = (operationId: string) => respondToHelpRequestHandler({ operationId, helpRequestId: id, response: 'ACCEPTED' }, request, db, testAdapter)

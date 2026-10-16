@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { initializeTestEnvironment, type RulesTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing'
-import { collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore'
+import { collection, deleteDoc, doc, documentId, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore'
 
 let env: RulesTestEnvironment
 beforeAll(async () => {
@@ -15,6 +15,7 @@ beforeEach(async () => {
   await env.clearFirestore()
   await env.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    const acceptedAt = new Date()
     await setDoc(doc(db, 'users/student'), { role: 'STUDENT', status: 'ACTIVE', email: 'student@example.test' })
     await setDoc(doc(db, 'users/mentor'), { role: 'MENTOR', status: 'ACTIVE', email: 'mentor@example.test' })
     await setDoc(doc(db, 'users/otherMentor'), { role: 'MENTOR', status: 'ACTIVE', email: 'other@example.test' })
@@ -26,8 +27,8 @@ beforeEach(async () => {
     await setDoc(doc(db, 'mentorProfiles/mentor/saveRequests/request'), { outcome: 'accepted' })
     await setDoc(doc(db, 'modules/module'), { code: 'CS3227' })
     await setDoc(doc(db, 'helpRequests/request'), { studentId: 'student', mentorId: 'mentor', status: 'PENDING' })
-    await setDoc(doc(db, 'helpRequests/chat'), { studentId: 'student', mentorId: 'mentor', status: 'ACCEPTED' })
-    await setDoc(doc(db, 'conversations/chat'), { helpRequestId: 'chat', studentId: 'student', mentorId: 'mentor', participantIds: ['student', 'mentor'] })
+    await setDoc(doc(db, 'helpRequests/chat'), { studentId: 'student', mentorId: 'mentor', status: 'ACCEPTED', updatedAt: acceptedAt })
+    await setDoc(doc(db, 'conversations/chat'), { id: 'chat', helpRequestId: 'chat', studentId: 'student', mentorId: 'mentor', participantIds: ['student', 'mentor'], createdAt: acceptedAt, updatedAt: acceptedAt })
     await setDoc(doc(db, 'conversations/chat/messages/old'), { senderId: 'mentor', body: 'Hi', createdAt: new Date() })
     await setDoc(doc(db, 'availabilitySlots/slot'), { mentorId: 'mentor', withdrawn: false, startsAt: new Date(Date.now() + 60 * 60 * 1000) })
     await setDoc(doc(db, 'appointments/appointment'), { studentId: 'student', mentorId: 'mentor', status: 'PENDING' })
@@ -101,15 +102,17 @@ describe('approved direct access matrix', () => {
     }
     await assertSucceeds(getDoc(doc(studentDb, 'mentorProfiles/otherMentor')))
   })
-  it('allows participant message creation with self sender and denies spoofing, edits and deletes', async () => {
+  it('denies all direct message writes while allowing bounded participant reads', async () => {
     const db = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
     const message = doc(db, 'conversations/chat/messages/new')
-    await assertSucceeds(setDoc(message, { senderId: 'student', body: 'Hello', createdAt: serverTimestamp() }))
-    await assertSucceeds(setDoc(doc(db, 'conversations/chat/messages/multiline'), { senderId: 'student', body: 'Hello\nWorld', createdAt: serverTimestamp() }))
+    await assertFails(setDoc(message, { senderId: 'student', body: 'Hello', createdAt: serverTimestamp() }))
+    await assertFails(setDoc(doc(db, 'conversations/chat/messages/multiline'), { senderId: 'student', body: 'Hello\nWorld', createdAt: serverTimestamp() }))
     await assertFails(setDoc(doc(db, 'conversations/chat/messages/spoof'), { senderId: 'mentor', body: 'Hello', createdAt: serverTimestamp() }))
     await assertFails(setDoc(doc(db, 'conversations/chat/messages/blank'), { senderId: 'student', body: ' \t\n ', createdAt: serverTimestamp() }))
     await assertFails(updateDoc(message, { body: 'Edited' }))
     await assertFails(deleteDoc(message))
+    await assertSucceeds(getDocs(query(collection(db, 'conversations/chat/messages'), orderBy('createdAt', 'desc'), orderBy(documentId(), 'desc'), limit(20))))
+    await assertFails(getDocs(query(collection(db, 'conversations/chat/messages'), orderBy('createdAt', 'desc'), limit(21))))
   })
   it('denies all client writes to workflow, availability, appointment and audit data', async () => {
     const db = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
@@ -192,6 +195,22 @@ describe('F01 owner queries and private coordination', () => {
 })
 
 describe('F01/F02 accepted-parent access boundary', () => {
+  it('denies an otherwise matching pair with a corrupt acceptance timestamp', async () => {
+    const student = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
+    await assertSucceeds(getDoc(doc(student, 'conversations/chat')))
+    await env.withSecurityRulesDisabled(async (context) => { await updateDoc(doc(context.firestore(), 'conversations/chat'), { updatedAt: new Date(0) }) })
+    await assertFails(getDoc(doc(student, 'conversations/chat')))
+    await assertFails(getDoc(doc(student, 'conversations/chat/messages/old')))
+  })
+  it('uses bounded accepted owner request queries as the conversation list index', async () => {
+    const student = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
+    const mentor = env.authenticatedContext('mentor', { email: 'mentor@example.test', email_verified: true }).firestore()
+    for (const [db, field, uid] of [[student, 'studentId', 'student'], [mentor, 'mentorId', 'mentor']] as const) {
+      await assertSucceeds(getDocs(query(collection(db, 'helpRequests'), where(field, '==', uid), where('status', '==', 'ACCEPTED'), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc'), limit(20))))
+      await assertFails(getDocs(query(collection(db, 'helpRequests'), where('status', '==', 'ACCEPTED'), orderBy('updatedAt', 'desc'), limit(20))))
+      await assertFails(getDocs(query(collection(db, 'helpRequests'), where(field, '==', uid), where('status', '==', 'ACCEPTED'), orderBy('updatedAt', 'desc'), limit(21))))
+    }
+  })
   it('denies chats and messages for pending, rejected and mismatched parents', async () => {
     await env.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore()

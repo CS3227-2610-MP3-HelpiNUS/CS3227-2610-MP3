@@ -6,6 +6,7 @@ import {
   f01HelpRequestSchema,
   userSchema,
 } from './domain.js'
+import { sendMessageInputSchema, sendMessageOutputSchema, acknowledgeMessageInputSchema, acknowledgeMessageOutputSchema } from './conversations.js'
 
 const identifierSchema = z.string().trim().min(1).max(128)
 const nonEmptyInputSchema = z.object({ requestId: z.string().uuid() })
@@ -160,6 +161,8 @@ export const callableSchemas = {
     input: respondToHelpRequestInputSchema,
     output: respondToHelpRequestOutputSchema,
   },
+  sendMessage: { input: sendMessageInputSchema, output: sendMessageOutputSchema },
+  acknowledgeMessage: { input: acknowledgeMessageInputSchema, output: acknowledgeMessageOutputSchema },
   closeHelpRequest: {
     input: closeHelpRequestInputSchema,
     output: closeHelpRequestOutputSchema,
