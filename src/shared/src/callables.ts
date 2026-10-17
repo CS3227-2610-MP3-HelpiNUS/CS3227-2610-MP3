@@ -35,6 +35,11 @@ export const discoverMentorsOutputSchema = z.object({
 // which Firestore document is addressed.
 export const canonicalDocumentIdSchema = z.string().min(1).max(128)
   .refine((value) => value === value.trim() && !/[\/\\\x00-\x1f]/u.test(value) && value !== '.' && value !== '..' && !/^__.*__$/u.test(value), 'Invalid document ID')
+export const getMentorRequestSelectionInputSchema = z.object({ mentorId: canonicalDocumentIdSchema }).strict()
+export const getMentorRequestSelectionOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('ready'), mentor: z.object({ userId: canonicalDocumentIdSchema, displayName: z.string().trim().min(1).max(100), moduleIds: z.array(canonicalDocumentIdSchema).max(30) }).strict() }).strict(),
+  z.object({ kind: z.literal('unavailable') }).strict(),
+])
 export const mentorProfileVersionSchema = z.object({
   revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
   updateTime: z.string().regex(/^\d+:\d{9}$/u),
@@ -150,6 +155,10 @@ export const callableSchemas = {
     input: discoverMentorsInputSchema,
     output: discoverMentorsOutputSchema,
   },
+  getMentorRequestSelection: {
+    input: getMentorRequestSelectionInputSchema,
+    output: getMentorRequestSelectionOutputSchema,
+  },
   readOwnMentorProfile: { input: readOwnMentorProfileInputSchema, output: readOwnMentorProfileOutputSchema },
   searchMentorModules: { input: searchMentorModulesInputSchema, output: searchMentorModulesOutputSchema },
   updateOwnMentorProfile: { input: updateOwnMentorProfileInputSchema, output: updateOwnMentorProfileOutputSchema },
@@ -220,6 +229,8 @@ export type InitializeStudentProfileOutput = z.infer<
 export type DiscoverMentorsInput = z.input<typeof discoverMentorsInputSchema>
 export type DiscoverMentorsParsedInput = z.output<typeof discoverMentorsInputSchema>
 export type DiscoverMentorsOutput = z.infer<typeof discoverMentorsOutputSchema>
+export type GetMentorRequestSelectionInput = z.infer<typeof getMentorRequestSelectionInputSchema>
+export type GetMentorRequestSelectionOutput = z.infer<typeof getMentorRequestSelectionOutputSchema>
 export type ReadOwnMentorProfileOutput = z.infer<typeof readOwnMentorProfileOutputSchema>
 export type SearchMentorModulesOutput = z.infer<typeof searchMentorModulesOutputSchema>
 export type UpdateOwnMentorProfileInput = z.infer<typeof updateOwnMentorProfileInputSchema>

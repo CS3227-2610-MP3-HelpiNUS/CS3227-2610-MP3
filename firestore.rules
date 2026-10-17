@@ -5,6 +5,7 @@ service cloud.firestore {
     function userExists() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
     function activeUser() {
       return userExists()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.id == request.auth.uid
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'ACTIVE'
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['STUDENT', 'MENTOR']
         && request.auth.token.email_verified == true
@@ -21,6 +22,7 @@ service cloud.firestore {
         && data.participantIds == [data.studentId, data.mentorId]
         && ((role() == 'STUDENT' && request.auth.uid == data.studentId) || (role() == 'MENTOR' && request.auth.uid == data.mentorId))
         && exists(/databases/$(database)/documents/helpRequests/$(id))
+        && get(/databases/$(database)/documents/helpRequests/$(id)).data.id == id
         && get(/databases/$(database)/documents/helpRequests/$(id)).data.status == 'ACCEPTED'
         && get(/databases/$(database)/documents/helpRequests/$(id)).data.studentId == data.studentId
         && get(/databases/$(database)/documents/helpRequests/$(id)).data.mentorId == data.mentorId

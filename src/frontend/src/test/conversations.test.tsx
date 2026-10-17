@@ -1,8 +1,8 @@
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { F01HelpRequest, F02SavedMessage } from '@helpinus/shared'
+import type { F01HelpRequest, F02SavedMessage, SendMessageInput } from '@helpinus/shared'
 import { ConversationDetailPage, ConversationListPage } from '../pages/ConversationPages'
 import { ServiceProvider } from '../services/ServiceProvider'
 import type { ChatCursor, HelpiNUSServices } from '../services/contracts'
@@ -59,6 +59,39 @@ describe('F02 conversation screens', () => {
     expect(field.style.height).toBe('168px')
     expect(field.style.overflowY).toBe('auto')
   })
+  it('applies the shared outer-trim and Unicode boundary before dispatch (F02-TC-024)', async () => {
+    const send = vi.fn(async (input: SendMessageInput) => ({ message: {
+      id: input.messageId, conversationId: input.requestId, senderId: student.id,
+      body: input.body, createdAt: saved.createdAt, readAt: null,
+    } }))
+    mount('/student/conversations/f02-request', servicesFor('student', {
+      conversations: {
+        ...mockServices.conversations,
+        subscribeDetail(_id, onData) { onData({ request: accepted }); return () => {} },
+        subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} },
+      },
+      callables: createMockCallableClient({ sendMessage: send }),
+    }))
+    expect(await screen.findByText('No messages yet. Start the conversation below.')).toBeInTheDocument()
+    const field = screen.getByRole('textbox', { name: 'Message' })
+    const button = screen.getByRole('button', { name: 'Send message' })
+    for (const invalid of ['', ' \t\n ', `  ${'a'.repeat(3999)}😀😀  `]) {
+      fireEvent.change(field, { target: { value: invalid } })
+      await userEvent.setup().click(button)
+      expect(screen.getByRole('alert')).toHaveTextContent('Enter 1 to 4,000 characters. Outer spaces are removed.')
+      expect(send).not.toHaveBeenCalled()
+    }
+    const boundary = `${'a'.repeat(3999)}😀`
+    fireEvent.change(field, { target: { value: `  ${boundary}  ` } })
+    await userEvent.setup().click(button)
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1))
+    expect(send.mock.calls[0]![0]).toMatchObject({ requestId: accepted.id, body: boundary })
+    const multiline = 'First  line\n\n  Second line'
+    fireEvent.change(field, { target: { value: `  ${multiline}  ` } })
+    await userEvent.setup().click(button)
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2))
+    expect(send.mock.calls[1]![0]).toMatchObject({ requestId: accepted.id, body: multiline })
+  })
   it('shows only validated rows and loads a bounded older owner page', async () => {
     const subscribe = vi.fn<HelpiNUSServices['conversations']['subscribeList']>((_uid, _role, page, onData) => {
       onData(page ? [{ kind: 'support_needed', requestId: 'broken', acceptedAt: '2026-10-15T09:00:00.000Z' }] : [{ kind: 'ready', request: accepted }], page ? null : cursor)
@@ -75,6 +108,60 @@ describe('F02 conversation screens', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Load more' }))
     expect(await screen.findByText('Conversation needs support')).toBeInTheDocument()
     expect(subscribe).toHaveBeenCalledWith(student.id, 'STUDENT', cursor, expect.any(Function), expect.any(Function))
+  })
+  it('shows only generic support and no chat entry for an accepted request lacking its pair in both roles (F02-TC-008)', async () => {
+    for (const role of ['student', 'mentor'] as const) {
+      const subscribeList = vi.fn<HelpiNUSServices['conversations']['subscribeList']>((_uid, _role, _cursor, onData) => {
+        onData([{ kind: 'support_needed', requestId: accepted.id, acceptedAt: accepted.updatedAt }], null)
+        return () => {}
+      })
+      const subscribeDetail = vi.fn<HelpiNUSServices['conversations']['subscribeDetail']>((_id, onData) => {
+        onData(null)
+        return () => {}
+      })
+      const services = servicesFor(role, { conversations: { ...mockServices.conversations, subscribeList, subscribeDetail } })
+      const list = mount(`/${role}/conversations`, services)
+      expect(await screen.findByText('Conversation needs support')).toBeInTheDocument()
+      expect(screen.getByText('This conversation needs support review. Contact HelpiNUS support.')).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'Open conversation' })).not.toBeInTheDocument()
+      expect(screen.queryByText(accepted.title)).not.toBeInTheDocument()
+      expect(subscribeList).toHaveBeenCalledWith(role === 'student' ? student.id : mentor.id, role === 'student' ? 'STUDENT' : 'MENTOR', null, expect.any(Function), expect.any(Function))
+      list.unmount()
+
+      const detail = mount(`/${role}/conversations/${accepted.id}`, services)
+      expect(await screen.findByRole('alert')).toHaveTextContent('This conversation needs support review.')
+      expect(screen.queryByRole('textbox', { name: 'Message' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Send message' })).not.toBeInTheDocument()
+      expect(subscribeDetail).toHaveBeenCalledWith(accepted.id, expect.any(Function), expect.any(Function))
+      detail.unmount()
+    }
+  })
+  it('keeps list error and partial states distinct, then clears private rows on denial (F02-TC-015, 036, 039)', async () => {
+    let emit: ((rows: Array<{ kind: 'ready'; request: F01HelpRequest }>, next: ChatCursor | null) => void) | null = null
+    let fail: ((error: unknown) => void) | null = null
+    const unsubscribe = vi.fn()
+    const subscribe = vi.fn<HelpiNUSServices['conversations']['subscribeList']>((_uid, _role, _page, onData, onError) => {
+      emit = onData as typeof emit; fail = onError; return unsubscribe
+    })
+    mount('/student/conversations', servicesFor('student', { conversations: { ...mockServices.conversations, subscribeList: subscribe } }))
+    expect(await screen.findByText('Loading conversations…')).toBeInTheDocument()
+    await waitFor(() => expect(subscribe).toHaveBeenCalledTimes(1))
+    act(() => fail?.({ code: 'unavailable' }))
+    expect(await screen.findByText(/Conversation access is unavailable/)).toBeInTheDocument()
+    expect(screen.queryByText('No accepted conversations yet.')).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(subscribe).toHaveBeenCalledTimes(2))
+    act(() => emit?.([{ kind: 'ready', request: accepted }], null))
+    expect(await screen.findByText('Sequence diagrams')).toBeInTheDocument()
+    act(() => fail?.({ code: 'unavailable' }))
+    expect(await screen.findByText(/may be out of date/)).toBeInTheDocument()
+    expect(screen.getByText('Sequence diagrams')).toBeInTheDocument()
+    act(() => fail?.({ code: 'permission-denied' }))
+    expect(await screen.findByText(/Conversation access is unavailable/)).toBeInTheDocument()
+    expect(screen.queryByText('Sequence diagrams')).not.toBeInTheDocument()
+    act(() => emit?.([{ kind: 'ready', request: accepted }], null))
+    expect(screen.queryByText('Sequence diagrams')).not.toBeInTheDocument()
+    expect(unsubscribe).toHaveBeenCalled()
   })
   it('keeps a back control in the Mentor chat header when detail access fails', async () => {
     mount('/mentor/conversations/f02-request', servicesFor('mentor', { conversations: {
@@ -94,6 +181,22 @@ describe('F02 conversation screens', () => {
     await act(async () => { await router.navigate('/student/conversations/other-request') })
     act(() => callbacks.get('f02-request')?.({ request: accepted }))
     expect(screen.queryByText('Line one')).not.toBeInTheDocument()
+  })
+  it('ignores a held detail callback after access denial (F02-TC-036, 039)', async () => {
+    let emit: ((value: { request: F01HelpRequest } | null) => void) | null = null
+    let fail: ((error: unknown) => void) | null = null
+    const unsubscribe = vi.fn()
+    mount('/student/conversations/f02-request', servicesFor('student', { conversations: {
+      ...mockServices.conversations,
+      subscribeDetail(_id, onData, onError) { emit = onData; fail = onError; onData({ request: accepted }); return unsubscribe },
+      subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} },
+    } }))
+    expect(await screen.findByText('No messages yet. Start the conversation below.')).toBeInTheDocument()
+    act(() => fail?.({ code: 'permission-denied' }))
+    expect(await screen.findByText(/Conversation access is unavailable/)).toBeInTheDocument()
+    act(() => emit?.({ request: accepted }))
+    expect(screen.queryByRole('textbox', { name: 'Message' })).not.toBeInTheDocument()
+    expect(unsubscribe).toHaveBeenCalled()
   })
   it('renders persisted text literally and acknowledges only a visible recipient message', async () => {
     const incoming = { ...saved, senderId: mentor.id, body: '<img src=x onerror=alert(1)>\nSecond line' }
@@ -155,12 +258,57 @@ describe('F02 conversation screens', () => {
     expect(await screen.findByText('Recover this')).toBeInTheDocument()
     await waitFor(() => expect(loadChatRetries(student.id, accepted.id)).toEqual([]))
   })
+  it('restores saved and unresolved intentions separately without duplicating either (F02-TC-022)', async () => {
+    const savedRecord: ChatRetry = { version: 1, uid: student.id, requestId: accepted.id, messageId: crypto.randomUUID(), normalizedBody: 'Already saved', localSequence: 1, state: 'uncertain' }
+    const unresolvedRecord: ChatRetry = { ...savedRecord, messageId: crypto.randomUUID(), normalizedBody: 'Still uncertain', localSequence: 2 }
+    saveChatRetry(savedRecord); saveChatRetry(unresolvedRecord)
+    const persisted = { ...saved, id: savedRecord.messageId, body: savedRecord.normalizedBody }
+    const getMessageFromServer = vi.fn(async (_requestId: string, messageId: string) => messageId === savedRecord.messageId ? persisted : null)
+    const send = vi.fn(async () => ({ message: { ...saved, id: unresolvedRecord.messageId, body: unresolvedRecord.normalizedBody } }))
+    mount('/student/conversations/f02-request', servicesFor('student', {
+      conversations: {
+        ...mockServices.conversations,
+        subscribeDetail(_id, onData) { onData({ request: accepted }); return () => {} },
+        subscribeMessages(_id, _cursor, onData) { onData([persisted], null); return () => {} },
+        getMessageFromServer,
+      },
+      callables: createMockCallableClient({ sendMessage: send }),
+    }))
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1))
+    expect(send).toHaveBeenCalledWith({ requestId: accepted.id, messageId: unresolvedRecord.messageId, body: unresolvedRecord.normalizedBody })
+    expect(getMessageFromServer).toHaveBeenCalledWith(accepted.id, savedRecord.messageId)
+    expect(screen.getAllByText('Already saved')).toHaveLength(1)
+    expect(screen.getAllByText('Still uncertain')).toHaveLength(1)
+    await waitFor(() => expect(loadChatRetries(student.id, accepted.id)).toEqual([]))
+  })
+  it('keeps a restored send uncertain when authoritative server proof is unavailable (F02-TC-032)', async () => {
+    const pending: ChatRetry = { version: 1, uid: student.id, requestId: accepted.id, messageId: crypto.randomUUID(), normalizedBody: 'Offline intention', localSequence: 1, state: 'uncertain' }
+    saveChatRetry(pending)
+    const serverRead = vi.fn(async () => { throw { code: 'unavailable' } })
+    const send = vi.fn(async () => ({ message: saved }))
+    mount('/student/conversations/f02-request', servicesFor('student', {
+      conversations: {
+        ...mockServices.conversations,
+        subscribeDetail(_id, onData) { onData({ request: accepted }); return () => {} },
+        subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} },
+        getMessageFromServer: serverRead,
+      },
+      callables: createMockCallableClient({ sendMessage: send }),
+    }))
+    expect(await screen.findByText('Offline intention')).toBeInTheDocument()
+    await waitFor(() => expect(serverRead).toHaveBeenCalledWith(accepted.id, pending.messageId))
+    expect(send).not.toHaveBeenCalled()
+    expect(screen.getByText('? Save uncertain')).toBeInTheDocument()
+    expect(loadChatRetries(student.id, accepted.id)).toEqual([{ ...pending, state: 'uncertain' }])
+  })
   it('clears private retry records when a message listener loses permission', async () => {
     const pending: ChatRetry = { version: 1, uid: student.id, requestId: accepted.id, messageId: crypto.randomUUID(), normalizedBody: 'Private pending', localSequence: 1, state: 'uncertain' }
     let failMessages: ((error: unknown) => void) | null = null
+    let emitDetail: ((value: { request: F01HelpRequest } | null) => void) | null = null
+    const unsubscribeDetail = vi.fn()
     mount('/student/conversations/f02-request', servicesFor('student', { conversations: {
       ...mockServices.conversations,
-      subscribeDetail(_id, onData) { onData({ request: accepted }); return () => {} },
+      subscribeDetail(_id, onData) { emitDetail = onData; onData({ request: accepted }); return unsubscribeDetail },
       subscribeMessages(_id, _cursor, onData, onError) { failMessages = onError; onData([], null); return () => {} },
     } }))
     await waitFor(() => expect(failMessages).not.toBeNull())
@@ -169,5 +317,88 @@ describe('F02 conversation screens', () => {
     expect(await screen.findByText(/Conversation access is unavailable/)).toBeInTheDocument()
     expect(loadChatRetries(student.id, accepted.id)).toEqual([])
     expect(screen.queryByText('Private pending')).not.toBeInTheDocument()
+    act(() => emitDetail?.({ request: accepted }))
+    expect(screen.queryByRole('textbox', { name: 'Message' })).not.toBeInTheDocument()
+    expect(unsubscribeDetail).toHaveBeenCalled()
+  })
+  it('does not repopulate private detail after a denied send (F02-TC-017, 039)', async () => {
+    let emitDetail: ((value: { request: F01HelpRequest } | null) => void) | null = null
+    const unsubscribeDetail = vi.fn()
+    const send = vi.fn(async () => { throw { code: 'permission-denied' } })
+    mount('/student/conversations/f02-request', servicesFor('student', {
+      conversations: {
+        ...mockServices.conversations,
+        subscribeDetail(_id, onData) { emitDetail = onData; onData({ request: accepted }); return unsubscribeDetail },
+        subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} },
+        getMessageFromServer: async () => null,
+      },
+      callables: createMockCallableClient({ sendMessage: send }),
+    }))
+    expect(await screen.findByText('No messages yet. Start the conversation below.')).toBeInTheDocument()
+    await userEvent.setup().type(screen.getByRole('textbox', { name: 'Message' }), 'Private draft')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Send message' }))
+    expect(await screen.findByText(/Conversation access is unavailable/)).toBeInTheDocument()
+    act(() => emitDetail?.({ request: accepted }))
+    expect(screen.queryByRole('textbox', { name: 'Message' })).not.toBeInTheDocument()
+    expect(unsubscribeDetail).toHaveBeenCalled()
+    expect(loadChatRetries(student.id, accepted.id)).toEqual([])
+  })
+  it('clears private chat and stops receipt retries when acknowledgement loses permission', async () => {
+    const incoming = { ...saved, id: crypto.randomUUID(), senderId: mentor.id, body: 'Private incoming' }
+    const pending: ChatRetry = { version: 1, uid: student.id, requestId: accepted.id, messageId: crypto.randomUUID(), normalizedBody: 'Private pending', localSequence: 1, state: 'uncertain' }
+    const callbacks: Array<(entries: IntersectionObserverEntry[]) => void> = []
+    class TestObserver {
+      constructor(callback: (entries: IntersectionObserverEntry[]) => void) { callbacks.push(callback) }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('IntersectionObserver', TestObserver)
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const acknowledge = vi.fn(async () => { throw { code: 'permission-denied' } })
+    const unsubscribeDetail = vi.fn()
+    const unsubscribeMessages = vi.fn()
+    try {
+      mount('/student/conversations/f02-request', servicesFor('student', {
+        conversations: {
+          ...mockServices.conversations,
+          subscribeDetail(_id, onData) { onData({ request: accepted }); return unsubscribeDetail },
+          subscribeMessages(_id, _cursor, onData) { onData([incoming], null); return unsubscribeMessages },
+        },
+        callables: createMockCallableClient({ acknowledgeMessage: acknowledge }),
+      }))
+      expect(await screen.findByText('Private incoming')).toBeInTheDocument()
+      saveChatRetry(pending)
+      const bubble = document.querySelector(`[data-message-id="${incoming.id}"]`)
+      await waitFor(() => expect(callbacks.length).toBeGreaterThan(0))
+      act(() => callbacks.at(-1)?.([{ isIntersecting: true, target: bubble } as IntersectionObserverEntry]))
+      expect(await screen.findByText(/Conversation access is unavailable/)).toBeInTheDocument()
+      expect(screen.queryByText('Private incoming')).not.toBeInTheDocument()
+      expect(screen.queryByRole('textbox', { name: 'Message' })).not.toBeInTheDocument()
+      expect(loadChatRetries(student.id, accepted.id)).toEqual([])
+      expect(unsubscribeDetail).toHaveBeenCalled()
+      await waitFor(() => expect(unsubscribeMessages).toHaveBeenCalled())
+      await new Promise((resolve) => window.setTimeout(resolve, 2100))
+      expect(acknowledge).toHaveBeenCalledTimes(1)
+    } finally { hasFocus.mockRestore(); vi.unstubAllGlobals() }
+  }, 10000)
+  it('keeps an unsaved intention local when recovery storage fails (F02-TC-035)', async () => {
+    const send = vi.fn(async () => ({ message: saved }))
+    mount('/student/conversations/f02-request', servicesFor('student', {
+      conversations: {
+        ...mockServices.conversations,
+        subscribeDetail(_id, onData) { onData({ request: accepted }); return () => {} },
+        subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} },
+      },
+      callables: createMockCallableClient({ sendMessage: send }),
+    }))
+    expect(await screen.findByText('No messages yet. Start the conversation below.')).toBeInTheDocument()
+    const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota exceeded') })
+    try {
+      await userEvent.setup().type(screen.getByRole('textbox', { name: 'Message' }), 'Keep this local')
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Send message' }))
+      expect(screen.getByRole('alert')).toHaveTextContent('This message cannot be saved for recovery')
+      expect(screen.getByRole('textbox', { name: 'Message' })).toHaveValue('Keep this local')
+      expect(send).not.toHaveBeenCalled()
+    } finally { storage.mockRestore() }
   })
 })

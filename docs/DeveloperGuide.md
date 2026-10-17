@@ -304,7 +304,7 @@ Student navigation:
   activity widgets still labelled preview data;
 - Find a mentor — Student Mentor discovery and module filtering;
 - Help requests — Student submission, history and detail;
-- Conversations — scaffold;
+- Conversations — accepted request-linked list and message detail;
 - Consultations — scaffold; and
 - Study assistant — scaffold.
 
@@ -388,6 +388,15 @@ content keys bind draft, detail, and decision state to the signed-in user and
 selected Mentor/request. The Student form keeps an uncertain create operation
 and frozen payload in per-account `sessionStorage` until confirmation. The
 session service clears these private drafts on sign-out or account change.
+
+Before showing the selected Mentor's name or enabling a new request, the form
+uses `getMentorRequestSelection` with the exact route Mentor ID. The callable
+requires a current active, verified Student and reads the Mentor account and
+profile with the Admin SDK. Its strict response contains only the current
+public display name and supported canonical module IDs, or a generic
+`unavailable` result. Route state and saved drafts cannot provide trusted
+display data. Refresh and direct links repeat the lookup; `createHelpRequest`
+still rechecks eligibility at commit time.
 
 The strict shared F01 contract uses `operationId` for UUID retries and
 `helpRequestId` for the server document. `createHelpRequest` checks the current

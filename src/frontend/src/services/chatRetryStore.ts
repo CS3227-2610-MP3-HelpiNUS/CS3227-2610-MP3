@@ -32,7 +32,15 @@ export function saveChatRetry(item: ChatRetry) {
   sessionStorage.setItem(ownerKey, item.uid)
   const serialized = JSON.stringify(item)
   sessionStorage.setItem(key, serialized)
-  if (sessionStorage.getItem(key) !== serialized) throw new Error('Message recovery could not be saved.')
+  try {
+    if (sessionStorage.getItem(key) !== serialized) throw new Error('Message recovery could not be saved.')
+  } catch (error) {
+    try {
+      if (existing === null) sessionStorage.removeItem(key)
+      else sessionStorage.setItem(key, existing)
+    } catch { /* The caller still blocks dispatch when storage cannot be verified. */ }
+    throw error
+  }
 }
 
 export function removeChatRetry(item: ChatRetry) {

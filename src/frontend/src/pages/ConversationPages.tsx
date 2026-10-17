@@ -10,6 +10,7 @@ import type { AppShellOutletContext } from '../components/AppShell'
 import './ConversationPages.css'
 
 const denied = (error: unknown) => ['permission-denied', 'unauthenticated'].some((code) => String((error as { code?: unknown })?.code ?? '').includes(code))
+const messageConflict = () => Object.assign(new Error('Message ID conflicts with saved content.'), { code: 'already-exists' })
 const support = 'This conversation needs support review. Contact HelpiNUS support.'
 
 export function ConversationListPage({ role }: { role: 'student' | 'mentor' }) {
@@ -52,10 +53,11 @@ export function ConversationListPage({ role }: { role: 'student' | 'mentor' }) {
       }, (error) => {
         if (!live) return
         setState(denied(error) ? 'error' : priorRows.current ? 'stale' : 'error')
-        if (denied(error)) { clearChatRetries(); setPages([]) }
+        if (denied(error)) { live = false; more.current = null; unsubscribes.forEach((unsubscribe) => unsubscribe()); clearChatRetries(); setPages([]) }
         setLoadingMore(false)
       })
       unsubscribes.push(unsubscribe)
+      if (!live) unsubscribe()
     }
     queueMicrotask(() => { if (live) { setPages([]); setState('loading'); setLoadingMore(false); subscribe(null); more.current = subscribe } })
     return () => { live = false; more.current = null; unsubscribes.forEach((unsubscribe) => unsubscribe()) }
@@ -101,17 +103,20 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
   const [detail, setDetail] = useState<ChatDetail | null>(null)
   const [detailState, setDetailState] = useState<'loading' | 'ready' | 'error' | 'support'>('loading')
   const [pages, setPages] = useState<Array<{ cursor: ChatCursor | null; messages: F02SavedMessage[]; next: ChatCursor | null }>>([])
+  const [retainedMessages, setRetainedMessages] = useState<F02SavedMessage[]>([])
   const [historyState, setHistoryState] = useState<'loading' | 'ready' | 'stale' | 'error'>('loading')
   const [pending, setPending] = useState<Pending[]>([])
   const [confirmed, setConfirmed] = useState<F02SavedMessage[]>([])
   const [body, setBody] = useState('')
   const [notice, setNotice] = useState('')
+  const [submissionBlocked, setSubmissionBlocked] = useState(false)
   const [generation, setGeneration] = useState(0)
   const [announcement, setAnnouncement] = useState('')
   const [loadingEarlier, setLoadingEarlier] = useState(false)
   const [foreground, setForeground] = useState(() => document.visibilityState === 'visible' && document.hasFocus())
   const [receiptRetry, setReceiptRetry] = useState(0)
   const epoch = useRef(0)
+  const detailUnsubscribe = useRef<(() => void) | null>(null)
   const sendSequence = useRef(0)
   const more = useRef<((cursor: ChatCursor) => void) | null>(null)
   const announced = useRef(new Set<string>())
@@ -144,13 +149,17 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
     restoredIds.current.clear()
     if (!uid || !requestId) return
     let unsubscribe = () => {}
+    let hasDetail = false
     queueMicrotask(() => { if (epoch.current === current) {
-      setDetail(null); setDetailState('loading'); setPages([]); setConfirmed([]); setHistoryState('loading'); setPending([]); setBody(''); setNotice('')
+      setDetail(null); setDetailState('loading'); setPages([]); setRetainedMessages([]); setConfirmed([]); setHistoryState('loading'); setPending([]); setBody(''); setNotice(''); setSubmissionBlocked(false)
       unsubscribe = services.conversations.subscribeDetail(requestId, (value) => {
       if (epoch.current !== current) return
       if (!value || value.request[role === 'student' ? 'studentId' : 'mentorId'] !== uid) {
-        clearChatRetries(); setDetail(null); setPending([]); setBody(''); setDetailState('support'); return
+        hasDetail = false
+        ++epoch.current; unsubscribe(); detailUnsubscribe.current = null
+        clearChatRetries(); setDetail(null); setPages([]); setRetainedMessages([]); setConfirmed([]); setPending([]); setBody(''); setDetailState('support'); return
       }
+      hasDetail = true
       setDetail(value); setDetailState('ready')
       try {
         const restored = loadChatRetries(uid, requestId)
@@ -162,11 +171,14 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
       } catch { setNotice('Saved message recovery is unavailable. Check browser storage before sending again.') }
     }, (error) => {
       if (epoch.current !== current) return
-      if (denied(error)) clearChatRetries()
-      setDetail(null); setPending([]); setBody(''); setDetailState('error')
+      if (denied(error)) { ++epoch.current; unsubscribe(); detailUnsubscribe.current = null; clearChatRetries() }
+      else if (hasDetail) { setHistoryState('stale'); return }
+      setDetail(null); setPages([]); setRetainedMessages([]); setConfirmed([]); setPending([]); setBody(''); setDetailState('error')
       })
+      if (epoch.current === current) detailUnsubscribe.current = unsubscribe
+      else unsubscribe()
     } })
-    return () => { if (epochRef.current === current) ++epochRef.current; unsubscribe() }
+    return () => { if (epochRef.current === current) ++epochRef.current; unsubscribe(); if (detailUnsubscribe.current === unsubscribe) detailUnsubscribe.current = null }
   }, [uid, requestId, role, services, generation])
 
   useEffect(() => {
@@ -175,6 +187,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
     let live = true
     const unsubscribes: Array<() => void> = []
     const anchored = new Set<string>()
+    const bridgeOutstanding = new Set<string>()
     let previousLive: F02SavedMessage[] | null = null
     const subscribe = (cursor: ChatCursor | null, bridgeTarget?: Set<string>) => {
       const key = JSON.stringify(cursor)
@@ -186,11 +199,21 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
           const currentIds = new Set(messages.map((message) => message.id))
           const evicted = previousLive?.filter((message) => !currentIds.has(message.id)) ?? []
           previousLive = messages
-          if (evicted.length > 0 && next) subscribe(next, new Set(evicted.map((message) => message.id)))
-        } else if (bridgeTarget && !messages.some((message) => bridgeTarget.has(message.id)) && next) {
-          // A live-window jump may evict more than one page. Keep adding bounded
-          // listeners until the newly loaded range overlaps previously seen history.
-          subscribe(next, bridgeTarget)
+          if (evicted.length > 0 && next) {
+            evicted.forEach((message) => bridgeOutstanding.add(message.id))
+            setRetainedMessages((prior) => [...new Map([...prior, ...evicted].map((message) => [message.id, message])).values()])
+            setHistoryState('stale')
+            subscribe(next, new Set(evicted.map((message) => message.id)))
+          }
+        } else if (bridgeTarget) {
+          const found = messages.filter((message) => bridgeTarget.has(message.id))
+          found.forEach((message) => { bridgeTarget.delete(message.id); bridgeOutstanding.delete(message.id) })
+          if (found.length > 0) setRetainedMessages((prior) => prior.filter((message) => !found.some((item) => item.id === message.id)))
+          if (bridgeTarget.size > 0 && next) {
+            // A live-window jump may evict more than one page. Keep adding bounded
+            // listeners until every displaced saved row overlaps loaded history.
+            subscribe(next, bridgeTarget)
+          }
         }
         setPages((prior) => {
           const found = prior.findIndex((page) => JSON.stringify(page.cursor) === JSON.stringify(cursor))
@@ -199,7 +222,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
           else updated.push({ cursor, messages, next })
           return updated
         })
-        setHistoryState('ready')
+        setHistoryState(bridgeOutstanding.size > 0 ? 'stale' : 'ready')
         if (cursor !== null) setLoadingEarlier(false)
         setPending((prior) => prior.filter((item) => {
           const saved = messages.find((message) => message.id === item.messageId && message.senderId === uid && message.body === item.normalizedBody)
@@ -213,7 +236,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
         messages.forEach((message) => announced.current.add(message.id))
       }, (error) => {
         if (!live || epoch.current !== current) return
-        if (denied(error)) { clearChatRetries(); live = false; unsubscribes.forEach((unsubscribe) => unsubscribe()); setDetail(null); setPages([]); setConfirmed([]); setPending([]); setBody(''); setDetailState('error'); setHistoryState('error') }
+        if (denied(error)) { ++epoch.current; detailUnsubscribe.current?.(); detailUnsubscribe.current = null; clearChatRetries(); live = false; unsubscribes.forEach((unsubscribe) => unsubscribe()); setDetail(null); setPages([]); setRetainedMessages([]); setConfirmed([]); setPending([]); setBody(''); setDetailState('error'); setHistoryState('error') }
         else setHistoryState('stale')
         setLoadingEarlier(false)
       })
@@ -225,6 +248,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
   }, [detail, requestId, services, uid, role])
 
   const saved = new Map<string, F02SavedMessage>()
+  for (const message of retainedMessages) saved.set(message.id, message)
   for (const page of pages) for (const message of page.messages) saved.set(message.id, message)
   for (const message of confirmed) if (!saved.has(message.id)) saved.set(message.id, message)
   const messages = [...saved.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
@@ -252,7 +276,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
       const existing = await services.conversations.getMessageFromServer(requestId, item.messageId)
       if (epoch.current !== current) return
       if (existing) {
-        if (existing.senderId !== uid || existing.body !== item.normalizedBody) throw new Error('Message ID conflicts with saved content.')
+        if (existing.senderId !== uid || existing.body !== item.normalizedBody) throw messageConflict()
         setConfirmed((prior) => [...prior.filter((message) => message.id !== existing.id), existing])
         removeChatRetry(item)
         setPending((prior) => prior.filter((entry) => entry.messageId !== item.messageId))
@@ -260,13 +284,13 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
       }
       const result = await services.callables.invoke('sendMessage', { requestId, messageId: item.messageId, body: item.normalizedBody })
       if (epoch.current !== current) return
-      if (result.message.senderId !== uid || result.message.body !== item.normalizedBody) throw new Error('Saved message did not match this send.')
+      if (result.message.senderId !== uid || result.message.body !== item.normalizedBody) throw messageConflict()
       setConfirmed((prior) => [...prior.filter((message) => message.id !== result.message.id), result.message])
       removeChatRetry(item)
       setPending((prior) => prior.filter((entry) => entry.messageId !== item.messageId))
     } catch (error) {
       if (epoch.current !== current) return
-      if (denied(error)) { clearChatRetries(); setDetail(null); setPages([]); setConfirmed([]); setPending([]); setBody(''); setDetailState('error'); return }
+      if (denied(error)) { ++epoch.current; detailUnsubscribe.current?.(); detailUnsubscribe.current = null; clearChatRetries(); setDetail(null); setPages([]); setConfirmed([]); setPending([]); setBody(''); setDetailState('error'); return }
       const definitive = ['invalid-argument', 'already-exists', 'failed-precondition'].some((code) => String((error as { code?: unknown })?.code ?? '').includes(code))
       const state = definitive ? 'failed' : 'uncertain'
       const updated = { ...item, state } as Pending
@@ -278,11 +302,12 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
 
   function submit(event: FormEvent) {
     event.preventDefault()
+    if (submissionBlocked) return
     const parsed = messageBodySchema.safeParse(body)
     if (!parsed.success) { setNotice('Enter 1 to 4,000 characters. Outer spaces are removed.'); return }
     if (!uid || !detail) return
     const item: ChatRetry = { version: 1, uid, requestId, messageId: crypto.randomUUID(), normalizedBody: parsed.data, localSequence: ++sendSequence.current, state: 'sending' }
-    try { saveChatRetry(item) } catch { setNotice('This message cannot be saved for recovery. Free browser session storage before sending.'); return }
+    try { saveChatRetry(item) } catch { setSubmissionBlocked(true); setNotice('This message cannot be saved for recovery. Free browser session storage and reload before sending.'); return }
     setPending((prior) => [...prior, item]); setBody(''); setNotice('')
     void retry(item)
   }
@@ -299,7 +324,15 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
         if (!message || message.senderId === uid || message.readAt || acknowledgeAttempted.current.has(message.id)) continue
         acknowledgeAttempted.current.add(message.id)
         const current = epoch.current
-        void services.callables.invoke('acknowledgeMessage', { requestId, messageId: message.id }).catch(() => {
+        void services.callables.invoke('acknowledgeMessage', { requestId, messageId: message.id }).catch((error) => {
+          if (epoch.current !== current) return
+          if (denied(error)) {
+            ++epoch.current
+            detailUnsubscribe.current?.()
+            detailUnsubscribe.current = null
+            clearChatRetries(); setDetail(null); setPages([]); setConfirmed([]); setPending([]); setBody(''); setNotice(''); setDetailState('error'); setHistoryState('error')
+            return
+          }
           acknowledgeAttempted.current.delete(message.id)
           window.setTimeout(() => { if (epoch.current === current) setReceiptRetry((value) => value + 1) }, 2000)
         })
@@ -328,7 +361,7 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
         </div>)}{unresolved.map((item) => <div className="chat-bubble mine" role="group" aria-label="Your pending message" key={item.messageId}><p className="chat-body">{item.normalizedBody}</p><span className="chat-status">{item.state === 'sending' ? '✓ Sending' : item.state === 'uncertain' ? '? Save uncertain' : 'Failed'}</span>{item.state !== 'sending' && <button className="button button-secondary" onClick={() => void retry(item)}>Retry</button>}{item.note && <small>{item.note}</small>}</div>)}</div>
       <p className="visually-hidden" aria-live="polite">{announcement}</p>
       {notice && <p className="chat-state" role="alert">{notice}</p>}
-      <form className="chat-compose" onSubmit={submit}><textarea id="chat-message" aria-label="Message" ref={composerRef} value={body} onChange={(event) => setBody(event.target.value)} rows={1} placeholder="Write a message…" /><button className="chat-send" type="submit" aria-label="Send message" title="Send message"><Icon name="send" /></button></form>
+      <form className="chat-compose" onSubmit={submit}><textarea id="chat-message" aria-label="Message" ref={composerRef} value={body} onChange={(event) => setBody(event.target.value)} rows={1} placeholder="Write a message…" /><button className="chat-send" type="submit" aria-label="Send message" title="Send message" disabled={submissionBlocked}><Icon name="send" /></button></form>
     </>}
   </div></section>
 }

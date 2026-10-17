@@ -56,7 +56,7 @@ export interface HelpiNUSServices {
     getById(id: string): Promise<Module | null>
   }
   helpRequests: {
-    getSelection(mentorId: string): Promise<{ moduleIds: string[] } | null>
+    getSelection(mentorId: string): Promise<{ userId: string; displayName: string; moduleIds: string[] } | null>
     subscribeStudentPage(uid: string, cursor: { createdAt: string; id: string } | null, onData: (items: F01HelpRequest[]) => void, onError: (error: unknown) => void): () => void
     subscribeMentorPendingPage(uid: string, cursor: { createdAt: string; id: string } | null, onData: (items: F01HelpRequest[]) => void, onError: (error: unknown) => void): () => void
     subscribeMentorDecidedPage(uid: string, cursor: { createdAt: string; id: string } | null, onData: (items: F01HelpRequest[]) => void, onError: (error: unknown) => void): () => void

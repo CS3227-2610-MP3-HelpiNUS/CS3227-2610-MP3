@@ -151,7 +151,7 @@ export const mockServices: HelpiNUSServices = {
   dashboard: { getStudentDashboard: async () => mockDashboard },
   modules: createMockModuleLookup(discoveryModules),
   helpRequests: {
-    async getSelection(mentorId) { const found = Object.values(discoveryPages).flatMap((page) => page.mentors).find((item) => item.userId === mentorId); return found ? { moduleIds: found.moduleIds } : null },
+    async getSelection(mentorId) { const found = Object.values(discoveryPages).flatMap((page) => page.mentors).find((item) => item.userId === mentorId); return found ? { userId: found.userId, displayName: found.displayName, moduleIds: found.moduleIds } : null },
     subscribeStudentPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.studentId === uid).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20), onData) },
     subscribeMentorPendingPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.mentorId === uid && item.status === 'PENDING').sort((a, b) => a.createdAt.localeCompare(b.createdAt)).slice(0, 20), onData) },
     subscribeMentorDecidedPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.mentorId === uid && item.status !== 'PENDING').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20), onData) },

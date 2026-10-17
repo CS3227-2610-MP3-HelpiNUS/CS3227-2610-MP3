@@ -9,7 +9,7 @@ import './HelpRequestPages.css'
 type Cursor = { createdAt: string; id: string }
 type PageState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; items: F01HelpRequest[] }
 type FrozenAttempt = { operationId: string; mentorId: string; moduleId: string; title: string; description: string }
-type StoredDraft = { moduleId: string; title: string; description: string; mentorName?: string; uncertain: FrozenAttempt | null }
+type StoredDraft = { moduleId: string; title: string; description: string; uncertain: FrozenAttempt | null }
 const denied = (error: unknown) => /(?:permission-denied|unauthenticated|failed-precondition)/u.test(String((error as { code?: unknown })?.code ?? ''))
 const draftKey = (uid: string | undefined, mentorId: string | undefined, moduleId: string | null) => `f01-draft:${encodeURIComponent(uid ?? '')}:${encodeURIComponent(mentorId ?? '')}:${encodeURIComponent(moduleId ?? '')}`
 function readDraft(key: string): StoredDraft | null {
@@ -60,13 +60,12 @@ export function RequestHelpPage() {
 function RequestHelpContent() {
   const { mentorId } = useParams()
   const [search] = useSearchParams()
-  const location = useLocation()
   const navigate = useNavigate()
   const { services, session } = useServices()
   const uid = session?.user?.id
   const storageKey = draftKey(uid, mentorId, search.get('moduleId'))
   const [initialDraft] = useState(() => readDraft(storageKey))
-  const selectedName = (location.state as { mentorName?: string } | null)?.mentorName ?? initialDraft?.mentorName
+  const [selectedName, setSelectedName] = useState<string | null>(null)
   const [modules, setModules] = useState<Module[]>([])
   const [selection, setSelection] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading')
   const [selectionRetry, setSelectionRetry] = useState(0)
@@ -90,24 +89,26 @@ function RequestHelpContent() {
   }, [uid])
   useEffect(() => {
     if (!uid || completed.current) return
-    try { sessionStorage.setItem(storageKey, JSON.stringify({ moduleId, title, description, mentorName: selectedName, uncertain })) }
+    try { sessionStorage.setItem(storageKey, JSON.stringify({ moduleId, title, description, uncertain })) }
     catch { /* The request remains usable without storage. */ }
-  }, [uid, storageKey, moduleId, title, description, selectedName, uncertain])
+  }, [uid, storageKey, moduleId, title, description, uncertain])
   useEffect(() => {
     if (!mentorId || !uid) return
     let active = true
     const currentAttempt = attempt
-    queueMicrotask(() => { if (active) setSelection('loading') })
+    queueMicrotask(() => { if (active) { setSelection('loading'); setSelectedName(null) } })
     void services.helpRequests.getSelection(mentorId).then(async (result) => {
       if (!result) { if (active) setSelection('empty'); return }
       const values = await Promise.all(result.moduleIds.map((id) => services.modules.getById(id)))
-      if (active) { setModules(values.filter((value): value is Module => value !== null && value.active)); setSelection('ready') }
-    }).catch(() => { if (active) setSelection('error') })
+      if (active && result.userId === mentorId && !!result.displayName.trim()) { setSelectedName(result.displayName); setModules(values.filter((value): value is Module => value !== null && value.active)); setSelection('ready') }
+      else if (active) setSelection('empty')
+    }).catch(() => { if (active) { setSelectedName(null); setSelection('error') } })
     return () => { active = false; ++currentAttempt.current }
   }, [mentorId, uid, services, selectionRetry])
 
   async function submit(event?: React.FormEvent<HTMLFormElement>) {
     event?.preventDefault()
+    if (!uncertain && (selection !== 'ready' || !selectedName)) { setMessage('Confirm this Mentor’s current details before sending a request.'); return }
     if (!uncertain) {
       const errors = {
         module: modules.some((item) => item.id === moduleId) ? undefined : 'Choose a supported module.',
@@ -122,7 +123,7 @@ function RequestHelpContent() {
     const token = ++attempt.current
     // Save the operation before the network call: a refresh while it is in flight
     // must retry this exact payload, even if the first response never arrives.
-    try { sessionStorage.setItem(storageKey, JSON.stringify({ moduleId, title, description, mentorName: selectedName, uncertain: input })) }
+    try { sessionStorage.setItem(storageKey, JSON.stringify({ moduleId, title, description, uncertain: input })) }
     catch { /* Storage is optional; the mounted attempt remains frozen. */ }
     setUncertain(input)
     setSubmitting(true); setMessage(''); setDuplicateId('')
@@ -153,13 +154,14 @@ function RequestHelpContent() {
     {recoveryOnly && <div className="help-card"><p>Checking an earlier attempt. Its original Mentor, module and question will be used even if this selection has changed.</p><button className="button button-primary" disabled={submitting} onClick={() => void submit()}>{submitting ? 'Checking request…' : 'Check this attempt again'}</button></div>}
     {message && (selection !== 'ready' || recoveryOnly) && <div role="alert" className="help-notice"><p>{message}</p>{duplicateId && <Link to={`/student/requests/${duplicateId}`}>View existing request</Link>}</div>}
     {selection === 'ready' && !recoveryOnly && <form className="help-card help-form" noValidate onSubmit={(event) => void submit(event)}>
+      {!selectedName && !uncertain && <p>Confirm this Mentor’s current details before sending a request.</p>}
       <div className="help-field"><label htmlFor="help-module">Module</label><select id="help-module" value={moduleId} onChange={(event) => { setModuleId(event.target.value); setFieldErrors((errors) => ({ ...errors, module: undefined })) }} disabled={submitting || !!uncertain} aria-invalid={!!fieldErrors.module} aria-describedby={fieldErrors.module ? 'help-module-error' : undefined} required><option value="">Choose a module</option>{modules.map((module) => <option key={module.id} value={module.id}>{module.code} — {module.title}</option>)}</select>{fieldErrors.module && <span id="help-module-error" className="help-field-error">{fieldErrors.module}</span>}</div>
       {modules.length === 0 && <p>No active supported modules are available. Choose another Mentor.</p>}
       <div className="help-field"><label htmlFor="help-title">Question title</label><input id="help-title" value={title} onChange={(event) => { setTitle(event.target.value); setFieldErrors((errors) => ({ ...errors, title: undefined })) }} maxLength={120} disabled={submitting || !!uncertain} aria-invalid={!!fieldErrors.title} aria-describedby={fieldErrors.title ? 'help-title-error' : undefined} required />{fieldErrors.title && <span id="help-title-error" className="help-field-error">{fieldErrors.title}</span>}</div>
       <div className="help-field"><label htmlFor="help-description">Detailed question</label><textarea id="help-description" value={description} onChange={(event) => { setDescription(event.target.value); setFieldErrors((errors) => ({ ...errors, description: undefined })) }} maxLength={2000} rows={7} disabled={submitting || !!uncertain} aria-invalid={!!fieldErrors.description} aria-describedby={fieldErrors.description ? 'help-description-error' : undefined} required />{fieldErrors.description && <span id="help-description-error" className="help-field-error">{fieldErrors.description}</span>}</div>
       <p className="help-hint">Title: up to 120 characters. Description: up to 2,000 characters.</p>
       {message && <div role="alert" className="help-notice"><p>{message}</p>{duplicateId && <Link to={`/student/requests/${duplicateId}`}>View existing request</Link>}</div>}
-      <button className="button button-primary" disabled={submitting || modules.length === 0}>{submitting ? 'Checking request…' : uncertain ? 'Check this attempt again' : 'Send request'}</button>
+      <button className="button button-primary" disabled={submitting || modules.length === 0 || (!uncertain && !selectedName)}>{submitting ? 'Checking request…' : uncertain ? 'Check this attempt again' : 'Send request'}</button>
     </form>}
   </section>
 }

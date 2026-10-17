@@ -7,6 +7,7 @@ import { callableSchemas } from '@helpinus/shared'
 import type { ZodType } from 'zod'
 import { initializeStudentProfileHandler } from './profile.js'
 import { discoverMentorsHandler } from './mentorDiscovery.js'
+import { getMentorRequestSelectionHandler } from './mentorRequestSelection.js'
 import { readOwnMentorProfileHandler, updateOwnMentorProfileHandler } from './mentorProfileManagement.js'
 import { searchMentorModulesHandler } from './mentorModuleSearch.js'
 import { createHelpRequestHandler, respondToHelpRequestHandler } from './helpRequests.js'
@@ -29,6 +30,10 @@ export const initializeStudentProfile = callable(
 export const discoverMentors = callable(
   callableSchemas.discoverMentors.input,
   (input, request) => discoverMentorsHandler(input, request, db),
+)
+export const getMentorRequestSelection = callable(
+  callableSchemas.getMentorRequestSelection.input,
+  (input, request) => getMentorRequestSelectionHandler(input, request, db),
 )
 export const readOwnMentorProfile = callable(callableSchemas.readOwnMentorProfile.input, (input, request) => readOwnMentorProfileHandler(input, request, db))
 export const searchMentorModules = callable(callableSchemas.searchMentorModules.input, (input, request) => searchMentorModulesHandler(input, request, db))

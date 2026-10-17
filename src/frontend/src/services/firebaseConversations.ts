@@ -104,13 +104,19 @@ export const firebaseConversations: HelpiNUSServices['conversations'] = {
       : query(collection(client(), 'conversations', requestId, 'messages'), ...clauses, limit(20))
     let active = true
     let revision = 0
-    const unsubscribe = onSnapshot(page, (snapshot) => {
+    const unsubscribe = onSnapshot(page, { includeMetadataChanges: true }, (snapshot) => {
       const current = ++revision
       try {
+        if (snapshot.metadata.hasPendingWrites) { onError({ code: 'unavailable' }); return }
         const messages = snapshot.docs.map((item) => parseMessage(item, requestId))
         const next = snapshot.docs.length === 20 ? cursorFor(snapshot.docs[19]!, 'createdAt') : null
         const probe = next ? getDocs(query(collection(client(), 'conversations', requestId, 'messages'), ...clauses, startAfter(timestampFor(next), next.id), limit(1))).then((page) => page.empty ? null : next) : Promise.resolve(null)
-        void probe.then((cursor) => { if (active && current === revision) onData(messages, cursor) }).catch((error: unknown) => { if (active && current === revision) onError(error) })
+        void probe.then((cursor) => {
+          if (active && current === revision) {
+            onData(messages, cursor)
+            if (snapshot.metadata.fromCache) onError({ code: 'unavailable' })
+          }
+        }).catch((error: unknown) => { if (active && current === revision) onError(error) })
       } catch (error) { if (active && current === revision) onError(error) }
     }, onError)
     return () => { active = false; revision++; unsubscribe() }

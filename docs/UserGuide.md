@@ -74,7 +74,7 @@ the header.
 | Dashboard | Shows persisted help-request counts and recent requests; other widgets use labelled sample data |
 | Find a mentor | Browse available Mentors, search and filter loaded results, and inspect public details |
 | Help requests | Submit, review, and track your own requests |
-| Conversations | Route and interface scaffold |
+| Conversations | Open accepted request conversations, read saved history, send messages and see sender-side read status |
 | Consultations | Route and interface scaffold |
 | Study assistant | Route and interface scaffold; no live LLM call |
 
@@ -127,7 +127,10 @@ search or filter finds nothing, clear the controls or load more when offered.
 1. From a Mentor's **Ask for help** dialog, choose **Request help**. Select one
    active module that Mentor supports, enter a question title (up to 120
    characters) and a detailed question (up to 2,000 characters), then choose
-   **Send request**. The form preserves line breaks and trims outer spaces.
+   **Send request**. The form checks the selected Mentor's current public name
+   and supported modules before enabling a new request. A direct link or page
+   refresh performs the same check; if the selection is unavailable, return to
+   Mentor discovery. The form preserves line breaks and trims outer spaces.
 2. Wait for the saved confirmation and request detail. A network interruption
    may leave the result uncertain. Keep the draft and choose **Check this
    attempt again**; the app reuses the same operation ID and content. It also
