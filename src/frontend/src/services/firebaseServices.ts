@@ -66,6 +66,9 @@ async function initializeProfile(displayName?: string): Promise<Session> {
   const identity = client.auth.currentUser
   if (!identity) throw new Error('Sign in again to finish setting up your Student profile.')
   await identity.reload()
+  if (!identity.email) {
+    throw Object.assign(new Error('The Google identity did not provide an email address.'), { code: 'auth/missing-email' })
+  }
   await identity.getIdToken(true)
   const suppliedName = displayName?.trim()
   const profileName = suppliedName || identity.displayName?.trim()

@@ -61,6 +61,7 @@ describe('authentication and role routing', () => {
     ['auth/popup-blocked', 'Your browser blocked the Google sign-in window. Allow popups for HelpiNUS and try again.'],
     ['auth/unauthorized-domain', 'Google sign-in is not configured for this website. Contact HelpiNUS support.'],
     ['auth/network-request-failed', 'We could not reach Google sign-in. Check your connection and try again.'],
+    ['auth/missing-email', 'This Google account did not provide an email address. Try another account.'],
   ])('maps %s without exposing raw Firebase text', async (code, expected) => {
     const user = userEvent.setup()
     const raw = Object.assign(new Error(`Firebase: Error (${code}). token-secret`), { code })

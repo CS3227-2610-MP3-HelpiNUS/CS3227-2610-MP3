@@ -140,6 +140,16 @@ describe('Firebase session recovery', () => {
     expect(mocks.httpsCallable).not.toHaveBeenCalled()
   })
 
+  it('rejects a Google identity that supplies no email address', async () => {
+    mocks.identity.email = null as unknown as string
+    mocks.getDoc.mockResolvedValue({ exists: () => false })
+
+    await expect(firebaseServices.session.registerStudentWithGoogle()).rejects.toMatchObject({
+      code: 'auth/missing-email',
+    })
+    expect(mocks.httpsCallable).not.toHaveBeenCalled()
+  })
+
   it('retries a failed display-name update with a user-supplied recovery name', async () => {
     mocks.updateProfile.mockRejectedValueOnce(new Error('profile update failed'))
     await expect(firebaseServices.session.retryStudentProfile('Jamie Tan')).rejects.toThrow('profile update failed')

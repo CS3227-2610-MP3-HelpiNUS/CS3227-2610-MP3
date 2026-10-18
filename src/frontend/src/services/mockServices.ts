@@ -143,7 +143,7 @@ export const mockServices: HelpiNUSServices = {
     getCurrent: async () => ({ user: signedInUser }),
     subscribe: (listener) => { listener({ user: signedInUser }); return () => {} },
     signInWithGoogle: async () => { throw Object.assign(new Error('Mock preview does not authenticate. Start npm run dev:emulators to sign in with Google.'), { code: 'mock/preview-only' }) },
-    registerStudentWithGoogle: async () => { signedInUser = student; return { user: student } },
+    registerStudentWithGoogle: async () => { throw Object.assign(new Error('Mock preview does not authenticate. Start npm run dev:emulators to register with Google.'), { code: 'mock/preview-only' }) },
     retryStudentProfile: async () => ({ user: signedInUser }),
     signOut: async () => { signedInUser = null },
   },

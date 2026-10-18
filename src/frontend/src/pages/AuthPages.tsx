@@ -17,6 +17,7 @@ function message(error: unknown) {
     'auth/operation-not-allowed': 'Google sign-in is temporarily unavailable. Contact HelpiNUS support.',
     'auth/configuration-not-found': 'Google sign-in is temporarily unavailable. Contact HelpiNUS support.',
     'auth/user-disabled': 'This Google account cannot access HelpiNUS. Contact HelpiNUS support.',
+    'auth/missing-email': 'This Google account did not provide an email address. Try another account.',
     'functions/failed-precondition': 'Your Google account details could not be verified. Try another account or contact support.',
     'functions/permission-denied': 'Your account could not be verified. Contact HelpiNUS support.',
     'functions/unavailable': 'The account service is temporarily unavailable. Try again shortly.',
