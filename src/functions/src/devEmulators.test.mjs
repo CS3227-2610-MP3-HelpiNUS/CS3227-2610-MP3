@@ -16,6 +16,7 @@ it('starts the frontend against the seeded Firebase emulators', async () => {
     await import('../../../scripts/dev-emulators.mjs')
     const vite = calls.find(({ args }) => args.some((arg) => arg.endsWith('vite.js')))
     expect(vite).toBeDefined()
+    expect(vite.args).toEqual(expect.arrayContaining(['--host', '127.0.0.1', '--port', '5173', '--strictPort']))
     expect(vite.options.env).toMatchObject({
       VITE_FIREBASE_ENV: 'development',
       VITE_USE_FIREBASE_EMULATORS: 'true',

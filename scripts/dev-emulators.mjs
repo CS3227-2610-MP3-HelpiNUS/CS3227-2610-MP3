@@ -1,17 +1,24 @@
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const nodeDirectory = dirname(process.execPath)
-const npmCli = join(nodeDirectory, 'node_modules', 'npm', 'bin', 'npm-cli.js')
+const npmCli = process.env.npm_execpath ?? join(nodeDirectory, 'node_modules', 'npm', 'bin', 'npm-cli.js')
 const firebaseCli = join(root, 'node_modules', 'firebase-tools', 'lib', 'bin', 'firebase.js')
 const viteCli = join(root, 'node_modules', 'vite', 'bin', 'vite.js')
 const seedScript = join(root, 'src', 'functions', 'scripts', 'seed-emulator.ts')
 const frontend = join(root, 'src', 'frontend')
-const emulatorData = join(root, '.emulator-data')
+const frontendPort = process.env.HELPINUS_FRONTEND_PORT ?? '5173'
+const emulatorData = process.env.HELPINUS_EMULATOR_DATA_DIR
+  ? resolve(root, process.env.HELPINUS_EMULATOR_DATA_DIR)
+  : join(root, '.emulator-data')
 const env = { ...process.env, PATH: `${nodeDirectory}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}` }
+
+if (!/^\d+$/.test(frontendPort) || Number(frontendPort) < 1024 || Number(frontendPort) > 65535) {
+  throw new Error(`HELPINUS_FRONTEND_PORT must be an integer from 1024 to 65535; received ${frontendPort}.`)
+}
 
 function start(args, options = {}) {
   return spawn(process.execPath, args, { cwd: root, stdio: 'inherit', env, ...options })
@@ -62,7 +69,7 @@ if (process.argv.includes('--inside-emulators')) {
   const seedResult = await completed(seed)
   if (seedResult !== 0) process.exit(seedResult)
 
-  const vite = start([viteCli, '--host', '127.0.0.1'], {
+  const vite = start([viteCli, '--host', '127.0.0.1', '--port', frontendPort, '--strictPort'], {
     cwd: frontend,
     env: {
       ...env,
