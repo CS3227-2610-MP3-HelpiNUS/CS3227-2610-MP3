@@ -1,0 +1,7 @@
+interface:
+  display_name: "Verify App"
+  short_description: "Verify HelpiNUS behavior in a real local browser."
+  default_prompt: "Use $verify-app to run focused checks, exercise the affected HelpiNUS journey locally, and report evidence and limitations."
+
+policy:
+  allow_implicit_invocation: true
