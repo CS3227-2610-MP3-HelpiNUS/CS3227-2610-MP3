@@ -43,6 +43,8 @@ export interface HelpiNUSServices {
   session: {
     getCurrent(): Promise<Session>
     subscribe(listener: (session: Session) => void, onError: () => void): () => void
+    signInWithGoogle(): Promise<Session>
+    registerStudentWithGoogle(): Promise<Session>
     registerStudent(input: { displayName: string; email: string; password: string }): Promise<Session>
     retryStudentProfile(displayName?: string): Promise<Session>
     resendVerificationEmail(): Promise<void>

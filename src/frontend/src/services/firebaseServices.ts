@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword, onAuthStateChanged, sendEmailVerification, signInWithEmailAndPassword, signOut, updateProfile, type User as AuthUser } from 'firebase/auth'
+import { createUserWithEmailAndPassword, GoogleAuthProvider, onAuthStateChanged, sendEmailVerification, signInWithEmailAndPassword, signInWithPopup, signOut, updateProfile, type User as AuthUser } from 'firebase/auth'
 import { Timestamp, collection, doc, documentId, getDoc, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { callableSchemas, f01HelpRequestSchema, helpRequestSummarySchema, initializeStudentProfileOutputSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
@@ -69,7 +69,7 @@ async function initializeProfile(displayName?: string): Promise<Session> {
   await identity.getIdToken(true)
   const suppliedName = displayName?.trim()
   const profileName = suppliedName || identity.displayName?.trim()
-  if (!profileName) throw new Error('Your account name is missing. Contact HelpiNUS support to finish setup.')
+  if (!profileName) return { user: null, issue: 'PROFILE_MISSING' }
   if (suppliedName && identity.displayName !== suppliedName) {
     await updateProfile(identity, { displayName: suppliedName })
   }
@@ -77,6 +77,24 @@ async function initializeProfile(displayName?: string): Promise<Session> {
   const result = await invoke({ displayName: profileName })
   initializeStudentProfileOutputSchema.parse(result.data)
   return currentSession()
+}
+
+let googleAuthenticationPending = false
+
+async function authenticateWithGoogle(createStudentProfile: boolean): Promise<Session> {
+  if (googleAuthenticationPending) {
+    throw Object.assign(new Error('A Google sign-in request is already in progress.'), { code: 'auth/cancelled-popup-request' })
+  }
+  googleAuthenticationPending = true
+  try {
+    const client = configured()
+    await signInWithPopup(client.auth, new GoogleAuthProvider())
+    const session = await currentSession()
+    if (createStudentProfile && session.issue === 'PROFILE_MISSING') return initializeProfile()
+    return session
+  } finally {
+    googleAuthenticationPending = false
+  }
 }
 
 async function invokeCallable<Name extends CallableName>(
@@ -105,6 +123,8 @@ export const firebaseServices: HelpiNUSServices = {
         })
       }, onError)
     },
+    async signInWithGoogle() { return authenticateWithGoogle(false) },
+    async registerStudentWithGoogle() { return authenticateWithGoogle(true) },
     async registerStudent({ displayName, email, password }) {
       const client = configured()
       const normalizedName = displayName.trim()

@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => {
     getDoc: vi.fn(),
     httpsCallable: vi.fn(),
     onAuthStateChanged: vi.fn(),
+    signInWithPopup: vi.fn(),
     sendEmailVerification: vi.fn(),
     signInWithEmailAndPassword: vi.fn(),
     signOut: vi.fn(),
@@ -51,9 +52,11 @@ vi.mock('../services/firebaseConfig', () => ({
   isEmulatorConnectionAllowed: () => true,
 }))
 vi.mock('firebase/auth', () => ({
+  GoogleAuthProvider: class GoogleAuthProvider {},
   createUserWithEmailAndPassword: mocks.createUserWithEmailAndPassword,
   onAuthStateChanged: mocks.onAuthStateChanged,
   sendEmailVerification: mocks.sendEmailVerification,
+  signInWithPopup: mocks.signInWithPopup,
   signInWithEmailAndPassword: mocks.signInWithEmailAndPassword,
   signOut: mocks.signOut,
   updateProfile: mocks.updateProfile,
@@ -79,6 +82,7 @@ describe('Firebase session recovery', () => {
     mocks.getDoc.mockResolvedValue(userSnapshot(mocks.identity.uid, mocks.identity.email))
     mocks.signOut.mockResolvedValue(undefined)
     mocks.sendEmailVerification.mockResolvedValue(undefined)
+    mocks.signInWithPopup.mockResolvedValue({ user: mocks.identity })
     mocks.onAuthStateChanged.mockImplementation((_auth, callback) => {
       mocks.authStateCallback = callback as (identity: unknown) => void
       return () => {}
@@ -100,6 +104,47 @@ describe('Firebase session recovery', () => {
     mocks.identity.reload.mockRejectedValue(failure)
     await expect(firebaseServices.session.getCurrent()).rejects.toBe(failure)
     expect(mocks.signOut).not.toHaveBeenCalled()
+  })
+
+  it('signs in with Google and resolves the trusted profile', async () => {
+    await expect(firebaseServices.session.signInWithGoogle()).resolves.toMatchObject({
+      user: { id: mocks.identity.uid, role: 'STUDENT' },
+    })
+    expect(mocks.signInWithPopup).toHaveBeenCalledOnce()
+  })
+
+  it('rejects a duplicate Google popup while authentication is pending', async () => {
+    const popup = deferred<{ user: typeof mocks.identity }>()
+    mocks.signInWithPopup.mockReturnValueOnce(popup.promise)
+    const first = firebaseServices.session.signInWithGoogle()
+
+    await expect(firebaseServices.session.signInWithGoogle()).rejects.toMatchObject({
+      code: 'auth/cancelled-popup-request',
+    })
+    popup.resolve({ user: mocks.identity })
+    await expect(first).resolves.toMatchObject({ user: { id: mocks.identity.uid } })
+  })
+
+  it('initializes a missing Google identity as a Student during registration', async () => {
+    mocks.identity.displayName = 'Google Student'
+    mocks.getDoc
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce(userSnapshot(mocks.identity.uid, mocks.identity.email, 'Google Student'))
+
+    await expect(firebaseServices.session.registerStudentWithGoogle()).resolves.toMatchObject({
+      user: { id: mocks.identity.uid, displayName: 'Google Student', role: 'STUDENT' },
+    })
+    expect(mocks.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'initializeStudentProfile')
+  })
+
+  it('requests bounded name recovery when Google supplies no display name', async () => {
+    mocks.getDoc.mockResolvedValue({ exists: () => false })
+
+    await expect(firebaseServices.session.registerStudentWithGoogle()).resolves.toEqual({
+      user: null,
+      issue: 'PROFILE_MISSING',
+    })
+    expect(mocks.httpsCallable).not.toHaveBeenCalled()
   })
 
   it('retries a failed display-name update with a user-supplied recovery name', async () => {
