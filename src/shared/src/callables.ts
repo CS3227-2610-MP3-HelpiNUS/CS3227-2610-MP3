@@ -100,10 +100,6 @@ export const createAvailabilitySlotInputSchema = nonEmptyInputSchema
     endsAt: z.string().datetime({ offset: true }),
   })
   .strict()
-  .refine(({ startsAt, endsAt }) => Date.parse(endsAt) > Date.parse(startsAt), {
-    message: 'endsAt must be after startsAt',
-    path: ['endsAt'],
-  })
 export const createAvailabilitySlotOutputSchema = z.object({ slot: availabilitySlotSchema }).strict()
 
 export const withdrawAvailabilitySlotInputSchema = nonEmptyInputSchema.extend({

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { createHash } from 'node:crypto'
 import { deleteApp, initializeApp } from 'firebase/app'
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth'
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
@@ -19,7 +20,7 @@ import {
 } from '@helpinus/shared'
 
 const projectId = 'helpinus-integration-test'
-const roles = ['studentA', 'studentB', 'mentor'] as const
+const roles = ['studentA', 'studentB', 'mentor', 'mentorB'] as const
 type Client = typeof roles[number]
 const apps = Object.fromEntries(roles.map((role) => [role, initializeApp({ apiKey: 'fake-api-key', projectId, appId: `appointments-${role}` }, `appointments-${role}`)])) as Record<Client, ReturnType<typeof initializeApp>>
 const admin = initializeAdminApp({ projectId }, 'appointments-admin')
@@ -27,8 +28,18 @@ const adminAuth = getAdminAuth(admin)
 const db = getFirestore(admin)
 const ids = {} as Record<Client, string>
 
+function emulatorAddress(environmentName: string, fallback: string) {
+  const value = process.env[environmentName] ?? fallback
+  const separator = value.lastIndexOf(':')
+  return { host: value.slice(0, separator), port: Number(value.slice(separator + 1)) }
+}
+
+const authEmulator = emulatorAddress('FIREBASE_AUTH_EMULATOR_HOST', '127.0.0.1:9099')
+const functionsEmulator = emulatorAddress('FUNCTIONS_EMULATOR_HOST', '127.0.0.1:5001')
+
 const callable = <Input>(client: Client, name: string) => httpsCallable<Input, unknown>(getFunctions(apps[client], 'asia-southeast1'), name)
 const createSlot = callable<CreateAvailabilitySlotInput>('mentor', 'createAvailabilitySlot')
+const createSlotB = callable<CreateAvailabilitySlotInput>('mentorB', 'createAvailabilitySlot')
 const withdrawSlot = callable<WithdrawAvailabilitySlotInput>('mentor', 'withdrawAvailabilitySlot')
 const reserveA = callable<ReserveAppointmentInput>('studentA', 'reserveAppointment')
 const reserveB = callable<ReserveAppointmentInput>('studentB', 'reserveAppointment')
@@ -40,22 +51,24 @@ const completeMentor = callable<CompleteAppointmentInput>('mentor', 'completeApp
 beforeAll(async () => {
   for (const role of roles) {
     const auth = getAuth(apps[role])
-    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
-    connectFunctionsEmulator(getFunctions(apps[role], 'asia-southeast1'), '127.0.0.1', 5001)
+    connectAuthEmulator(auth, `http://${authEmulator.host}:${authEmulator.port}`, { disableWarnings: true })
+    connectFunctionsEmulator(getFunctions(apps[role], 'asia-southeast1'), functionsEmulator.host, functionsEmulator.port)
     const email = `appointments-${role.toLowerCase()}-${crypto.randomUUID()}@example.test`
     const user = (await createUserWithEmailAndPassword(auth, email, 'Synthetic-123!')).user
     ids[role] = user.uid
-    await db.collection('users').doc(user.uid).set({ id: user.uid, email, displayName: role === 'mentor' ? 'Calendar Mentor' : `Calendar ${role}`, role: role === 'mentor' ? 'MENTOR' : 'STUDENT', status: 'ACTIVE', createdAt: Timestamp.now() })
+    const isMentor = role.startsWith('mentor')
+    await db.collection('users').doc(user.uid).set({ id: user.uid, email, displayName: `Calendar ${role}`, role: isMentor ? 'MENTOR' : 'STUDENT', status: 'ACTIVE', createdAt: Timestamp.now() })
   }
   await db.collection('mentorProfiles').doc(ids.mentor).set({ userId: ids.mentor, biography: '', moduleIds: [], active: true })
+  await db.collection('mentorProfiles').doc(ids.mentorB).set({ userId: ids.mentorB, biography: '', moduleIds: [], active: true })
 })
 
 afterAll(async () => {
-  for (const collection of ['availabilitySlots', 'appointments', 'availabilitySlotLocks']) {
+  for (const collection of ['availabilitySlots', 'appointments', 'availabilitySlotLocks', 'studentAppointmentLocks']) {
     const snapshot = await db.collection(collection).get()
     for (const row of snapshot.docs) {
       const data = row.data()
-      if (data.mentorId === ids.mentor || data.studentId === ids.studentA || data.studentId === ids.studentB) await row.ref.delete()
+      if (data.mentorId === ids.mentor || data.mentorId === ids.mentorB || data.studentId === ids.studentA || data.studentId === ids.studentB) await row.ref.delete()
     }
   }
   for (const uid of Object.values(ids)) {
@@ -64,6 +77,7 @@ afterAll(async () => {
     await db.collection('appointmentOperations').doc(uid).delete().catch(() => {})
   }
   if (ids.mentor) await db.collection('mentorProfiles').doc(ids.mentor).delete()
+  if (ids.mentorB) await db.collection('mentorProfiles').doc(ids.mentorB).delete()
   for (const role of roles) {
     if (ids[role]) {
       await db.collection('users').doc(ids[role]).delete()
@@ -78,7 +92,8 @@ afterAll(async () => {
 describe('consultation scheduling callable integration', () => {
   it('enforces overlap locks, atomic one-student booking, idempotency, and both cancellation policies', async () => {
     const halfHour = 30 * 60 * 1000
-    const startsMs = Math.ceil((Date.now() + 48 * 60 * 60 * 1000) / halfHour) * halfHour
+    const futureDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 72 * 60 * 60 * 1000))
+    const startsMs = Date.parse(`${futureDay}T10:00:00+08:00`)
     const startsAt = new Date(startsMs).toISOString()
     const endsAt = new Date(startsMs + 60 * 60 * 1000).toISOString()
     const createInput = { requestId: crypto.randomUUID(), startsAt, endsAt }
@@ -124,17 +139,41 @@ describe('consultation scheduling callable integration', () => {
 
     const replacement = createAvailabilitySlotOutputSchema.parse((await createSlot({ ...createInput, requestId: crypto.randomUUID() })).data).slot
     expect(replacement.status).toBe('OPEN')
+    const competing = createAvailabilitySlotOutputSchema.parse((await createSlotB({ ...createInput, requestId: crypto.randomUUID() })).data).slot
+    const overlapAttempts = await Promise.allSettled([
+      reserveA({ requestId: crypto.randomUUID(), slotId: replacement.id, helpRequestId: null, topic: 'Same-student overlap A' }),
+      reserveA({ requestId: crypto.randomUUID(), slotId: competing.id, helpRequestId: null, topic: 'Same-student overlap B' }),
+    ])
+    const overlapWinner = overlapAttempts.find((result) => result.status === 'fulfilled')
+    const overlapLoser = overlapAttempts.find((result) => result.status === 'rejected')
+    expect(overlapAttempts.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    expect(overlapLoser).toMatchObject({ reason: { code: 'functions/already-exists', details: { reason: 'STUDENT_OVERLAP' } } })
+    if (!overlapWinner || overlapWinner.status !== 'fulfilled') throw new Error('Expected exactly one overlapping reservation to win')
+    const overlapAppointment = reserveAppointmentOutputSchema.parse(overlapWinner.value.data).appointment
+    await cancelA({ requestId: crypto.randomUUID(), appointmentId: overlapAppointment.id })
     const withdrawn = withdrawAvailabilitySlotOutputSchema.parse((await withdrawSlot({ requestId: crypto.randomUUID(), slotId: adjacent.id })).data).slot
     expect(withdrawn.status).toBe('WITHDRAWN')
     expect(createAvailabilitySlotOutputSchema.parse((await createSlot({ ...adjacentInput, requestId: crypto.randomUUID() })).data).slot.status).toBe('OPEN')
+
+    const activeId = `active-${crypto.randomUUID()}`
+    const activeStart = Timestamp.fromMillis(startsMs + 10 * 60 * 60 * 1000)
+    const activeEnd = Timestamp.fromMillis(activeStart.toMillis() + halfHour)
+    const activeTimestamp = Timestamp.now()
+    await db.collection('appointments').doc(activeId).set({ id: activeId, slotId: `slot-${activeId}`, studentId: ids.studentA, studentDisplayName: 'Calendar studentA', mentorId: ids.mentor, mentorDisplayName: 'Calendar Mentor', helpRequestId: null, topic: 'Not ended consultation', status: 'CONFIRMED', startsAt: activeStart, endsAt: activeEnd, cancelledBy: null, createdAt: activeTimestamp, updatedAt: activeTimestamp })
+    const activeLockId = createHash('sha256').update(JSON.stringify([ids.studentA, activeStart.toMillis()])).digest('hex')
+    await db.collection('studentAppointmentLocks').doc(activeLockId).set({ studentId: ids.studentA, slotId: `slot-${activeId}`, appointmentId: activeId, bucketStartsAt: activeStart })
+    await expect(completeMentor({ requestId: crypto.randomUUID(), appointmentId: activeId })).rejects.toMatchObject({ code: 'functions/failed-precondition', details: { reason: 'APPOINTMENT_NOT_ENDED' } })
 
     const elapsedId = `elapsed-${crypto.randomUUID()}`
     const elapsedStart = Timestamp.fromMillis(Date.now() - 60 * 60 * 1000)
     const elapsedEnd = Timestamp.fromMillis(Date.now() - halfHour)
     const timestamp = Timestamp.now()
     await db.collection('appointments').doc(elapsedId).set({ id: elapsedId, slotId: `slot-${elapsedId}`, studentId: ids.studentA, studentDisplayName: 'Calendar studentA', mentorId: ids.mentor, mentorDisplayName: 'Calendar Mentor', helpRequestId: null, topic: 'Past consultation', status: 'CONFIRMED', startsAt: elapsedStart, endsAt: elapsedEnd, cancelledBy: null, createdAt: timestamp, updatedAt: timestamp })
+    const elapsedLockId = createHash('sha256').update(JSON.stringify([ids.studentA, elapsedStart.toMillis()])).digest('hex')
+    await db.collection('studentAppointmentLocks').doc(elapsedLockId).set({ studentId: ids.studentA, slotId: `slot-${elapsedId}`, appointmentId: elapsedId, bucketStartsAt: elapsedStart })
     await expect(callable<CompleteAppointmentInput>('studentA', 'completeAppointment')({ requestId: crypto.randomUUID(), appointmentId: elapsedId })).rejects.toMatchObject({ code: 'functions/permission-denied' })
     const completed = completeAppointmentOutputSchema.parse((await completeMentor({ requestId: crypto.randomUUID(), appointmentId: elapsedId })).data).appointment
     expect(completed.status).toBe('COMPLETED')
-  })
+    expect((await db.collection('studentAppointmentLocks').doc(elapsedLockId).get()).exists).toBe(false)
+  }, 15_000)
 })

@@ -107,6 +107,7 @@ service cloud.firestore {
     }
     match /appointmentOperations/{uid}/operations/{requestId} { allow read, write: if false; }
     match /availabilitySlotLocks/{id} { allow read, write: if false; }
+    match /studentAppointmentLocks/{id} { allow read, write: if false; }
     match /aiAuditEvents/{id} { allow read, write: if false; }
   }
 }

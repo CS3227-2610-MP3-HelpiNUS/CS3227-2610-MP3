@@ -164,9 +164,10 @@ describe('approved direct access matrix', () => {
     await env.withSecurityRulesDisabled(async (context) => {
       await setDoc(doc(context.firestore(), 'appointmentOperations/student/operations/request'), { action: 'RESERVE_APPOINTMENT' })
       await setDoc(doc(context.firestore(), 'availabilitySlotLocks/lock'), { mentorId: 'mentor', slotId: 'slot' })
+      await setDoc(doc(context.firestore(), 'studentAppointmentLocks/lock'), { studentId: 'student', appointmentId: 'appointment' })
     })
     const student = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
-    for (const path of ['appointmentOperations/student/operations/request', 'availabilitySlotLocks/lock']) {
+    for (const path of ['appointmentOperations/student/operations/request', 'availabilitySlotLocks/lock', 'studentAppointmentLocks/lock']) {
       await assertFails(getDoc(doc(student, path)))
       await assertFails(setDoc(doc(student, path), { forged: true }))
     }

@@ -30,6 +30,9 @@ type StoredAppointment = Omit<Appointment, 'startsAt' | 'endsAt' | 'createdAt' |
 
 const halfHourMs = 30 * 60 * 1000
 const maximumDurationMs = 120 * 60 * 1000
+const singaporeDayFormat = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Singapore', year: 'numeric', month: '2-digit', day: '2-digit',
+})
 
 const failIntegrity = (): never => {
   throw new HttpsError('failed-precondition', 'Consultation data needs support review.', { reason: 'INTEGRITY_ERROR' })
@@ -38,29 +41,44 @@ const iso = (value: unknown) => value instanceof Timestamp ? value.toDate().toIS
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 const operationRef = (db: Firestore, uid: string, requestId: string) => db.collection('appointmentOperations').doc(uid).collection('operations').doc(requestId)
 const lockId = (mentorId: string, bucket: number) => digest([mentorId, bucket])
+const studentLockId = (studentId: string, bucket: number) => digest([studentId, bucket])
 const bucketStarts = (startsAt: number, endsAt: number) => {
   const result: number[] = []
   for (let value = startsAt; value < endsAt; value += halfHourMs) result.push(value)
   return result
 }
 
+const studentLockRefs = (db: Firestore, studentId: string, startsAt: number, endsAt: number) =>
+  bucketStarts(startsAt, endsAt).map((bucket) => db.collection('studentAppointmentLocks').doc(studentLockId(studentId, bucket)))
+
+const singaporeDay = (value: number) => singaporeDayFormat.format(new Date(value))
+
 export function availabilityWindowIssue(startsAt: string, endsAt: string, nowMs: number): string | null {
   const start = Date.parse(startsAt)
   const end = Date.parse(endsAt)
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 'INVALID_WINDOW'
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 'INVALID_TIMESTAMP'
+  if (end <= start) return 'END_NOT_AFTER_START'
+  if (singaporeDay(start) !== singaporeDay(end)) return 'CROSSES_DAY'
   if (start <= nowMs) return 'PAST_SLOT'
-  if (start % halfHourMs !== 0 || end % halfHourMs !== 0) return 'UNALIGNED_SLOT'
   const duration = end - start
-  if (duration < halfHourMs || duration > maximumDurationMs || duration % halfHourMs !== 0) return 'INVALID_DURATION'
+  if (duration < halfHourMs) return 'DURATION_TOO_SHORT'
+  if (duration > maximumDurationMs) return 'DURATION_TOO_LONG'
+  if (start % halfHourMs !== 0 || end % halfHourMs !== 0 || duration % halfHourMs !== 0) return 'UNALIGNED_SLOT'
   return null
 }
 
 function validateWindow(startsAt: string, endsAt: string, nowMs: number) {
   const issue = availabilityWindowIssue(startsAt, endsAt, nowMs)
-  if (issue === 'PAST_SLOT') throw new HttpsError('failed-precondition', 'Choose a future consultation time.', { reason: issue })
-  if (issue === 'UNALIGNED_SLOT') throw new HttpsError('invalid-argument', 'Consultations must start and end on a 30-minute boundary.', { reason: issue })
-  if (issue === 'INVALID_DURATION') throw new HttpsError('invalid-argument', 'Consultations must last between 30 and 120 minutes in 30-minute increments.', { reason: issue })
-  if (issue) throw new HttpsError('invalid-argument', 'The consultation time is invalid.', { reason: issue })
+  const messages: Record<string, string> = {
+    INVALID_TIMESTAMP: 'Enter a valid consultation time.',
+    END_NOT_AFTER_START: 'End time must be later than start time.',
+    CROSSES_DAY: 'Consultations must start and end on the same date.',
+    PAST_SLOT: 'Choose a time later than the current Singapore time.',
+    UNALIGNED_SLOT: 'Use times ending in :00 or :30.',
+    DURATION_TOO_SHORT: 'Consultations must be at least 30 minutes.',
+    DURATION_TOO_LONG: 'Consultations cannot exceed 120 minutes.',
+  }
+  if (issue) throw new HttpsError(issue === 'PAST_SLOT' ? 'failed-precondition' : 'invalid-argument', messages[issue] ?? 'The consultation time is invalid.', { reason: issue })
 }
 
 function parseUser(snapshot: DocumentSnapshot, expected: AuthorizedUser) {
@@ -222,6 +240,11 @@ export async function reserveAppointmentHandler(input: ReserveAppointmentInput, 
     }
     if (slot.public.status !== 'OPEN' || slot.public.appointmentId !== null) throw new HttpsError('already-exists', 'Someone else booked this time. Choose another slot.', { reason: 'SLOT_TAKEN' })
     if (Date.parse(slot.public.startsAt) <= Date.now()) throw new HttpsError('failed-precondition', 'This time has already passed.', { reason: 'SLOT_ELAPSED' })
+    const studentLocks = studentLockRefs(db, actor.uid, Date.parse(slot.public.startsAt), Date.parse(slot.public.endsAt))
+    const studentLockSnapshots = await Promise.all(studentLocks.map((ref) => tx.get(ref)))
+    if (studentLockSnapshots.some((item) => item.exists)) {
+      throw new HttpsError('already-exists', 'You already have another consultation during this time.', { reason: 'STUDENT_OVERLAP' })
+    }
     const now = Timestamp.now()
     const stored: StoredAppointment = {
       id: appointmentRef.id,
@@ -241,6 +264,12 @@ export async function reserveAppointmentHandler(input: ReserveAppointmentInput, 
     }
     tx.create(appointmentRef, stored)
     tx.update(slotRef, { status: 'BOOKED', appointmentId: appointmentRef.id, updatedAt: now })
+    studentLocks.forEach((ref, index) => tx.create(ref, {
+      studentId: actor.uid,
+      slotId: slot.public.id,
+      appointmentId: appointmentRef.id,
+      bucketStartsAt: Timestamp.fromMillis(Date.parse(slot.public.startsAt) + index * halfHourMs),
+    }))
     tx.create(receiptRef, { action: 'RESERVE_APPOINTMENT', actorId: actor.uid, fingerprint, resultId: appointmentRef.id })
     return { appointment: appointmentSchema.parse({ ...stored, startsAt: iso(stored.startsAt), endsAt: iso(stored.endsAt), createdAt: iso(now), updatedAt: iso(now) }) }
   })
@@ -265,15 +294,21 @@ export async function cancelAppointmentHandler(input: CancelAppointmentInput, re
     const slotRef = db.collection('availabilitySlots').doc(appointment.public.slotId)
     const slot = parseSlot(await tx.get(slotRef))
     if (slot.public.status !== 'BOOKED' || slot.public.appointmentId !== appointment.public.id || slot.public.mentorId !== appointment.public.mentorId) return failIntegrity()
-    const lockRefs = actor.role === 'MENTOR' ? bucketStarts(Date.parse(slot.public.startsAt), Date.parse(slot.public.endsAt)).map((bucket) => db.collection('availabilitySlotLocks').doc(lockId(actor.uid, bucket))) : []
-    const lockSnapshots = await Promise.all(lockRefs.map((ref) => tx.get(ref)))
-    if (lockSnapshots.some((item) => !item.exists || item.data()?.slotId !== slot.public.id || item.data()?.mentorId !== actor.uid)) return failIntegrity()
+    const mentorLocks = actor.role === 'MENTOR' ? bucketStarts(Date.parse(slot.public.startsAt), Date.parse(slot.public.endsAt)).map((bucket) => db.collection('availabilitySlotLocks').doc(lockId(actor.uid, bucket))) : []
+    const studentLocks = studentLockRefs(db, appointment.public.studentId, Date.parse(slot.public.startsAt), Date.parse(slot.public.endsAt))
+    const [mentorLockSnapshots, studentLockSnapshots] = await Promise.all([
+      Promise.all(mentorLocks.map((ref) => tx.get(ref))),
+      Promise.all(studentLocks.map((ref) => tx.get(ref))),
+    ])
+    if (mentorLockSnapshots.some((item) => !item.exists || item.data()?.slotId !== slot.public.id || item.data()?.mentorId !== actor.uid)) return failIntegrity()
+    if (studentLockSnapshots.some((item) => !item.exists || item.data()?.slotId !== slot.public.id || item.data()?.appointmentId !== appointment.public.id || item.data()?.studentId !== appointment.public.studentId)) return failIntegrity()
     const now = Timestamp.now()
     tx.update(appointmentRef, { status: 'CANCELLED', cancelledBy: actor.role, updatedAt: now })
     tx.update(slotRef, actor.role === 'STUDENT'
       ? { status: 'OPEN', appointmentId: null, updatedAt: now }
       : { status: 'WITHDRAWN', appointmentId: appointment.public.id, updatedAt: now })
-    lockRefs.forEach((ref) => tx.delete(ref))
+    mentorLocks.forEach((ref) => tx.delete(ref))
+    studentLocks.forEach((ref) => tx.delete(ref))
     tx.create(receiptRef, { action: 'CANCEL_APPOINTMENT', actorId: actor.uid, fingerprint, resultId: appointment.public.id })
     return { appointment: appointmentSchema.parse({ ...appointment.public, status: 'CANCELLED', cancelledBy: actor.role, updatedAt: iso(now) }) }
   })
@@ -293,9 +328,13 @@ export async function completeAppointmentHandler(input: CompleteAppointmentInput
     const appointment = parseAppointment(appointmentSnapshot)
     if (appointment.public.mentorId !== actor.uid) throw new HttpsError('permission-denied', 'You can only complete your own consultation.')
     if (appointment.public.status !== 'CONFIRMED') throw new HttpsError('failed-precondition', 'Only a confirmed consultation can be completed.', { reason: 'APPOINTMENT_NOT_CONFIRMED' })
-    if (Date.parse(appointment.public.startsAt) > Date.now()) throw new HttpsError('failed-precondition', 'A consultation cannot be completed before it starts.', { reason: 'APPOINTMENT_NOT_STARTED' })
+    if (Date.parse(appointment.public.endsAt) > Date.now()) throw new HttpsError('failed-precondition', 'A consultation cannot be completed before it ends.', { reason: 'APPOINTMENT_NOT_ENDED' })
+    const studentLocks = studentLockRefs(db, appointment.public.studentId, Date.parse(appointment.public.startsAt), Date.parse(appointment.public.endsAt))
+    const studentLockSnapshots = await Promise.all(studentLocks.map((ref) => tx.get(ref)))
+    if (studentLockSnapshots.some((item) => !item.exists || item.data()?.appointmentId !== appointment.public.id || item.data()?.studentId !== appointment.public.studentId)) return failIntegrity()
     const now = Timestamp.now()
     tx.update(appointmentRef, { status: 'COMPLETED', updatedAt: now })
+    studentLocks.forEach((ref) => tx.delete(ref))
     tx.create(receiptRef, { action: 'COMPLETE_APPOINTMENT', actorId: actor.uid, fingerprint, resultId: appointment.public.id })
     return { appointment: appointmentSchema.parse({ ...appointment.public, status: 'COMPLETED', updatedAt: iso(now) }) }
   })

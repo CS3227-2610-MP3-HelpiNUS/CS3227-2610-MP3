@@ -14,9 +14,13 @@ describe('consultation availability windows', () => {
 
   it.each([
     ['elapsed start', '2026-10-18T00:00:00.000Z', '2026-10-18T00:30:00.000Z', 'PAST_SLOT'],
-    ['inverted window', '2026-10-18T02:00:00.000Z', '2026-10-18T01:30:00.000Z', 'INVALID_WINDOW'],
+    ['malformed timestamp', 'not-a-date', '2026-10-18T01:30:00.000Z', 'INVALID_TIMESTAMP'],
+    ['zero-length window', '2026-10-18T02:00:00.000Z', '2026-10-18T02:00:00.000Z', 'END_NOT_AFTER_START'],
+    ['inverted window', '2026-10-18T02:00:00.000Z', '2026-10-18T01:30:00.000Z', 'END_NOT_AFTER_START'],
+    ['cross-day window', '2026-10-18T15:30:00.000Z', '2026-10-18T16:00:00.000Z', 'CROSSES_DAY'],
+    ['too short', '2026-10-18T01:00:00.000Z', '2026-10-18T01:29:00.000Z', 'DURATION_TOO_SHORT'],
     ['unaligned boundary', '2026-10-18T01:15:00.000Z', '2026-10-18T01:45:00.000Z', 'UNALIGNED_SLOT'],
-    ['too long', '2026-10-18T01:00:00.000Z', '2026-10-18T03:30:00.000Z', 'INVALID_DURATION'],
+    ['too long', '2026-10-18T01:00:00.000Z', '2026-10-18T03:30:00.000Z', 'DURATION_TOO_LONG'],
   ])('rejects an %s', (_label, startsAt, endsAt, issue) => {
     expect(availabilityWindowIssue(startsAt, endsAt, now)).toBe(issue)
   })
