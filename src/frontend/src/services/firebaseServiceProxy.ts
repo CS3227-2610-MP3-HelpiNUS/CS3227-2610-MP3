@@ -37,7 +37,8 @@ export const firebaseServiceProxy: HelpiNUSServices = {
   scheduling: {
     subscribeOpenSlots(range, onData, onError) { return proxySubscription((s) => s.scheduling.subscribeOpenSlots(range, onData, onError), onError) },
     subscribeMentorSlots(uid, range, onData, onError) { return proxySubscription((s) => s.scheduling.subscribeMentorSlots(uid, range, onData, onError), onError) },
-    subscribeAppointments(uid, role, onData, onError) { return proxySubscription((s) => s.scheduling.subscribeAppointments(uid, role, onData, onError), onError) },
+    subscribeUpcomingAppointments(uid, role, onData, onError) { return proxySubscription((s) => s.scheduling.subscribeUpcomingAppointments(uid, role, onData, onError), onError) },
+    subscribeAppointmentHistory(uid, role, pageSize, onData, onError) { return proxySubscription((s) => s.scheduling.subscribeAppointmentHistory(uid, role, pageSize, onData, onError), onError) },
   },
   callables: {
     async invoke(name, input) { return (await loadFirebaseServices()).callables.invoke(name, input) },

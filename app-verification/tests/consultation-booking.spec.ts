@@ -51,7 +51,8 @@ async function signOut(page: Page) {
 async function selectCalendarDay(page: Page, label: string | RegExp) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const day = page.getByRole('button', { name: label, exact: typeof label === 'string' })
-    if (await day.count()) { await day.click(); return }
+    const visible = await day.waitFor({ state: 'visible', timeout: 2_000 }).then(() => true).catch(() => false)
+    if (visible) { await day.click(); return }
     await page.getByRole('button', { name: 'Next month' }).click()
   }
   throw new Error(`Calendar day was not reachable: ${label}`)
@@ -80,9 +81,17 @@ test('consultation booking works across Mentor and Student roles', async ({ page
   await selectCalendarDay(page, calendarDay(day.label))
   await page.getByLabel('Starts').fill(startTime)
   await page.getByLabel('Ends').fill(endTime)
-  await page.getByRole('button', { name: 'Add availability' }).click()
+  await page.setViewportSize({ width: 900, height: 900 })
+  const schedulerBox = await page.locator('.consultation-scheduler').boundingBox()
+  const publishButton = page.getByRole('button', { name: 'Add availability' })
+  const publishBox = await publishButton.boundingBox()
+  expect(schedulerBox).not.toBeNull()
+  expect(publishBox).not.toBeNull()
+  expect(publishBox!.x + publishBox!.width).toBeLessThanOrEqual(schedulerBox!.x + schedulerBox!.width + 0.5)
+  await publishButton.click()
   await expect(page.locator('.consultation-feedback')).toContainText('Availability added')
   await expect(page.getByText('open', { exact: true })).toBeVisible()
+  await page.setViewportSize({ width: 1280, height: 720 })
   await page.screenshot({ path: resolve(reviewDirectory, 'consultation-mentor-desktop.png'), fullPage: true })
   await signOut(page)
 

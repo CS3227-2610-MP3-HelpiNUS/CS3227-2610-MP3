@@ -90,18 +90,57 @@ function slotError(error: unknown) {
   return 'We could not save this availability. Check your connection and try again.'
 }
 
+function operationIsUncertain(error: unknown) {
+  const { code, reason } = errorReason(error)
+  if (reason) return false
+  return !['invalid-argument', 'already-exists', 'failed-precondition', 'permission-denied', 'unauthenticated', 'not-found'].some((suffix) => code.endsWith(suffix))
+}
+
+function operationRequestId(attempts: Map<string, string>, key: string) {
+  const existing = attempts.get(key)
+  if (existing) return existing
+  const requestId = crypto.randomUUID()
+  attempts.set(key, requestId)
+  return requestId
+}
+
+function settleOperation(attempts: Map<string, string>, key: string, error?: unknown) {
+  if (error === undefined || !operationIsUncertain(error)) attempts.delete(key)
+}
+
 function useAppointments(role: 'STUDENT' | 'MENTOR') {
   const { services, session } = useServices()
-  const [state, setState] = useState<{ key: string; kind: 'ready'; items: Appointment[] } | { key: string; kind: 'error' } | null>(null)
+  const [upcomingState, setUpcomingState] = useState<{ key: string; kind: 'ready'; items: Appointment[] } | { key: string; kind: 'error' } | null>(null)
+  const [historyState, setHistoryState] = useState<{ key: string; kind: 'ready'; items: Appointment[]; hasMore: boolean } | { key: string; kind: 'error' } | null>(null)
+  const [historyLimit, setHistoryLimit] = useState(20)
   const [retry, setRetry] = useState(0)
   const uid = session?.user?.id
-  const key = `${uid ?? ''}:${role}:${retry}`
+  const upcomingKey = `${uid ?? ''}:${role}:${retry}`
+  const historyKey = `${upcomingKey}:${historyLimit}`
   useEffect(() => {
     if (!uid) return
-    return services.scheduling.subscribeAppointments(uid, role, (items) => setState({ key, kind: 'ready', items }), () => setState({ key, kind: 'error' }))
-  }, [key, role, services, uid])
-  const current = state?.key === key ? state : null
-  return { appointments: current?.kind === 'ready' ? current.items : [], loading: current === null, error: current?.kind === 'error', retry: () => setRetry((value) => value + 1) }
+    return services.scheduling.subscribeUpcomingAppointments(uid, role, (items) => setUpcomingState({ key: upcomingKey, kind: 'ready', items }), () => setUpcomingState({ key: upcomingKey, kind: 'error' }))
+  }, [role, services, uid, upcomingKey])
+  useEffect(() => {
+    if (!uid) return
+    return services.scheduling.subscribeAppointmentHistory(uid, role, historyLimit, (page) => setHistoryState({ key: historyKey, kind: 'ready', items: page.appointments, hasMore: page.hasMore }), () => setHistoryState({ key: historyKey, kind: 'error' }))
+  }, [historyKey, historyLimit, role, services, uid])
+  const upcoming = upcomingState?.key === upcomingKey ? upcomingState : null
+  const history = historyState?.key === historyKey ? historyState : null
+  const appointments = useMemo(() => {
+    const merged = new Map<string, Appointment>()
+    if (upcoming?.kind === 'ready') upcoming.items.forEach((item) => merged.set(item.id, item))
+    if (history?.kind === 'ready') history.items.forEach((item) => { if (!merged.has(item.id)) merged.set(item.id, item) })
+    return [...merged.values()]
+  }, [history, upcoming])
+  return {
+    appointments,
+    loading: upcoming === null || history === null,
+    error: upcoming?.kind === 'error' || history?.kind === 'error',
+    hasMoreHistory: history?.kind === 'ready' && history.hasMore,
+    loadMoreHistory: () => setHistoryLimit((value) => value + 20),
+    retry: () => setRetry((value) => value + 1),
+  }
 }
 
 function Calendar({ month, selected, counts, now, onMonth, onSelect }: { month: string; selected: string; counts: Map<string, number>; now: number; onMonth: (month: string) => void; onSelect: (day: string) => void }) {
@@ -152,7 +191,7 @@ function TimeRange({ startsAt, endsAt }: { startsAt: string; endsAt: string }) {
   return <span className="consultation-time"><strong>{timeFormat.format(new Date(startsAt))}</strong><span>– {timeFormat.format(new Date(endsAt))}</span><small>{minutes} min</small></span>
 }
 
-function AppointmentList({ appointments, role, busyId, confirmId, now, onCancel, onComplete, onConfirm }: { appointments: Appointment[]; role: 'STUDENT' | 'MENTOR'; busyId: string | null; confirmId: string | null; now: number; onCancel: (id: string) => void; onComplete?: (id: string) => void; onConfirm: (id: string | null) => void }) {
+function AppointmentList({ appointments, role, busyId, confirmId, now, hasMoreHistory, onCancel, onComplete, onConfirm, onLoadMoreHistory }: { appointments: Appointment[]; role: 'STUDENT' | 'MENTOR'; busyId: string | null; confirmId: string | null; now: number; hasMoreHistory: boolean; onCancel: (id: string) => void; onComplete?: (id: string) => void; onConfirm: (id: string | null) => void; onLoadMoreHistory: () => void }) {
   const upcoming = appointments.filter((item) => item.status === 'CONFIRMED' && Date.parse(item.startsAt) > now).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
   const inProgress = appointments.filter((item) => item.status === 'CONFIRMED' && Date.parse(item.startsAt) <= now && Date.parse(item.endsAt) > now).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
   const history = appointments.filter((item) => !upcoming.includes(item) && !inProgress.includes(item)).sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt))
@@ -168,7 +207,7 @@ function AppointmentList({ appointments, role, busyId, confirmId, now, onCancel,
   return <section className="consultation-records" aria-labelledby="consultation-upcoming-title">
     <div className="consultation-record-section"><div className="consultation-section-heading"><h2 id="consultation-upcoming-title">Upcoming consultations</h2><span>{upcoming.length}</span></div>{upcoming.length ? <ul>{upcoming.map((item) => row(item, 'upcoming'))}</ul> : <p className="consultation-empty">No upcoming consultations.</p>}</div>
     <div className="consultation-record-section"><div className="consultation-section-heading"><h2>In progress</h2><span>{inProgress.length}</span></div>{inProgress.length ? <ul>{inProgress.map((item) => row(item, 'in-progress'))}</ul> : <p className="consultation-empty">Current consultations appear here until they end.</p>}</div>
-    <div className="consultation-record-section"><div className="consultation-section-heading"><h2>History</h2><span>{history.length}</span></div>{history.length ? <ul>{history.map((item) => row(item, 'history'))}</ul> : <p className="consultation-empty">Completed, cancelled, and ended consultations will appear here.</p>}</div>
+    <div className="consultation-record-section"><div className="consultation-section-heading"><h2>History</h2><span>{history.length}</span></div>{history.length ? <ul>{history.map((item) => row(item, 'history'))}</ul> : <p className="consultation-empty">Completed, cancelled, and ended consultations will appear here.</p>}{hasMoreHistory && <button type="button" className="button button-secondary consultation-history-more" onClick={onLoadMoreHistory}>Load older consultations</button>}</div>
   </section>
 }
 
@@ -181,11 +220,14 @@ export function StudentConsultationsPage() {
   const [slotState, setSlotState] = useState<{ key: string; kind: 'ready'; items: AvailabilitySlot[] } | { key: string; kind: 'error' } | null>(null)
   const [slotRetry, setSlotRetry] = useState(0)
   const [chosenSlot, setChosenSlot] = useState<string | null>(null)
+  const [chosenSlotSnapshot, setChosenSlotSnapshot] = useState<AvailabilitySlot | null>(null)
+  const [uncertainBookingKey, setUncertainBookingKey] = useState<string | null>(null)
   const [topic, setTopic] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
   const appointmentState = useAppointments('STUDENT')
+  const operationAttempts = useRef(new Map<string, string>())
   const range = useMemo(() => monthRange(month), [month])
   const slotKey = `${range.startsAt}:${range.endsAt}:${slotRetry}`
 
@@ -199,39 +241,51 @@ export function StudentConsultationsPage() {
   const slotsError = currentSlots?.kind === 'error'
   const counts = useMemo(() => { const result = new Map<string, number>(); slots.forEach((slot) => result.set(dateKey(slot.startsAt), (result.get(dateKey(slot.startsAt)) ?? 0) + 1)); return result }, [slots])
   const selectedSlots = slots.filter((slot) => dateKey(slot.startsAt) === selectedDay).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+  const visibleSelectedSlots = chosenSlotSnapshot && chosenSlot === chosenSlotSnapshot.id && dateKey(chosenSlotSnapshot.startsAt) === selectedDay && !selectedSlots.some((slot) => slot.id === chosenSlotSnapshot.id) && (busyId === chosenSlotSnapshot.id || uncertainBookingKey !== null)
+    ? [...selectedSlots, chosenSlotSnapshot].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+    : selectedSlots
 
   useEffect(() => {
-    if (!chosenSlot || currentSlots?.kind !== 'ready') return
+    if (!chosenSlot || currentSlots?.kind !== 'ready' || busyId === chosenSlot || uncertainBookingKey !== null) return
     const selected = currentSlots.items.find((slot) => slot.id === chosenSlot)
     if (selected && selected.status === 'OPEN' && Date.parse(selected.startsAt) > now) return
     let active = true
     queueMicrotask(() => {
       if (!active) return
       setChosenSlot(null)
+      setChosenSlotSnapshot(null)
       setFeedback({ kind: 'error', message: 'That selected time is no longer available. Choose another time.' })
     })
     return () => { active = false }
-  }, [chosenSlot, currentSlots, now])
+  }, [busyId, chosenSlot, currentSlots, now, uncertainBookingKey])
 
   async function book(event: FormEvent, slot: AvailabilitySlot) {
     event.preventDefault()
     if (!topic.trim()) { setFeedback({ kind: 'error', message: 'Add a short topic so your Mentor knows what to prepare.' }); return }
+    const operationKey = JSON.stringify(['RESERVE_APPOINTMENT', slot.id, null, topic.trim()])
+    const requestId = operationRequestId(operationAttempts.current, operationKey)
     setBusyId(slot.id); setFeedback(null)
+    setUncertainBookingKey(null)
     try {
-      await services.callables.invoke('reserveAppointment', { requestId: crypto.randomUUID(), slotId: slot.id, helpRequestId: null, topic: topic.trim() })
-      setFeedback({ kind: 'success', message: `Booked ${fullDate.format(new Date(slot.startsAt))} at ${timeFormat.format(new Date(slot.startsAt))} with ${slot.mentorDisplayName}.` }); setChosenSlot(null); setTopic('')
+      await services.callables.invoke('reserveAppointment', { requestId, slotId: slot.id, helpRequestId: null, topic: topic.trim() })
+      settleOperation(operationAttempts.current, operationKey)
+      setFeedback({ kind: 'success', message: `Booked ${fullDate.format(new Date(slot.startsAt))} at ${timeFormat.format(new Date(slot.startsAt))} with ${slot.mentorDisplayName}.` }); setChosenSlot(null); setChosenSlotSnapshot(null); setTopic('')
     } catch (error) {
+      settleOperation(operationAttempts.current, operationKey, error)
+      setUncertainBookingKey(operationIsUncertain(error) ? operationKey : null)
       const { code, reason } = errorReason(error)
-      if (reason === 'SLOT_TAKEN' || reason === 'SLOT_ELAPSED' || code.endsWith('already-exists')) setChosenSlot(null)
+      if (reason === 'SLOT_TAKEN' || reason === 'SLOT_ELAPSED' || code.endsWith('already-exists')) { setChosenSlot(null); setChosenSlotSnapshot(null) }
       setFeedback({ kind: 'error', message: bookingError(error) })
     }
     finally { setBusyId(null) }
   }
 
   async function cancel(appointmentId: string) {
+    const operationKey = JSON.stringify(['CANCEL_APPOINTMENT', appointmentId])
+    const requestId = operationRequestId(operationAttempts.current, operationKey)
     setBusyId(appointmentId); setFeedback(null)
-    try { await services.callables.invoke('cancelAppointment', { requestId: crypto.randomUUID(), appointmentId }); setFeedback({ kind: 'success', message: 'The consultation was cancelled and the time is available again.' }); setConfirmId(null) }
-    catch { setFeedback({ kind: 'error', message: 'We could not cancel this consultation. Refresh and try again.' }) }
+    try { await services.callables.invoke('cancelAppointment', { requestId, appointmentId }); settleOperation(operationAttempts.current, operationKey); setFeedback({ kind: 'success', message: 'The consultation was cancelled and the time is available again.' }); setConfirmId(null) }
+    catch (error) { settleOperation(operationAttempts.current, operationKey, error); setFeedback({ kind: 'error', message: 'We could not cancel this consultation. Refresh and try again.' }) }
     finally { setBusyId(null) }
   }
 
@@ -239,12 +293,12 @@ export function StudentConsultationsPage() {
     <header className="consultation-header"><div><h1>Consultations</h1><p>Choose an open time to learn with a Mentor.</p></div><div className="consultation-zone"><Icon name="calendar"/><span>Singapore time<strong>GMT+8</strong></span></div></header>
     {feedback && <p className={`consultation-feedback is-${feedback.kind}`} role={feedback.kind === 'error' ? 'alert' : 'status'}>{feedback.message}</p>}
     <div className="consultation-scheduler">
-      <Calendar month={month} selected={selectedDay} counts={counts} now={now} onMonth={setMonth} onSelect={(day) => { setSelectedDay(day); setChosenSlot(null); setFeedback(null) }} />
+      <Calendar month={month} selected={selectedDay} counts={counts} now={now} onMonth={setMonth} onSelect={(day) => { setSelectedDay(day); setChosenSlot(null); setChosenSlotSnapshot(null); setUncertainBookingKey(null); setFeedback(null) }} />
       <section className="consultation-agenda" aria-labelledby="student-agenda-title"><div className="consultation-agenda-heading"><div><h2 id="student-agenda-title">{fullDate.format(new Date(`${selectedDay}T12:00:00${singaporeOffset}`))}</h2><p>{selectedSlots.length ? `${selectedSlots.length} ${selectedSlots.length === 1 ? 'time is' : 'times are'} available` : 'Available times from active Mentors'}</p></div></div>
-        {slotsLoading ? <p className="consultation-loading" role="status">Loading available times…</p> : slotsError ? <div className="consultation-error" role="alert"><p>Availability could not be loaded.</p><button className="button button-secondary" onClick={() => setSlotRetry((value) => value + 1)}>Try again</button></div> : selectedSlots.length ? <ol className="consultation-slot-list">{selectedSlots.map((slot) => <li key={slot.id} className={chosenSlot === slot.id ? 'is-active' : ''}><div className="consultation-slot-main"><TimeRange startsAt={slot.startsAt} endsAt={slot.endsAt}/><span className="consultation-mentor"><strong>{slot.mentorDisplayName}</strong><small>Available Mentor</small></span>{chosenSlot !== slot.id && <button type="button" className="button button-primary" onClick={() => { setChosenSlot(slot.id); setFeedback(null) }}>Choose</button>}</div>{chosenSlot === slot.id && <form className="consultation-book-form" onSubmit={(event) => void book(event, slot)}><label htmlFor={`topic-${slot.id}`}>What would you like help with?</label><input id={`topic-${slot.id}`} value={topic} maxLength={240} autoFocus onChange={(event) => setTopic(event.target.value)} placeholder="e.g. Review my sequence diagram"/><div><button className="button button-primary" disabled={busyId === slot.id}>{busyId === slot.id ? 'Booking…' : 'Confirm booking'}</button><button type="button" className="button button-secondary" onClick={() => { setChosenSlot(null); setTopic('') }}>Choose another time</button></div></form>}</li>)}</ol> : <div className="consultation-empty-day"><Icon name="calendar"/><h3>No availability on this day</h3><p>Choose another highlighted date or check the next month.</p></div>}
+        {slotsLoading ? <p className="consultation-loading" role="status">Loading available times…</p> : slotsError ? <div className="consultation-error" role="alert"><p>Availability could not be loaded.</p><button className="button button-secondary" onClick={() => setSlotRetry((value) => value + 1)}>Try again</button></div> : visibleSelectedSlots.length ? <ol className="consultation-slot-list">{visibleSelectedSlots.map((slot) => <li key={slot.id} className={chosenSlot === slot.id ? 'is-active' : ''}><div className="consultation-slot-main"><TimeRange startsAt={slot.startsAt} endsAt={slot.endsAt}/><span className="consultation-mentor"><strong>{slot.mentorDisplayName}</strong><small>Available Mentor</small></span>{chosenSlot !== slot.id && <button type="button" className="button button-primary" onClick={() => { setChosenSlot(slot.id); setChosenSlotSnapshot(slot); setUncertainBookingKey(null); setFeedback(null) }}>Choose</button>}</div>{chosenSlot === slot.id && <form className="consultation-book-form" onSubmit={(event) => void book(event, slot)}><label htmlFor={`topic-${slot.id}`}>What would you like help with?</label><input id={`topic-${slot.id}`} value={topic} maxLength={240} autoFocus onChange={(event) => setTopic(event.target.value)} placeholder="e.g. Review my sequence diagram"/><div><button className="button button-primary" disabled={busyId === slot.id}>{busyId === slot.id ? 'Booking…' : uncertainBookingKey ? 'Retry booking' : 'Confirm booking'}</button><button type="button" className="button button-secondary" onClick={() => { setChosenSlot(null); setChosenSlotSnapshot(null); setUncertainBookingKey(null); setTopic('') }}>Choose another time</button></div></form>}</li>)}</ol> : <div className="consultation-empty-day"><Icon name="calendar"/><h3>No availability on this day</h3><p>Choose another highlighted date or check the next month.</p></div>}
       </section>
     </div>
-    {appointmentState.loading ? <p className="consultation-loading" role="status">Loading your consultations…</p> : appointmentState.error ? <div className="consultation-error" role="alert"><p>Your consultations could not be loaded.</p><button className="button button-secondary" onClick={appointmentState.retry}>Try again</button></div> : <AppointmentList appointments={appointmentState.appointments} role="STUDENT" busyId={busyId} confirmId={confirmId} now={now} onCancel={(id) => void cancel(id)} onConfirm={setConfirmId}/>}
+    {appointmentState.loading ? <p className="consultation-loading" role="status">Loading your consultations…</p> : appointmentState.error ? <div className="consultation-error" role="alert"><p>Your consultations could not be loaded.</p><button className="button button-secondary" onClick={appointmentState.retry}>Try again</button></div> : <AppointmentList appointments={appointmentState.appointments} role="STUDENT" busyId={busyId} confirmId={confirmId} now={now} hasMoreHistory={appointmentState.hasMoreHistory} onCancel={(id) => void cancel(id)} onConfirm={setConfirmId} onLoadMoreHistory={appointmentState.loadMoreHistory}/>}
   </section>
 }
 
@@ -265,6 +319,7 @@ export function MentorConsultationsPage() {
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
   const appointmentState = useAppointments('MENTOR')
+  const operationAttempts = useRef(new Map<string, string>())
   const range = useMemo(() => monthRange(month), [month])
   const uid = session?.user?.id
   const slotKey = `${uid ?? ''}:${range.startsAt}:${range.endsAt}:${slotRetry}`
@@ -292,30 +347,39 @@ export function MentorConsultationsPage() {
       return
     }
     const startsAt = localIso(selectedDay, startTime); const endsAt = localIso(selectedDay, endTime)
+    const operationKey = JSON.stringify(['CREATE_SLOT', startsAt, endsAt])
+    const requestId = operationRequestId(operationAttempts.current, operationKey)
     setBusyId('create')
-    try { await services.callables.invoke('createAvailabilitySlot', { requestId: crypto.randomUUID(), startsAt, endsAt }); setFeedback({ kind: 'success', message: `Availability added for ${fullDate.format(new Date(startsAt))} at ${timeFormat.format(new Date(startsAt))}.` }) }
-    catch (error) { setFeedback({ kind: 'error', message: slotError(error) }) }
+    try { await services.callables.invoke('createAvailabilitySlot', { requestId, startsAt, endsAt }); settleOperation(operationAttempts.current, operationKey); setFeedback({ kind: 'success', message: `Availability added for ${fullDate.format(new Date(startsAt))} at ${timeFormat.format(new Date(startsAt))}.` }) }
+    catch (error) { settleOperation(operationAttempts.current, operationKey, error); setFeedback({ kind: 'error', message: slotError(error) }) }
     finally { setBusyId(null) }
   }
 
   async function withdraw(slotId: string) {
+    const operationKey = JSON.stringify(['WITHDRAW_SLOT', slotId])
+    const requestId = operationRequestId(operationAttempts.current, operationKey)
     setBusyId(slotId); setFeedback(null)
-    try { await services.callables.invoke('withdrawAvailabilitySlot', { requestId: crypto.randomUUID(), slotId }); setFeedback({ kind: 'success', message: 'The open time was withdrawn.' }) }
-    catch { setFeedback({ kind: 'error', message: 'We could not withdraw this time. Refresh and try again.' }) }
+    try { await services.callables.invoke('withdrawAvailabilitySlot', { requestId, slotId }); settleOperation(operationAttempts.current, operationKey); setFeedback({ kind: 'success', message: 'The open time was withdrawn.' }) }
+    catch (error) { settleOperation(operationAttempts.current, operationKey, error); setFeedback({ kind: 'error', message: 'We could not withdraw this time. Refresh and try again.' }) }
     finally { setBusyId(null) }
   }
 
   async function cancel(appointmentId: string) {
+    const operationKey = JSON.stringify(['CANCEL_APPOINTMENT', appointmentId])
+    const requestId = operationRequestId(operationAttempts.current, operationKey)
     setBusyId(appointmentId); setFeedback(null)
-    try { await services.callables.invoke('cancelAppointment', { requestId: crypto.randomUUID(), appointmentId }); setFeedback({ kind: 'success', message: 'The consultation was cancelled and the time was withdrawn.' }); setConfirmId(null) }
-    catch { setFeedback({ kind: 'error', message: 'We could not cancel this consultation. Refresh and try again.' }) }
+    try { await services.callables.invoke('cancelAppointment', { requestId, appointmentId }); settleOperation(operationAttempts.current, operationKey); setFeedback({ kind: 'success', message: 'The consultation was cancelled and the time was withdrawn.' }); setConfirmId(null) }
+    catch (error) { settleOperation(operationAttempts.current, operationKey, error); setFeedback({ kind: 'error', message: 'We could not cancel this consultation. Refresh and try again.' }) }
     finally { setBusyId(null) }
   }
 
   async function complete(appointmentId: string) {
+    const operationKey = JSON.stringify(['COMPLETE_APPOINTMENT', appointmentId])
+    const requestId = operationRequestId(operationAttempts.current, operationKey)
     setBusyId(appointmentId); setFeedback(null)
-    try { await services.callables.invoke('completeAppointment', { requestId: crypto.randomUUID(), appointmentId }); setFeedback({ kind: 'success', message: 'The consultation was marked completed.' }) }
+    try { await services.callables.invoke('completeAppointment', { requestId, appointmentId }); settleOperation(operationAttempts.current, operationKey); setFeedback({ kind: 'success', message: 'The consultation was marked completed.' }) }
     catch (error) {
+      settleOperation(operationAttempts.current, operationKey, error)
       const { code, reason } = errorReason(error)
       setFeedback({ kind: 'error', message: reason === 'APPOINTMENT_NOT_ENDED' ? 'This consultation can only be completed after its end time.' : code.endsWith('permission-denied') || code.endsWith('unauthenticated') ? 'Your account can no longer complete this consultation.' : 'We could not complete this consultation. Refresh and try again.' })
     } finally { setBusyId(null) }
@@ -331,6 +395,6 @@ export function MentorConsultationsPage() {
         {slotsLoading ? <p className="consultation-loading" role="status">Loading your availability…</p> : slotsError ? <div className="consultation-error" role="alert"><p>Your availability could not be loaded.</p><button className="button button-secondary" onClick={() => setSlotRetry((value) => value + 1)}>Try again</button></div> : selectedSlots.length ? <ol className="consultation-slot-list mentor-slot-list">{selectedSlots.map((slot) => { const appointment = slot.appointmentId ? appointmentById.get(slot.appointmentId) : undefined; const elapsed = Date.parse(slot.endsAt) <= now; const state = elapsed ? 'ELAPSED' : slot.status; return <li key={slot.id}><div className="consultation-slot-main"><TimeRange startsAt={slot.startsAt} endsAt={slot.endsAt}/><span className={`consultation-state state-${state.toLowerCase()}`}>{state.toLowerCase()}</span>{state === 'OPEN' && <button className="button button-secondary" disabled={busyId === slot.id} onClick={() => void withdraw(slot.id)}>{busyId === slot.id ? 'Withdrawing…' : 'Withdraw'}</button>}</div>{appointment && <div className="consultation-booking-detail"><div><strong>{appointment.studentDisplayName}</strong><p>{appointment.topic}</p></div>{appointment.status === 'CONFIRMED' && Date.parse(appointment.startsAt) > now && (confirmId === appointment.id ? <div className="consultation-confirm" role="group" aria-label={`Confirm cancellation of ${appointment.topic}`}><span>Cancel and withdraw this time?</span><button className="button consultation-danger" disabled={busyId === appointment.id} onClick={() => void cancel(appointment.id)}>{busyId === appointment.id ? 'Cancelling…' : 'Yes, cancel'}</button><button className="button button-secondary" onClick={() => setConfirmId(null)}>Keep it</button></div> : <button className="button button-secondary" onClick={() => setConfirmId(appointment.id)}>Cancel consultation</button>)}</div>}</li> })}</ol> : <div className="consultation-empty-day"><Icon name="calendar"/><h3>No availability on this day</h3><p>Choose a future date and add the times that suit you.</p></div>}
       </section>
     </div>
-    {appointmentState.loading ? <p className="consultation-loading" role="status">Loading your consultations…</p> : appointmentState.error ? <div className="consultation-error" role="alert"><p>Your consultations could not be loaded.</p><button className="button button-secondary" onClick={appointmentState.retry}>Try again</button></div> : <AppointmentList appointments={appointmentState.appointments} role="MENTOR" busyId={busyId} confirmId={confirmId} now={now} onCancel={(id) => void cancel(id)} onComplete={(id) => void complete(id)} onConfirm={setConfirmId}/>}
+    {appointmentState.loading ? <p className="consultation-loading" role="status">Loading your consultations…</p> : appointmentState.error ? <div className="consultation-error" role="alert"><p>Your consultations could not be loaded.</p><button className="button button-secondary" onClick={appointmentState.retry}>Try again</button></div> : <AppointmentList appointments={appointmentState.appointments} role="MENTOR" busyId={busyId} confirmId={confirmId} now={now} hasMoreHistory={appointmentState.hasMoreHistory} onCancel={(id) => void cancel(id)} onComplete={(id) => void complete(id)} onConfirm={setConfirmId} onLoadMoreHistory={appointmentState.loadMoreHistory}/>}
   </section>
 }

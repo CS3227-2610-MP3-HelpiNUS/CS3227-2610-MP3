@@ -17,6 +17,7 @@ import type {
 export type ChatCursor = { seconds: number; nanoseconds: number; id: string }
 export type ChatRow = { kind: 'ready'; request: F01HelpRequest } | { kind: 'support_needed'; requestId: string; acceptedAt: string }
 export type ChatDetail = { request: F01HelpRequest }
+export type AppointmentHistoryPage = { appointments: Appointment[]; hasMore: boolean }
 
 export interface DashboardData {
   user: User
@@ -72,7 +73,8 @@ export interface HelpiNUSServices {
   scheduling: {
     subscribeOpenSlots(range: { startsAt: string; endsAt: string }, onData: (slots: AvailabilitySlot[]) => void, onError: (error: unknown) => void): () => void
     subscribeMentorSlots(uid: string, range: { startsAt: string; endsAt: string }, onData: (slots: AvailabilitySlot[]) => void, onError: (error: unknown) => void): () => void
-    subscribeAppointments(uid: string, role: 'STUDENT' | 'MENTOR', onData: (appointments: Appointment[]) => void, onError: (error: unknown) => void): () => void
+    subscribeUpcomingAppointments(uid: string, role: 'STUDENT' | 'MENTOR', onData: (appointments: Appointment[]) => void, onError: (error: unknown) => void): () => void
+    subscribeAppointmentHistory(uid: string, role: 'STUDENT' | 'MENTOR', pageSize: number, onData: (page: AppointmentHistoryPage) => void, onError: (error: unknown) => void): () => void
   }
   callables: CallableClient
 }

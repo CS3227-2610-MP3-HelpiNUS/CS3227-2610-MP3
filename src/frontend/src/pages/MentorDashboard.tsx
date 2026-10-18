@@ -109,7 +109,7 @@ function MentorDashboardContent({ services, uid, refreshSession }: { services: H
   }, [])
   useEffect(() => {
     if (!uid) return
-    return services.scheduling.subscribeAppointments(uid, 'MENTOR', (items) => setConsultationState({ uid, kind: 'ready', items }), () => setConsultationState({ uid, kind: 'error' }))
+    return services.scheduling.subscribeUpcomingAppointments(uid, 'MENTOR', (items) => setConsultationState({ uid, kind: 'ready', items }), () => setConsultationState({ uid, kind: 'error' }))
   }, [services, uid])
 
   async function retryDenied() {

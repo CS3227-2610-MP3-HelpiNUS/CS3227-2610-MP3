@@ -95,12 +95,15 @@
 .consultation-appointment-row p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .consultation-appointment-row .consultation-confirm { max-width: 220px; }
 .consultation-empty { margin: 0; padding: 24px 14px; border-radius: 10px; background: #fff; color: var(--muted); font-size: 11px; }
+.consultation-history-more { width: 100%; margin-top: 10px; }
 .consultation-page :is(button, input):focus-visible { outline: 3px solid #155e75; outline-offset: 3px; }
 
 @media (max-width: 980px) {
   .consultation-scheduler { grid-template-columns: minmax(250px, .8fr) minmax(360px, 1.2fr); }
   .consultation-calendar { padding-inline: 16px; }
   .consultation-agenda { padding-inline: 18px; }
+  .consultation-create-form { grid-template-columns: auto minmax(0, 1fr); }
+  .consultation-create-form > .button { grid-column: 1 / -1; width: 100%; }
   .consultation-records { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 760px) {

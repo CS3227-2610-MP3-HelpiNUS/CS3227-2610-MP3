@@ -43,7 +43,7 @@ export function StudentDashboard() {
     const uid = session?.user?.id
     if (!uid) return
     const key = `${uid}:${scheduleRetry}`
-    return services.scheduling.subscribeAppointments(uid, 'STUDENT', (items) => setScheduleState({ key, kind: 'ready', value: items }), () => setScheduleState({ key, kind: 'error' }))
+    return services.scheduling.subscribeUpcomingAppointments(uid, 'STUDENT', (items) => setScheduleState({ key, kind: 'ready', value: items }), () => setScheduleState({ key, kind: 'error' }))
   }, [scheduleRetry, services, session?.user?.id])
   function retryRequests() { setRequestError(null); setRequestSummary(null); setRecentRequests(null); setRequestRetry((value) => value + 1) }
   async function loadDashboard() {
