@@ -80,7 +80,7 @@ test('seeded Mentor signs in with Google and keeps the trusted Mentor role', asy
   await signInWithSeededGoogleAccount(page, 'mentor@example.test')
 
   await expect(page).toHaveURL(/\/mentor\/dashboard$/)
-  await expect(page.getByRole('heading', { name: /Welcome back, Demo/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Welcome to your Mentor space' })).toBeVisible()
   await expect(page.getByText('Demo Mentor', { exact: true })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('mentor-dashboard.png'), fullPage: true })
   expect(diagnostics.pageErrors, 'uncaught browser errors').toEqual([])
