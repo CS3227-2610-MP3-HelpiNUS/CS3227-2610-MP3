@@ -5,13 +5,13 @@ Keep this map aligned with `src/frontend/src/routes/appRoutes.tsx`. All browser 
 | Area | Routes / navigation | Important interactions | Verification approach | Test data |
 | --- | --- | --- | --- | --- |
 | Entry redirect | `/` | Resolve the default destination and authentication guard | Open the root URL and assert the final guarded route for the current session | None or the intended seeded role |
-| Public authentication | `/login`, `/register`, `/forgot-password`, `/account-access` | Sign in, open registration and password recovery, recover partial accounts | Assert labelled fields, validation/errors, destination URL, and active-account routing | Public pages need no account; use the seeded accounts below for sign-in |
-| Student dashboard | `/student`, `/student/dashboard` | View greeting, recent requests, upcoming consultations, and feature links | Sign in as Student; assert identity-specific heading and navigation without console/network failure | `student@example.test` / `Student-demo-123!` |
+| Public authentication | `/login`, `/register`, `/forgot-password`, `/account-access` | Sign in or register through the Auth Emulator's mock Google provider, open Google Account Recovery guidance, recover a missing display name | Assert Google-only controls, mock-provider interaction, trusted-role destination, recovery link, and active-account routing | Public pages need no account; seeded accounts are linked to mock `google.com` identities |
+| Student dashboard | `/student`, `/student/dashboard` | View greeting, recent requests, upcoming consultations, and feature links | Sign in as Student through mock Google; assert identity-specific heading and navigation without console/network failure | Seeded Google identity `student@example.test` |
 | Mentor discovery and help request | `/student/mentors`, `/student/mentors/:mentorId/request` | Search/filter Mentors, expand details, paginate, select a module, submit a request | Use the seeded Student and Mentor catalogue; assert result identity, chosen module, explicit form feedback, and persisted destination | Student account; `aisha@example.test` supports seeded modules |
 | Student requests | `/student/requests`, `/student/requests/:id` | Page through history, inspect status/details, open eligible conversation | Seed or create synthetic requests; assert order, status, persisted fields, and authorization-visible actions | Student plus matching synthetic requests |
 | Student conversations | `/student/conversations`, `/student/conversations/:requestId` | Open eligible chat, page history, send, retry, observe read state | Use an accepted synthetic request; assert persisted message identity/order and error/retry state | Matched Student/Mentor accounts and accepted request |
 | Student placeholders | `/student/consultations`, `/student/study-assistant` | Navigate to the workspace placeholders | Assert route, heading/copy, and shell navigation | Seeded Student |
-| Mentor dashboard and profile | `/mentor/dashboard`, `/mentor/profile` | View request summary; inspect and edit profile/module availability | Sign in as Mentor; assert identity, saved/reloaded fields, validation, and responsive controls | `mentor@example.test` / `Mentor-demo-123!` or `aisha@example.test` / `Aisha-demo-123!` |
+| Mentor dashboard and profile | `/mentor/dashboard`, `/mentor/profile` | View request summary; inspect and edit profile/module availability | Sign in as Mentor through mock Google; assert identity, saved/reloaded fields, validation, and responsive controls | Seeded Google identity `mentor@example.test` or `aisha@example.test` |
 | Mentor requests | `/mentor/requests`, `/mentor/requests/:id` | Page pending/decided requests; accept or reject with confirmation | Create isolated synthetic request; assert authorized transition, terminal state, and Student-visible persistence | Matched seeded Student/Mentor pair |
 | Mentor conversations | `/mentor/conversations`, `/mentor/conversations/:requestId` | List/open eligible chats, send and receive, page history | Use accepted synthetic request; assert both-role convergence and persisted content | Matched Student/Mentor accounts |
 
@@ -19,8 +19,9 @@ Keep this map aligned with `src/frontend/src/routes/appRoutes.tsx`. All browser 
 
 `app-verification/tests/app-smoke.spec.ts` currently proves:
 
-- the rendered login journey reaches password recovery with labelled controls;
-- the seeded Student signs in through Auth, Firestore, Functions, and Rules emulators and reaches `/student/dashboard`;
+- the rendered login journey exposes only Google authentication and reaches Google Account Recovery guidance;
+- seeded Student and Mentor identities sign in through the Auth Emulator's mock Google provider and route from authoritative profiles;
+- a new mock Google identity is provisioned only as an ACTIVE Student and reaches `/student/dashboard`;
 - browser console errors, uncaught page errors, and failed requests are attached to each result; expected `net::ERR_ABORTED` cancellation of Firestore Listen channels remains recorded but does not fail the smoke, while every other diagnostic error does;
 - success screenshots are retained alongside failure-only traces/video configured by Playwright.
 

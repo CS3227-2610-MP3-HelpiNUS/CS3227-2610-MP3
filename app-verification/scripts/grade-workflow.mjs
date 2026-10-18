@@ -70,7 +70,7 @@ async function grade(root, { runCommands = true } = {}) {
     const playwrightCli = join(root, 'node_modules', '@playwright', 'test', 'cli.js')
     const discovery = commandResult(process.execPath, [playwrightCli, 'test', '--config', 'app-verification/playwright.config.ts', '--list'], root)
     if (!discovery.ok) failures.push(`Playwright discovery failed: ${discovery.output}`)
-    else if (!discovery.output.includes('Total: 2 tests')) failures.push(`Playwright discovery did not find the maintained two-test smoke set: ${discovery.output}`)
+    else if (!discovery.output.includes('Total: 4 tests')) failures.push(`Playwright discovery did not find the maintained four-test smoke set: ${discovery.output}`)
   }
   return failures
 }

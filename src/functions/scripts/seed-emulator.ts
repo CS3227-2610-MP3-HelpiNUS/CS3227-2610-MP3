@@ -23,6 +23,16 @@ for (const demo of demoUsers) {
     return auth.createUser({ email: demo.email, password: demo.password, displayName: demo.displayName, emailVerified: true })
   })
   if (!user.emailVerified) await auth.updateUser(user.uid, { emailVerified: true })
+  if (!user.providerData.some((provider) => provider.providerId === 'google.com')) {
+    await auth.updateUser(user.uid, {
+      providerToLink: {
+        providerId: 'google.com',
+        uid: `helpinus-${demo.email}`,
+        email: demo.email,
+        displayName: demo.displayName,
+      },
+    })
+  }
   const userRef = db.collection('users').doc(user.uid)
   if (!(await userRef.get()).exists) {
     await userRef.create({
