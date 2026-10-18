@@ -37,6 +37,12 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(mentorId)).data.role == 'MENTOR'
         && get(/databases/$(database)/documents/users/$(mentorId)).data.status == 'ACTIVE';
     }
+    function schedulableMentor(mentorId) {
+      return activeMentor(mentorId)
+        && exists(/databases/$(database)/documents/mentorProfiles/$(mentorId))
+        && get(/databases/$(database)/documents/mentorProfiles/$(mentorId)).data.userId == mentorId
+        && get(/databases/$(database)/documents/mentorProfiles/$(mentorId)).data.active == true;
+    }
 
     match /users/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
     match /mentorProfiles/{uid} {
@@ -72,8 +78,35 @@ service cloud.firestore {
         allow write: if false;
       }
     }
-    match /availabilitySlots/{id} { allow read: if activeUser() && resource.data.withdrawn == false && resource.data.startsAt > request.time && activeMentor(resource.data.mentorId); allow write: if false; }
-    match /appointments/{id} { allow read: if activeUser() && (resource.data.studentId == request.auth.uid || resource.data.mentorId == request.auth.uid); allow write: if false; }
+    match /availabilitySlots/{id} {
+      function ownMentorSlot() {
+        return role() == 'MENTOR' && resource.data.get('mentorId', '') == request.auth.uid;
+      }
+      function publicOpenSlot() {
+        return resource.data.get('status', '') == 'OPEN'
+          && resource.data.get('appointmentId', 'MISSING') == null;
+      }
+      allow get: if activeUser() && (ownMentorSlot() || (publicOpenSlot() && schedulableMentor(resource.data.get('mentorId', ''))));
+      // Firestore cannot prove a cross-document Mentor/profile predicate for a
+      // collection query. The query exposes only unbooked OPEN projections;
+      // reserveAppointment rechecks the current Auth user and Mentor profile.
+      allow list: if activeUser() && request.query.limit != null && request.query.limit <= 100
+        && (ownMentorSlot() || publicOpenSlot());
+      allow write: if false;
+    }
+    match /appointments/{id} {
+      function ownsAppointment() {
+        return activeUser() && (
+          (role() == 'STUDENT' && resource.data.get('studentId', '') == request.auth.uid)
+          || (role() == 'MENTOR' && resource.data.get('mentorId', '') == request.auth.uid)
+        );
+      }
+      allow get: if ownsAppointment();
+      allow list: if request.query.limit != null && request.query.limit <= 100 && ownsAppointment();
+      allow write: if false;
+    }
+    match /appointmentOperations/{uid}/operations/{requestId} { allow read, write: if false; }
+    match /availabilitySlotLocks/{id} { allow read, write: if false; }
     match /aiAuditEvents/{id} { allow read, write: if false; }
   }
 }
