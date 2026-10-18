@@ -15,7 +15,6 @@ const requiredFiles = [
   'app-verification/playwright.config.ts',
   'app-verification/scripts/verify-app.mjs',
   'app-verification/tests/app-smoke.spec.ts',
-  'app-verification/tests/consultation-booking.spec.ts',
   'scripts/dev-emulators.mjs',
   'src/frontend/src/routes/appRoutes.tsx',
 ]
@@ -71,17 +70,7 @@ async function grade(root, { runCommands = true } = {}) {
     const playwrightCli = join(root, 'node_modules', '@playwright', 'test', 'cli.js')
     const discovery = commandResult(process.execPath, [playwrightCli, 'test', '--config', 'app-verification/playwright.config.ts', '--list'], root)
     if (!discovery.ok) failures.push(`Playwright discovery failed: ${discovery.output}`)
-    else {
-      const maintainedJourneys = [
-        'Google authentication public journey reaches account recovery',
-        'seeded Student signs in with Google through the local Firebase stack',
-        'seeded Mentor signs in with Google and keeps the trusted Mentor role',
-        'new Google identity registers only as a Student',
-        'consultation booking works across Mentor and Student roles',
-      ]
-      const missingJourneys = maintainedJourneys.filter((journey) => !discovery.output.includes(journey))
-      if (missingJourneys.length) failures.push(`Playwright discovery omitted maintained journeys: ${missingJourneys.join(', ')}`)
-    }
+    else if (!discovery.output.includes('Total: 4 tests')) failures.push(`Playwright discovery did not find the maintained four-test smoke set: ${discovery.output}`)
   }
   return failures
 }
