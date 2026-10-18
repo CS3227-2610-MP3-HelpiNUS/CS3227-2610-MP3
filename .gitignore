@@ -10,6 +10,8 @@ firebase-debug.log*
 firestore-debug.log*
 ui-debug.log*
 .verify-app/
+.impeccable/review/
+src/frontend/.impeccable/
 playwright-report/
 test-results/
 *.local

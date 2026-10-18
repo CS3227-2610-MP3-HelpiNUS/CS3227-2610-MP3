@@ -10,6 +10,7 @@ import { ConversationDetailPage, ConversationListPage } from '../pages/Conversat
 import { AccountAccessPage, ForgotPasswordPage, LoginPage, RegisterPage } from '../pages/AuthPages'
 import { ErrorPage } from '../pages/ErrorPage'
 import { ProtectedRoute } from './ProtectedRoute'
+import { MentorConsultationsPage, StudentConsultationsPage } from '../pages/ConsultationPages'
 
 export const appRoutes: RouteObject[] = [
   { path: '/', element: <Navigate to="/student/dashboard" replace />, errorElement: <ErrorPage /> },
@@ -26,7 +27,7 @@ export const appRoutes: RouteObject[] = [
     { path: '/student/requests/:id', element: <RequestDetailPage role="student" /> },
     { path: '/student/conversations', element: <ConversationListPage role="student" /> },
     { path: '/student/conversations/:requestId', element: <ConversationDetailPage role="student" /> },
-    { path: '/student/consultations', element: <WorkspacePage /> },
+    { path: '/student/consultations', element: <StudentConsultationsPage /> },
     { path: '/student/study-assistant', element: <WorkspacePage /> },
   ] }] },
   { element: <ProtectedRoute role="MENTOR" />, errorElement: <ErrorPage />, children: [{ element: <AppShell />, children: [
@@ -36,6 +37,7 @@ export const appRoutes: RouteObject[] = [
     { path: '/mentor/requests/:id', element: <RequestDetailPage role="mentor" /> },
     { path: '/mentor/conversations', element: <ConversationListPage role="mentor" /> },
     { path: '/mentor/conversations/:requestId', element: <ConversationDetailPage role="mentor" /> },
+    { path: '/mentor/consultations', element: <MentorConsultationsPage /> },
   ] }] },
   { path: '*', element: <ErrorPage /> },
 ]

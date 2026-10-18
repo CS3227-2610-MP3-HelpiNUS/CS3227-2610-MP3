@@ -58,12 +58,14 @@ const requests: HelpRequest[] = [
 const appointments: Appointment[] = [
   {
     id: 'appointment-01', slotId: 'slot-01', studentId: student.id, mentorId: mentor.id,
-    helpRequestId: 'request-01', topic: 'Sequence diagrams and alternate flows', status: 'CONFIRMED',
+    studentDisplayName: student.displayName, mentorDisplayName: mentor.displayName,
+    helpRequestId: 'request-01', topic: 'Sequence diagrams and alternate flows', status: 'CONFIRMED', cancelledBy: null,
+    startsAt: '2026-11-20T07:00:00.000Z', endsAt: '2026-11-20T08:00:00.000Z',
     createdAt: '2026-10-12T08:10:00.000Z', updatedAt: '2026-10-12T08:10:00.000Z',
   },
 ]
 const slots: AvailabilitySlot[] = [
-  { id: 'slot-01', mentorId: mentor.id, startsAt: '2026-10-15T07:00:00.000Z', endsAt: '2026-10-15T08:00:00.000Z', withdrawn: false, createdAt: '2026-10-09T08:00:00.000Z' },
+  { id: 'slot-01', mentorId: mentor.id, mentorDisplayName: mentor.displayName, startsAt: '2026-11-20T07:00:00.000Z', endsAt: '2026-11-20T08:00:00.000Z', status: 'BOOKED', appointmentId: 'appointment-01', createdAt: '2026-10-09T08:00:00.000Z', updatedAt: '2026-10-12T08:10:00.000Z' },
 ]
 const conversations: Conversation[] = [
   {
@@ -130,7 +132,9 @@ export function createMockModuleLookup(records: ReadonlyMap<string, unknown>): H
 
 const f01Requests: F01HelpRequest[] = []
 const requestListeners = new Set<() => void>()
+const schedulingListeners = new Set<() => void>()
 const notifyRequests = () => { for (const listener of requestListeners) listener() }
+const notifyScheduling = () => { for (const listener of schedulingListeners) listener() }
 function mockSubscribe(read: () => F01HelpRequest[], onData: (items: F01HelpRequest[]) => void) {
   const listener = () => onData(read())
   requestListeners.add(listener)
@@ -163,7 +167,42 @@ export const mockServices: HelpiNUSServices = {
     subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} },
     async getMessageFromServer() { return null },
   },
+  scheduling: {
+    subscribeOpenSlots(range, onData) { const listener = () => { const start = Date.parse(range.startsAt); const end = Date.parse(range.endsAt); onData(slots.filter((slot) => { const time = Date.parse(slot.startsAt); return slot.status === 'OPEN' && time >= start && time < end })) }; schedulingListeners.add(listener); listener(); return () => { schedulingListeners.delete(listener) } },
+    subscribeMentorSlots(uid, range, onData) { const listener = () => { const start = Date.parse(range.startsAt); const end = Date.parse(range.endsAt); onData(slots.filter((slot) => { const time = Date.parse(slot.startsAt); return slot.mentorId === uid && time >= start && time < end })) }; schedulingListeners.add(listener); listener(); return () => { schedulingListeners.delete(listener) } },
+    subscribeUpcomingAppointments(uid, role, onData) { const listener = () => onData(appointments.filter((appointment) => appointment[role === 'STUDENT' ? 'studentId' : 'mentorId'] === uid && Date.parse(appointment.startsAt) >= Date.now()).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))); schedulingListeners.add(listener); listener(); return () => { schedulingListeners.delete(listener) } },
+    subscribeAppointmentHistory(uid, role, pageSize, onData) { const listener = () => { const items = appointments.filter((appointment) => appointment[role === 'STUDENT' ? 'studentId' : 'mentorId'] === uid && Date.parse(appointment.startsAt) < Date.now()).sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt)); onData({ appointments: items.slice(0, pageSize), hasMore: items.length > pageSize }) }; schedulingListeners.add(listener); listener(); return () => { schedulingListeners.delete(listener) } },
+  },
   callables: createMockCallableClient({
+    createAvailabilitySlot: async (input) => {
+      const now = new Date().toISOString()
+      const slot: AvailabilitySlot = { id: crypto.randomUUID(), mentorId: mentor.id, mentorDisplayName: mentor.displayName, startsAt: input.startsAt, endsAt: input.endsAt, status: 'OPEN', appointmentId: null, createdAt: now, updatedAt: now }
+      slots.push(slot); notifyScheduling(); return { slot }
+    },
+    withdrawAvailabilitySlot: async ({ slotId }) => {
+      const slot = slots.find((item) => item.id === slotId)
+      if (!slot) throw new Error('Slot unavailable')
+      Object.assign(slot, { status: 'WITHDRAWN' as const, appointmentId: null, updatedAt: new Date().toISOString() }); notifyScheduling(); return { slot }
+    },
+    reserveAppointment: async (input) => {
+      const slot = slots.find((item) => item.id === input.slotId)
+      if (!slot || slot.status !== 'OPEN') throw new Error('Slot unavailable')
+      const now = new Date().toISOString()
+      const appointment: Appointment = { id: crypto.randomUUID(), slotId: slot.id, studentId: student.id, studentDisplayName: student.displayName, mentorId: slot.mentorId, mentorDisplayName: slot.mentorDisplayName, helpRequestId: input.helpRequestId ?? null, topic: input.topic, status: 'CONFIRMED', startsAt: slot.startsAt, endsAt: slot.endsAt, cancelledBy: null, createdAt: now, updatedAt: now }
+      appointments.push(appointment); Object.assign(slot, { status: 'BOOKED' as const, appointmentId: appointment.id, updatedAt: now }); notifyScheduling(); return { appointment }
+    },
+    cancelAppointment: async ({ appointmentId }) => {
+      const appointment = appointments.find((item) => item.id === appointmentId)
+      if (!appointment) throw new Error('Appointment unavailable')
+      const now = new Date().toISOString(); appointment.status = 'CANCELLED'; appointment.cancelledBy = 'STUDENT'; appointment.updatedAt = now
+      const slot = slots.find((item) => item.id === appointment.slotId); if (slot) Object.assign(slot, { status: 'OPEN' as const, appointmentId: null, updatedAt: now })
+      notifyScheduling(); return { appointment }
+    },
+    completeAppointment: async ({ appointmentId }) => {
+      const appointment = appointments.find((item) => item.id === appointmentId)
+      if (!appointment) throw new Error('Appointment unavailable')
+      appointment.status = 'COMPLETED'; appointment.updatedAt = new Date().toISOString(); notifyScheduling(); return { appointment }
+    },
     createHelpRequest: async (input) => {
       const existing = f01Requests.find((item) => item.studentId === student.id && item.mentorId === input.mentorId && item.moduleId === input.moduleId && item.status === 'PENDING')
       if (existing) return { kind: 'duplicate', existingHelpRequestId: existing.id, currentStatus: existing.status }
