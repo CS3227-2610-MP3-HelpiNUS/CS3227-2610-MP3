@@ -43,6 +43,10 @@ async function signInWithSeededGoogleAccount(page: Page, email: string, action =
 
 test('Google authentication public journey reaches account recovery', async ({ page, diagnostics }, testInfo) => {
   await page.goto('/login')
+  if (!page.url().endsWith('/login')) {
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await expect(page).toHaveURL(/\/login$/)
+  }
   await expect(page.getByRole('heading', { name: 'Welcome to HelpiNUS' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
   await expect(page.getByLabel(/email|password/i)).toHaveCount(0)
