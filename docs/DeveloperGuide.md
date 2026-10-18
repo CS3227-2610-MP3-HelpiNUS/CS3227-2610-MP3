@@ -357,9 +357,68 @@ unexpected cursor or page size. For targeted cases, pass a fresh
 `servicesOverride` to `ServiceProvider` with a scenario-specific
 `createMockCallableClient` fixture and module lookup. Do not use
 `mockDashboard.mentors` as discovery data because its nested `User` records
-contain private fields. The live emulator seed still creates one Mentor with
-empty `moduleIds` and no module catalogue; it cannot demonstrate filtering
-until a separately approved seed or data change supplies module records.
+contain private fields. The F04 emulator seed creates one Mentor with empty
+`moduleIds` and two active example modules, so local discovery can demonstrate
+module filtering after the Mentor selects and saves a module.
+
+### Mentor profile management (S1-D2-F04)
+
+`/mentor/profile` is a Mentor-only route in `ProtectedRoute` and `AppShell`,
+with desktop and mobile navigation. `MentorProfilePage` obtains all F04 data
+through the existing typed `services.callables.invoke` interface. It does not
+read or write Firestore directly. The three Singapore-region callables are:
+
+| Callable | Input and result | Backend responsibility |
+| --- | --- | --- |
+| `readOwnMentorProfile` | Strict empty input; `ready`, `missing`, `inactive`, or `invalid` result | Read only the authenticated Mentor's profile and private revision; return public editable fields, version, and saved-module metadata. A metadata read failure is distinct from a confirmed missing module. |
+| `searchMentorModules` | Nonempty code/title prefix and optional query-bound cursor; at most 20 active module summaries and a continuation cursor | Search the indexed active catalogue in document-ID order after Mentor authorization. Invalid stored records fail the query instead of becoming selectable results. |
+| `updateOwnMentorProfile` | UUID `requestId`, baseline version, biography, and up to 30 unique canonical module IDs; accepted or semantic rejection result | Recheck Mentor eligibility, profile, version, and newly selected modules in a Firestore transaction; write only biography and module IDs to the public profile. |
+
+The strict shared schemas reject a client-supplied target UID, role, status,
+`active`, extra fields, malformed document IDs, or a biography longer than
+1,000 characters. Each handler uses the authoritative `users/{uid}` record and
+current Firebase Auth account, including disabled, email, and verified-email
+checks. The synthetic `@example.test` verification exception applies only
+when Functions run in the emulator. The save transaction rechecks the account
+record so a revoked Mentor cannot finish a pending write. `ServiceProvider`
+revalidates ACTIVE auth callbacks through `getCurrent()` before publishing a
+session; its epoch guard discards stale completion after sign-out, identity,
+or service changes. The page clears its state across session changes and
+rechecks profile data on focus, page restore, and before a new save.
+
+The public `mentorProfiles/{uid}` document retains its F02 shape: `userId`,
+`biography`, `moduleIds`, and `active`. The private numeric revision lives at
+`mentorProfiles/{uid}/private/profileState`; an absent state document means
+revision zero for a legacy profile. The baseline also includes the public
+document's precise Firestore `updateTime`, serialized as
+`seconds:nanoseconds`. An accepted save atomically updates the public fields,
+increments the private revision, and creates
+`mentorProfiles/{uid}/saveRequests/{requestId}`. That private record stores a
+canonical request fingerprint and accepted or rejected outcome. Identical
+retries replay the recorded result; a materially changed request with the
+same UUID is rejected. A stale baseline returns `CONFLICT`, and an ineligible
+new module returns `MODULE_INELIGIBLE`; both semantic outcomes are recorded
+for stable retries. Client Rules provide no access to the private subcollections.
+The accepted receipt is not a new baseline: the page makes a fresh own-profile
+read and shows success only when its stored fields and revision match.
+
+The module catalogue stores `activeSearchPrefixes`, computed from normalized
+(Unicode NFKC, trimmed, lower-case) prefixes of the module code and title.
+Inactive modules have an empty prefix array. Search uses `array-contains`,
+document-ID ordering, and a query-bound `startAfter(lastId)` cursor, with a
+fixed server page size of 20. Catalogue writers must update code, title,
+`active`, and derived prefixes atomically; F04 adds no production writer or
+backfill. The emulator seed now supplies two active and one inactive example
+module for local F04 work. The current design relies on Firestore's automatic
+single-field array index. Emulator coverage checks the query; the approved
+target environment still needs its own index/query proof before release.
+
+The page keeps the saved view separate from the draft. It retains confirmed
+missing or inactive saved module IDs, pauses module changes when metadata is
+unavailable, and preserves the draft through search errors and ambiguous save
+responses. A conflict offers explicit latest-versus-draft review; navigation
+with unsaved changes opens a discard dialog. Search, read, and save responses
+have generation guards so late responses cannot replace newer page state.
 
 ## 11. Installation and Firebase Web configuration
 
@@ -413,31 +472,43 @@ npm run dev --workspace src/frontend
 
 ## 12. Emulator development
 
-Ports are Auth `9099`, Firestore `8080`, and Functions `5001`. Set
-`VITE_USE_FIREBASE_EMULATORS=true` only in local development on a loopback host.
+With Node 22, Java 21 or newer, dependencies installed, and the `helpinus-dev`
+Web App values in `src/frontend/.env.local`, start the emulators from the
+repository root:
 
-Start the emulators:
-
-```bash
-npx firebase-tools emulators:start --only auth,firestore,functions \
-  --project helpinus-dev
+```powershell
+fnm exec --using 22 node "$env:APPDATA\fnm\node-versions\v22.23.3\installation\node_modules\npm\bin\npm-cli.js" run build --workspace src/functions
+fnm exec --using 22 node node_modules/firebase-tools/lib/bin/firebase.js emulators:start --only auth,firestore,functions --project helpinus-dev
 ```
 
-In another terminal, seed the synthetic accounts:
+This starts Auth `9099`, Firestore `8080`, and Functions `5001`. In a second
+terminal, seed the synthetic accounts and catalogue, then start Vite:
 
-```bash
-FUNCTIONS_EMULATOR=true \
-FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 \
-FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 \
-npm run seed:emulator --workspace src/functions
+```powershell
+$env:FUNCTIONS_EMULATOR = 'true'
+$env:FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099'
+$env:FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080'
+$env:GCLOUD_PROJECT = 'helpinus-dev'
+fnm exec --using 22 node node_modules/tsx/dist/cli.mjs src/functions/scripts/seed-emulator.ts
+$env:VITE_USE_FIREBASE_EMULATORS = 'true'
+Push-Location src/frontend
+try { fnm exec --using 22 node ../../node_modules/vite/bin/vite.js --host 127.0.0.1 }
+finally { Pop-Location }
 ```
+
+The seed fills missing records without overwriting existing demo profile edits
+or modules while the emulators are running. Without an emulator data import,
+stopping the emulators discards their synthetic records; seed again on restart.
 
 | Role | Email | Password |
 | --- | --- | --- |
 | Student | `student@example.test` | `Student-demo-123!` |
 | Mentor | `mentor@example.test` | `Mentor-demo-123!` |
 
-The accounts and verification bypass are emulator-only.
+The seed marks both demo emails verified so Firestore Rules allow module reads.
+The accounts and synthetic verification fallback are emulator-only. It creates
+two active module records (`CS2103T`, `CS2040S`) and one inactive record
+(`CS3230`) when they are missing.
 
 Provision a trusted Mentor in a selected real project with Application Default
 Credentials:
@@ -533,6 +604,57 @@ in `App.css` below 520 px; the in-app browser recheck measured equal document
 scroll and client widths at both 320 and 375 px, including 320 px details and
 dialog states. The underlying global rule was not edited.
 An actual screen-reader walkthrough remains outstanding for F02-TC-044.
+
+For F04, use the repository's Node 22 runtime for the root gate and both
+frontend and Functions test processes. On this Windows host, `fnm` supplies
+Node v22.23.3. The direct npm CLI invocation avoids accidentally using the
+system Node 24 executable; the local temporary directory avoids a Vitest
+rename error:
+
+```powershell
+$env:TEMP = Join-Path (Get-Location) '.f04-temp'
+$env:TMP = $env:TEMP
+New-Item -ItemType Directory -Force -Path $env:TEMP | Out-Null
+fnm exec --using 22 node "$env:APPDATA\fnm\node-versions\v22.23.3\installation\node_modules\npm\bin\npm-cli.js" run check
+```
+
+F04's focused suites are
+`src/frontend/src/test/mentorProfile.test.tsx`,
+`src/frontend/src/test/mentorProfileAdapters.test.ts`,
+`src/functions/src/mentorProfileManagement.test.ts`,
+`src/functions/src/mentorModuleSearch.test.ts`, and
+`src/functions/src/moduleSearchKeys.test.ts`. The emulator suites are
+`src/functions/integration-tests/mentorProfileManagement.test.ts` and
+`src/functions/rules-tests/access.test.ts`. On Windows, the existing nested
+single-quote npm wrappers for emulator tests are unreliable; run Vitest
+through `firebase emulators:exec` directly. The local Firestore port 8080 was
+occupied during F04 verification, so a temporary copy of `firebase.json`
+used port 18080 without changing checked-in configuration. Java 25.0.4
+started the emulators. From the repository root, after building Functions
+with the Node 22 `npm run check` command above, a direct Windows run is:
+
+```powershell
+$config = Get-Content firebase.json -Raw | ConvertFrom-Json
+$config.emulators.firestore.port = 18080
+$config | ConvertTo-Json -Depth 20 | Set-Content .f04-firebase-local.json -NoNewline
+$env:JAVA_HOME = 'C:\Program Files\Java\jdk-25.0.4'
+$env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+$env:FUNCTIONS_DISCOVERY_TIMEOUT = '60'
+try {
+  fnm exec --using 22 node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --config .f04-firebase-local.json --only firestore --project helpinus-rules-test 'node node_modules/vitest/vitest.mjs run src/functions/rules-tests/access.test.ts'
+  if ($LASTEXITCODE -ne 0) { throw 'Rules emulator tests failed' }
+  fnm exec --using 22 node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --config .f04-firebase-local.json --only auth,firestore,functions --project helpinus-integration-test 'node node_modules/vitest/vitest.mjs run src/functions/integration-tests --testTimeout 30000 --no-file-parallelism'
+  if ($LASTEXITCODE -ne 0) { throw 'Callable integration tests failed' }
+} finally {
+  Remove-Item -LiteralPath .f04-firebase-local.json -ErrorAction SilentlyContinue
+}
+```
+
+The commands fail on a nonzero test exit code. A local Node 22 `npm run check`
+passed in the F04 worktree; exact emulator
+outcomes belong in the F04 handoff and interaction log. GitHub Actions on a
+candidate commit, target-environment catalogue query proof, and observed
+screen-reader/mobile acceptance remain separate release gates.
 
 On Windows, the existing `npm run test:rules -w src/functions`
 script failed before executing tests because its single-quoted nested command

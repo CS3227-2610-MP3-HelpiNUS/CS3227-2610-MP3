@@ -11,7 +11,10 @@ const studentLinks = [
   { to: '/student/consultations', label: 'Consultations', icon: 'calendar' },
   { to: '/student/study-assistant', label: 'Study assistant', icon: 'study' },
 ] as const
-const mentorLinks = [{ to: '/mentor/dashboard', label: 'Dashboard', icon: 'home' }] as const
+const mentorLinks = [
+  { to: '/mentor/dashboard', label: 'Dashboard', icon: 'home' },
+  { to: '/mentor/profile', label: 'My profile', icon: 'mentors' },
+] as const
 
 export function AppShell() {
   const { services, session, refreshSession } = useServices()
@@ -52,7 +55,7 @@ export function AppShell() {
       {signOutError && <p className="signout-error" role="alert">{signOutError}</p>}
       <main id="main-content" className="main-content" tabIndex={-1}><Outlet /></main>
       <nav className="mobile-nav" aria-label={isMentor ? 'Mentor navigation' : 'Student navigation'}>
-        {links.map(({ to, label, icon }) => <NavLink key={to} to={to} aria-label={label} title={label} className={(state: NavLinkRenderProps) => `mobile-nav-link${state.isActive ? ' active' : ''}`}><Icon name={icon}/><span>{label === 'Find a mentor' ? 'Mentors' : label === 'Help requests' ? 'Requests' : label === 'Conversations' ? 'Messages' : label === 'Consultations' ? 'Bookings' : label === 'Study assistant' ? 'Study' : 'Home'}</span></NavLink>)}
+        {links.map(({ to, label, icon }) => <NavLink key={to} to={to} aria-label={label} title={label} className={(state: NavLinkRenderProps) => `mobile-nav-link${state.isActive ? ' active' : ''}`}><Icon name={icon}/><span>{label === 'Find a mentor' ? 'Mentors' : label === 'My profile' ? 'Profile' : label === 'Help requests' ? 'Requests' : label === 'Conversations' ? 'Messages' : label === 'Consultations' ? 'Bookings' : label === 'Study assistant' ? 'Study' : 'Home'}</span></NavLink>)}
       </nav>
     </div>
   </div>

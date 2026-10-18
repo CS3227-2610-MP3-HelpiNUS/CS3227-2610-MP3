@@ -244,7 +244,7 @@ describe('Mentor discovery route', () => {
   it('F02-TC-039: shares the first pending request during StrictMode effect replay', async () => {
     const wait = deferred<DiscoverMentorsOutput>()
     const scenario = setup({ first: () => wait.promise }, { strict: true })
-    expect(scenario.calls).toEqual([{ limit: 20 }])
+    await waitFor(() => expect(scenario.calls).toEqual([{ limit: 20 }]))
     wait.resolve(page([mentor('sample-one', 'Sample One')], null))
     expect(await screen.findByRole('heading', { name: 'Sample One' })).toBeInTheDocument()
     expect(scenario.calls).toHaveLength(1)
@@ -264,7 +264,7 @@ describe('Mentor discovery route', () => {
     const firstWait = deferred<DiscoverMentorsOutput>()
     const laterWait = deferred<DiscoverMentorsOutput>()
     const scenario = setup({ first: () => firstWait.promise, 'opaque-page-2': () => laterWait.promise })
-    expect(screen.getByRole('status', { name: 'Loading mentors' })).toBeInTheDocument()
+    expect(await screen.findByRole('status', { name: 'Loading mentors' })).toBeInTheDocument()
     expect(screen.queryByText('No mentors available')).not.toBeInTheDocument()
     firstWait.resolve(first)
     await screen.findByRole('heading', { name: 'Sample Aisha Rahman' })
@@ -458,7 +458,7 @@ describe('Mentor discovery route', () => {
   it('F02-TC-038: service identity replacement ignores an old deferred response', async () => {
     const oldWait = deferred<DiscoverMentorsOutput>()
     const scenario = setup({ first: () => oldWait.promise })
-    expect(screen.getByRole('status', { name: 'Loading mentors' })).toBeInTheDocument()
+    expect(await screen.findByRole('status', { name: 'Loading mentors' })).toBeInTheDocument()
     const newDiscovery = vi.fn(async () => page([mentor('new', 'Sample New Mentor')], null))
     const newServices: HelpiNUSServices = {
       ...scenario.services,
@@ -546,18 +546,20 @@ describe('Mentor discovery route', () => {
     const oldWait = deferred<DiscoverMentorsOutput>()
     const initialUser = mockDashboard.user
     const nextUser = { ...initialUser, id: 'student-02' }
+    let currentUser = initialUser
     let emit!: (session: { user: typeof initialUser }) => void
     const discover = vi.fn()
       .mockImplementationOnce(() => oldWait.promise)
       .mockResolvedValueOnce(page([mentor('new', 'Sample New Student Mentor')], null))
     const services: HelpiNUSServices = {
       ...mockServices,
-      session: { ...mockServices.session, getCurrent: async () => ({ user: initialUser }), subscribe: (listener) => { emit = listener; listener({ user: initialUser }); return () => {} } },
+      session: { ...mockServices.session, getCurrent: async () => ({ user: currentUser }), subscribe: (listener) => { emit = listener; listener({ user: initialUser }); return () => {} } },
       callables: { invoke: ((name: string, input: unknown) => name === 'discoverMentors' ? discover(input) : Promise.reject(new Error('Unexpected callable'))) as HelpiNUSServices['callables']['invoke'] },
     }
     const router = createMemoryRouter([{ element: <ProtectedRoute role="STUDENT" />, children: [{ path: '/student/mentors', element: <MentorDiscoveryPage /> }] }], { initialEntries: ['/student/mentors'] })
     render(<ServiceProvider servicesOverride={services}><RouterProvider router={router} /></ServiceProvider>)
-    expect(screen.getByRole('status', { name: 'Loading mentors' })).toBeInTheDocument()
+    expect(await screen.findByRole('status', { name: 'Loading mentors' })).toBeInTheDocument()
+    currentUser = nextUser
     act(() => emit({ user: nextUser }))
     expect(await screen.findByRole('heading', { name: 'Sample New Student Mentor' })).toBeInTheDocument()
     oldWait.resolve(page([mentor('old', 'Sample Old Student Mentor')], null))
@@ -570,22 +572,24 @@ describe('Mentor discovery route', () => {
     const newPage = deferred<DiscoverMentorsOutput>()
     const initialUser = mockDashboard.user
     const nextUser = { ...initialUser, id: 'student-02' }
+    let currentUser = initialUser
     let emit!: (session: { user: typeof initialUser }) => void
     const discover = vi.fn()
       .mockResolvedValueOnce(page([mentor('old', 'Sample Old Mentor', '', ['cs2040s'])], null))
       .mockImplementationOnce(() => newPage.promise)
     const services: HelpiNUSServices = {
       ...mockServices,
-      session: { ...mockServices.session, getCurrent: async () => ({ user: initialUser }), subscribe: (listener) => { emit = listener; listener({ user: initialUser }); return () => {} } },
+      session: { ...mockServices.session, getCurrent: async () => ({ user: currentUser }), subscribe: (listener) => { emit = listener; listener({ user: initialUser }); return () => {} } },
       modules: { getById: () => oldModule.promise },
       callables: { invoke: ((name: string, input: unknown) => name === 'discoverMentors' ? discover(input) : Promise.reject(new Error('Unexpected callable'))) as HelpiNUSServices['callables']['invoke'] },
     }
     const router = createMemoryRouter([{ element: <ProtectedRoute role="STUDENT" />, children: [{ path: '/student/mentors', element: <MentorDiscoveryPage /> }] }], { initialEntries: ['/student/mentors'] })
     render(<ServiceProvider servicesOverride={services}><RouterProvider router={router} /></ServiceProvider>)
     expect(await screen.findByRole('heading', { name: 'Sample Old Mentor' })).toBeInTheDocument()
+    currentUser = nextUser
     act(() => emit({ user: nextUser }))
     expect(screen.queryByRole('heading', { name: 'Sample Old Mentor' })).not.toBeInTheDocument()
-    expect(screen.getByRole('status', { name: 'Loading mentors' })).toBeInTheDocument()
+    expect(await screen.findByRole('status', { name: 'Loading mentors' })).toBeInTheDocument()
     await act(async () => oldModule.resolve(cs2040s))
     expect(screen.queryByText(/CS2040S/)).not.toBeInTheDocument()
     await act(async () => newPage.resolve(page([mentor('new', 'Sample New Mentor')], null)))

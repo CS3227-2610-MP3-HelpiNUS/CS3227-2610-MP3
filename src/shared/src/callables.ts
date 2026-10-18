@@ -29,6 +29,36 @@ export const discoverMentorsOutputSchema = z.object({
   nextCursor: identifierSchema.nullable(),
 }).strict()
 
+// Profile management accepts exact document IDs; trimming an ID would change
+// which Firestore document is addressed.
+export const canonicalDocumentIdSchema = z.string().min(1).max(128)
+  .refine((value) => value === value.trim() && !/[\/\\\x00-\x1f]/u.test(value) && value !== '.' && value !== '..' && !/^__.*__$/u.test(value), 'Invalid document ID')
+export const mentorProfileVersionSchema = z.object({
+  revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  updateTime: z.string().regex(/^\d+:\d{9}$/u),
+}).strict()
+const mentorBiographySchema = z.string().trim().max(1000)
+const mentorModuleIdsSchema = z.array(canonicalDocumentIdSchema).max(30)
+  .refine((ids) => new Set(ids).size === ids.length, 'Module IDs must be unique')
+const savedModuleSchema = z.discriminatedUnion('state', [
+  z.object({ id: canonicalDocumentIdSchema, state: z.enum(['active', 'inactive']), code: z.string().min(2).max(16), title: z.string().min(1).max(160) }).strict(),
+  z.object({ id: canonicalDocumentIdSchema, state: z.literal('missing') }).strict(),
+])
+export const readOwnMentorProfileInputSchema = z.object({}).strict()
+export const readOwnMentorProfileOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('ready'), profile: z.object({ displayName: z.string().min(1).max(100), biography: mentorBiographySchema, moduleIds: mentorModuleIdsSchema, version: mentorProfileVersionSchema }).strict(), metadata: z.discriminatedUnion('kind', [z.object({ kind: z.literal('ready'), modules: z.array(savedModuleSchema).max(30) }).strict(), z.object({ kind: z.literal('unavailable') }).strict()]) }).strict(),
+  z.object({ kind: z.literal('missing') }).strict(),
+  z.object({ kind: z.literal('inactive') }).strict(),
+  z.object({ kind: z.literal('invalid') }).strict(),
+])
+export const searchMentorModulesInputSchema = z.object({ query: z.string().trim().min(1).max(160), cursor: z.string().min(1).max(512).optional() }).strict()
+export const searchMentorModulesOutputSchema = z.object({ modules: z.array(z.object({ id: canonicalDocumentIdSchema, code: z.string().min(2).max(16), title: z.string().min(1).max(160) }).strict()).max(20), nextCursor: z.string().max(512).nullable() }).strict()
+export const updateOwnMentorProfileInputSchema = z.object({ requestId: z.string().uuid(), baseline: mentorProfileVersionSchema, biography: mentorBiographySchema, moduleIds: mentorModuleIdsSchema }).strict()
+export const updateOwnMentorProfileOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('accepted'), stored: z.object({ biography: mentorBiographySchema, moduleIds: mentorModuleIdsSchema, revision: z.number().int().min(1) }).strict() }).strict(),
+  z.object({ kind: z.literal('rejected'), reason: z.enum(['CONFLICT', 'MODULE_INELIGIBLE']), fieldErrors: z.record(z.string(), z.array(z.string())).optional() }).strict(),
+])
+
 export const createHelpRequestInputSchema = nonEmptyInputSchema.extend({
   mentorId: identifierSchema.nullable().default(null),
   moduleId: identifierSchema,
@@ -110,6 +140,9 @@ export const callableSchemas = {
     input: discoverMentorsInputSchema,
     output: discoverMentorsOutputSchema,
   },
+  readOwnMentorProfile: { input: readOwnMentorProfileInputSchema, output: readOwnMentorProfileOutputSchema },
+  searchMentorModules: { input: searchMentorModulesInputSchema, output: searchMentorModulesOutputSchema },
+  updateOwnMentorProfile: { input: updateOwnMentorProfileInputSchema, output: updateOwnMentorProfileOutputSchema },
   createHelpRequest: {
     input: createHelpRequestInputSchema,
     output: createHelpRequestOutputSchema,
@@ -175,6 +208,10 @@ export type InitializeStudentProfileOutput = z.infer<
 export type DiscoverMentorsInput = z.input<typeof discoverMentorsInputSchema>
 export type DiscoverMentorsParsedInput = z.output<typeof discoverMentorsInputSchema>
 export type DiscoverMentorsOutput = z.infer<typeof discoverMentorsOutputSchema>
+export type ReadOwnMentorProfileOutput = z.infer<typeof readOwnMentorProfileOutputSchema>
+export type SearchMentorModulesOutput = z.infer<typeof searchMentorModulesOutputSchema>
+export type UpdateOwnMentorProfileInput = z.infer<typeof updateOwnMentorProfileInputSchema>
+export type UpdateOwnMentorProfileOutput = z.infer<typeof updateOwnMentorProfileOutputSchema>
 export type CreateHelpRequestInput = z.infer<typeof createHelpRequestInputSchema>
 export type RespondToHelpRequestInput = z.infer<
   typeof respondToHelpRequestInputSchema
