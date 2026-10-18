@@ -102,6 +102,18 @@ describe('consultation scheduling callable integration', () => {
     expect(createAvailabilitySlotOutputSchema.parse((await createSlot(createInput)).data).slot.id).toBe(created.id)
     await expect(createSlot({ requestId: createInput.requestId, startsAt: new Date(startsMs + halfHour).toISOString(), endsAt: new Date(startsMs + 90 * 60 * 1000).toISOString() })).rejects.toMatchObject({ code: 'functions/invalid-argument' })
 
+    const delayedRequestId = crypto.randomUUID()
+    const delayedSlotId = `delayed-${crypto.randomUUID()}`
+    const delayedEndsMs = Math.floor(Date.now() / halfHour) * halfHour
+    const delayedStartsAt = new Date(delayedEndsMs - halfHour).toISOString()
+    const delayedEndsAt = new Date(delayedEndsMs).toISOString()
+    const delayedTimestamp = Timestamp.now()
+    await db.collection('availabilitySlots').doc(delayedSlotId).set({ id: delayedSlotId, mentorId: ids.mentor, mentorDisplayName: 'Calendar mentor', startsAt: Timestamp.fromDate(new Date(delayedStartsAt)), endsAt: Timestamp.fromDate(new Date(delayedEndsAt)), status: 'OPEN', appointmentId: null, createdAt: delayedTimestamp, updatedAt: delayedTimestamp })
+    const delayedFingerprint = createHash('sha256').update(JSON.stringify(['CREATE_SLOT', delayedStartsAt, delayedEndsAt])).digest('hex')
+    await db.collection('appointmentOperations').doc(ids.mentor).collection('operations').doc(delayedRequestId).set({ action: 'CREATE_SLOT', actorId: ids.mentor, fingerprint: delayedFingerprint, resultId: delayedSlotId })
+    const delayedReplay = createAvailabilitySlotOutputSchema.parse((await createSlot({ requestId: delayedRequestId, startsAt: delayedStartsAt, endsAt: delayedEndsAt })).data).slot
+    expect(delayedReplay.id).toBe(delayedSlotId)
+
     await expect(createSlot({ requestId: crypto.randomUUID(), startsAt: new Date(startsMs + halfHour).toISOString(), endsAt: new Date(startsMs + 90 * 60 * 1000).toISOString() })).rejects.toMatchObject({ code: 'functions/already-exists' })
     const adjacentInput = { requestId: crypto.randomUUID(), startsAt: endsAt, endsAt: new Date(startsMs + 90 * 60 * 1000).toISOString() }
     const adjacent = createAvailabilitySlotOutputSchema.parse((await createSlot(adjacentInput)).data).slot

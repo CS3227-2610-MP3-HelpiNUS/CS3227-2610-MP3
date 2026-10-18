@@ -135,7 +135,9 @@ function receiptResult(receipt: DocumentSnapshot, action: string, actorId: strin
 
 export async function createAvailabilitySlotHandler(input: CreateAvailabilitySlotInput, request: CallableRequest<unknown>, db: Firestore) {
   const actor = await requireCurrentMentor(request)
-  validateWindow(input.startsAt, input.endsAt, Date.now())
+  // Validate the immutable shape before opening the transaction, but defer the
+  // moving future-time boundary until after a matching receipt is recovered.
+  validateWindow(input.startsAt, input.endsAt, Number.NEGATIVE_INFINITY)
   const fingerprint = digest(['CREATE_SLOT', input.startsAt, input.endsAt])
   const receiptRef = operationRef(db, actor.uid, input.requestId)
   const mentorRef = db.collection('users').doc(actor.uid)
