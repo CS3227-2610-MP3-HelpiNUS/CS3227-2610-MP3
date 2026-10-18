@@ -14,8 +14,11 @@ const studentLinks = [
 const mentorLinks = [
   { to: '/mentor/dashboard', label: 'Dashboard', icon: 'home' },
   { to: '/mentor/requests', label: 'Help requests', icon: 'requests' },
+  { to: '/mentor/conversations', label: 'Conversations', icon: 'messages' },
   { to: '/mentor/profile', label: 'My profile', icon: 'mentors' },
 ] as const
+
+export type AppShellOutletContext = { signOut: () => void; signingOut: boolean }
 
 export function AppShell() {
   const { services, session, refreshSession } = useServices()
@@ -54,7 +57,7 @@ export function AppShell() {
     <div className="main-column">
       <header className="topbar"><NavLink className="topbar-mobile-brand" to={home} aria-label="HelpiNUS home"><span className="brand-mark">H</span> HelpiNUS</NavLink><span className="topbar-caption">Your NUS learning community</span><span className="topbar-account"><span className="topbar-avatar" aria-label={`Signed in as ${session?.user?.displayName ?? 'Student'}`}>{session?.user?.displayName.slice(0, 1) ?? 'S'}</span><button className="mobile-signout" onClick={() => void logOut()} disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign out'}</button></span></header>
       {signOutError && <p className="signout-error" role="alert">{signOutError}</p>}
-      <main id="main-content" className="main-content" tabIndex={-1}><Outlet /></main>
+      <main id="main-content" className="main-content" tabIndex={-1}><Outlet context={{ signOut: () => void logOut(), signingOut } satisfies AppShellOutletContext} /></main>
       <nav className="mobile-nav" aria-label={isMentor ? 'Mentor navigation' : 'Student navigation'}>
         {links.map(({ to, label, icon }) => <NavLink key={to} to={to} aria-label={label} title={label} className={(state: NavLinkRenderProps) => `mobile-nav-link${state.isActive ? ' active' : ''}`}><Icon name={icon}/><span>{label === 'Find a mentor' ? 'Mentors' : label === 'My profile' ? 'Profile' : label === 'Help requests' ? 'Requests' : label === 'Conversations' ? 'Messages' : label === 'Consultations' ? 'Bookings' : label === 'Study assistant' ? 'Study' : 'Home'}</span></NavLink>)}
       </nav>

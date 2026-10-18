@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { F01HelpRequest, Module } from '@helpinus/shared'
 import { useServices } from '../services/useServices'
@@ -8,7 +9,7 @@ import './HelpRequestPages.css'
 type Cursor = { createdAt: string; id: string }
 type PageState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; items: F01HelpRequest[] }
 type FrozenAttempt = { operationId: string; mentorId: string; moduleId: string; title: string; description: string }
-type StoredDraft = { moduleId: string; title: string; description: string; mentorName?: string; uncertain: FrozenAttempt | null }
+type StoredDraft = { moduleId: string; title: string; description: string; uncertain: FrozenAttempt | null }
 const denied = (error: unknown) => /(?:permission-denied|unauthenticated|failed-precondition)/u.test(String((error as { code?: unknown })?.code ?? ''))
 const draftKey = (uid: string | undefined, mentorId: string | undefined, moduleId: string | null) => `f01-draft:${encodeURIComponent(uid ?? '')}:${encodeURIComponent(mentorId ?? '')}:${encodeURIComponent(moduleId ?? '')}`
 function readDraft(key: string): StoredDraft | null {
@@ -38,7 +39,7 @@ function useRequestPage(kind: 'student' | 'pending' | 'decided', uid: string | n
   return { state, retry: () => { setState({ kind: 'loading' }); setRetry((value) => value + 1) } }
 }
 
-function ModuleName({ id }: { id: string }) {
+export function ModuleName({ id }: { id: string }) {
   const { services, session } = useServices()
   const [label, setLabel] = useState('Loading module…')
   useEffect(() => {
@@ -59,13 +60,12 @@ export function RequestHelpPage() {
 function RequestHelpContent() {
   const { mentorId } = useParams()
   const [search] = useSearchParams()
-  const location = useLocation()
   const navigate = useNavigate()
   const { services, session } = useServices()
   const uid = session?.user?.id
   const storageKey = draftKey(uid, mentorId, search.get('moduleId'))
   const [initialDraft] = useState(() => readDraft(storageKey))
-  const selectedName = (location.state as { mentorName?: string } | null)?.mentorName ?? initialDraft?.mentorName
+  const [selectedName, setSelectedName] = useState<string | null>(null)
   const [modules, setModules] = useState<Module[]>([])
   const [selection, setSelection] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading')
   const [selectionRetry, setSelectionRetry] = useState(0)
@@ -89,24 +89,26 @@ function RequestHelpContent() {
   }, [uid])
   useEffect(() => {
     if (!uid || completed.current) return
-    try { sessionStorage.setItem(storageKey, JSON.stringify({ moduleId, title, description, mentorName: selectedName, uncertain })) }
+    try { sessionStorage.setItem(storageKey, JSON.stringify({ moduleId, title, description, uncertain })) }
     catch { /* The request remains usable without storage. */ }
-  }, [uid, storageKey, moduleId, title, description, selectedName, uncertain])
+  }, [uid, storageKey, moduleId, title, description, uncertain])
   useEffect(() => {
     if (!mentorId || !uid) return
     let active = true
     const currentAttempt = attempt
-    queueMicrotask(() => { if (active) setSelection('loading') })
+    queueMicrotask(() => { if (active) { setSelection('loading'); setSelectedName(null) } })
     void services.helpRequests.getSelection(mentorId).then(async (result) => {
       if (!result) { if (active) setSelection('empty'); return }
       const values = await Promise.all(result.moduleIds.map((id) => services.modules.getById(id)))
-      if (active) { setModules(values.filter((value): value is Module => value !== null && value.active)); setSelection('ready') }
-    }).catch(() => { if (active) setSelection('error') })
+      if (active && result.userId === mentorId && !!result.displayName.trim()) { setSelectedName(result.displayName); setModules(values.filter((value): value is Module => value !== null && value.active)); setSelection('ready') }
+      else if (active) setSelection('empty')
+    }).catch(() => { if (active) { setSelectedName(null); setSelection('error') } })
     return () => { active = false; ++currentAttempt.current }
   }, [mentorId, uid, services, selectionRetry])
 
   async function submit(event?: React.FormEvent<HTMLFormElement>) {
     event?.preventDefault()
+    if (!uncertain && (selection !== 'ready' || !selectedName)) { setMessage('Confirm this Mentor’s current details before sending a request.'); return }
     if (!uncertain) {
       const errors = {
         module: modules.some((item) => item.id === moduleId) ? undefined : 'Choose a supported module.',
@@ -121,7 +123,7 @@ function RequestHelpContent() {
     const token = ++attempt.current
     // Save the operation before the network call: a refresh while it is in flight
     // must retry this exact payload, even if the first response never arrives.
-    try { sessionStorage.setItem(storageKey, JSON.stringify({ moduleId, title, description, mentorName: selectedName, uncertain: input })) }
+    try { sessionStorage.setItem(storageKey, JSON.stringify({ moduleId, title, description, uncertain: input })) }
     catch { /* Storage is optional; the mounted attempt remains frozen. */ }
     setUncertain(input)
     setSubmitting(true); setMessage(''); setDuplicateId('')
@@ -152,19 +154,20 @@ function RequestHelpContent() {
     {recoveryOnly && <div className="help-card"><p>Checking an earlier attempt. Its original Mentor, module and question will be used even if this selection has changed.</p><button className="button button-primary" disabled={submitting} onClick={() => void submit()}>{submitting ? 'Checking request…' : 'Check this attempt again'}</button></div>}
     {message && (selection !== 'ready' || recoveryOnly) && <div role="alert" className="help-notice"><p>{message}</p>{duplicateId && <Link to={`/student/requests/${duplicateId}`}>View existing request</Link>}</div>}
     {selection === 'ready' && !recoveryOnly && <form className="help-card help-form" noValidate onSubmit={(event) => void submit(event)}>
+      {!selectedName && !uncertain && <p>Confirm this Mentor’s current details before sending a request.</p>}
       <div className="help-field"><label htmlFor="help-module">Module</label><select id="help-module" value={moduleId} onChange={(event) => { setModuleId(event.target.value); setFieldErrors((errors) => ({ ...errors, module: undefined })) }} disabled={submitting || !!uncertain} aria-invalid={!!fieldErrors.module} aria-describedby={fieldErrors.module ? 'help-module-error' : undefined} required><option value="">Choose a module</option>{modules.map((module) => <option key={module.id} value={module.id}>{module.code} — {module.title}</option>)}</select>{fieldErrors.module && <span id="help-module-error" className="help-field-error">{fieldErrors.module}</span>}</div>
       {modules.length === 0 && <p>No active supported modules are available. Choose another Mentor.</p>}
       <div className="help-field"><label htmlFor="help-title">Question title</label><input id="help-title" value={title} onChange={(event) => { setTitle(event.target.value); setFieldErrors((errors) => ({ ...errors, title: undefined })) }} maxLength={120} disabled={submitting || !!uncertain} aria-invalid={!!fieldErrors.title} aria-describedby={fieldErrors.title ? 'help-title-error' : undefined} required />{fieldErrors.title && <span id="help-title-error" className="help-field-error">{fieldErrors.title}</span>}</div>
       <div className="help-field"><label htmlFor="help-description">Detailed question</label><textarea id="help-description" value={description} onChange={(event) => { setDescription(event.target.value); setFieldErrors((errors) => ({ ...errors, description: undefined })) }} maxLength={2000} rows={7} disabled={submitting || !!uncertain} aria-invalid={!!fieldErrors.description} aria-describedby={fieldErrors.description ? 'help-description-error' : undefined} required />{fieldErrors.description && <span id="help-description-error" className="help-field-error">{fieldErrors.description}</span>}</div>
       <p className="help-hint">Title: up to 120 characters. Description: up to 2,000 characters.</p>
       {message && <div role="alert" className="help-notice"><p>{message}</p>{duplicateId && <Link to={`/student/requests/${duplicateId}`}>View existing request</Link>}</div>}
-      <button className="button button-primary" disabled={submitting || modules.length === 0}>{submitting ? 'Checking request…' : uncertain ? 'Check this attempt again' : 'Send request'}</button>
+      <button className="button button-primary" disabled={submitting || modules.length === 0 || (!uncertain && !selectedName)}>{submitting ? 'Checking request…' : uncertain ? 'Check this attempt again' : 'Send request'}</button>
     </form>}
   </section>
 }
 
 function RequestRows({ items, role }: { items: F01HelpRequest[]; role: 'student' | 'mentor' }) {
-  return <ul className="help-list">{items.map((item) => <li key={item.id} className="help-card"><Link to={`/${role}/requests/${item.id}`}><strong>{item.title}</strong></Link><p>{role === 'student' ? item.mentorDisplayName : item.studentDisplayName} · <ModuleName id={item.moduleId} /></p><span className={`status-pill status-${item.status.toLowerCase()}`}>{item.status}</span><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('en-SG')}</time></li>)}</ul>
+  return <ul className="help-list">{items.map((item) => <li key={item.id} className="help-card"><h3>{item.title}</h3><p>{role === 'student' ? item.mentorDisplayName : item.studentDisplayName} · <ModuleName id={item.moduleId} /></p><span className={`status-pill status-${item.status.toLowerCase()}`}>{item.status}</span><div className="help-list-footer"><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('en-SG')}</time><Link className="button button-secondary" to={`/${role}/requests/${item.id}`} aria-label={`View details for ${item.title}`}>View details</Link></div></li>)}</ul>
 }
 
 function PagedRows({ kind, uid, services, cursor = null }: { kind: 'student' | 'pending' | 'decided'; uid: string | null; services: HelpiNUSServices; cursor?: Cursor | null }) {
@@ -214,9 +217,40 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [confirm, setConfirm] = useState<'ACCEPTED' | 'REJECTED' | null>(null)
   const [decision, setDecision] = useState<'idle' | 'working' | 'uncertain'>('idle')
+  const [uncertainAction, setUncertainAction] = useState<'ACCEPTED' | 'REJECTED' | null>(null)
   const [message, setMessage] = useState('')
+  const [chatReady, setChatReady] = useState(false)
+  const [chatChecked, setChatChecked] = useState(false)
   const operation = useRef<string | null>(null)
   const decisionGeneration = useRef(0)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const decisionTrigger = useRef<HTMLButtonElement>(null)
+  useEffect(() => { if (!confirm) decisionTrigger.current?.focus() }, [confirm])
+  useEffect(() => {
+    if (!confirm) return
+    const dialog = dialogRef.current
+    if (!dialog) return
+    const background = Array.from(document.body.children).filter((child) => child !== dialog.parentElement)
+    const previous = background.map((child) => ({ child, inert: child.hasAttribute('inert') }))
+    background.forEach((child) => child.setAttribute('inert', ''))
+    const focusable = () => Array.from(dialog.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
+    if (!dialog.contains(document.activeElement)) focusable()[0]?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (decision !== 'working') { event.preventDefault(); setConfirm(null) }
+        return
+      }
+      if (event.key !== 'Tab') return
+      const controls = focusable()
+      if (controls.length === 0) { event.preventDefault(); dialog.focus(); return }
+      const first = controls[0]!
+      const last = controls.at(-1)!
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => { document.removeEventListener('keydown', onKeyDown); previous.forEach(({ child, inert }) => { if (!inert) child.removeAttribute('inert') }) }
+  }, [confirm, decision])
   useEffect(() => {
     if (!id) return
     let active = true
@@ -228,6 +262,18 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
     const generation = decisionGeneration
     return () => { active = false; ++generation.current; unsubscribe() }
   }, [id, role, services, session?.user?.id])
+  useEffect(() => {
+    let active = true
+    let settled = false
+    queueMicrotask(() => { if (active && !settled) { setChatReady(false); setChatChecked(false) } })
+    if (!id || item?.status !== 'ACCEPTED') return () => { active = false }
+    const unsubscribe = services.conversations.subscribeDetail(id, (value) => { if (active) { settled = true; setChatReady(Boolean(value)); setChatChecked(true) } }, () => { if (active) { settled = true; setChatReady(false); setChatChecked(true) } })
+    return () => { active = false; unsubscribe() }
+  }, [id, item?.status, services])
+  useEffect(() => {
+    if (message !== 'Checking accepted conversation…' || !chatChecked || item?.status !== 'ACCEPTED') return
+    queueMicrotask(() => setMessage(chatReady ? '' : 'This request needs support review. Contact HelpiNUS support.'))
+  }, [chatChecked, chatReady, item?.status, message])
   async function decide() {
     if (!id || !confirm) return
     const response = confirm
@@ -239,13 +285,14 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
       const result = await services.callables.invoke('respondToHelpRequest', { operationId, helpRequestId: id, response })
       if (token !== decisionGeneration.current) return
       if (result.kind === 'conflict') setMessage(`This request was already ${result.actualStatus.toLowerCase()}.`)
-      else setMessage(result.helpRequest.status === 'REJECTED' ? 'Request rejected.' : 'Request accepted.')
-      setDecision('idle'); setConfirm(null); operation.current = null
+      else setMessage(result.helpRequest.status === 'REJECTED' ? 'Request rejected.' : 'Checking accepted conversation…')
+      setDecision('idle'); setConfirm(null); operation.current = null; setUncertainAction(null)
     } catch (error) {
       if (token !== decisionGeneration.current) return
       const reason = (error as { details?: { reason?: string } })?.details?.reason
       setDecision('uncertain')
-      setMessage(reason === 'INTEGRITY_ERROR' ? 'This request needs support review. Contact HelpiNUS support before trying again.' : response === 'ACCEPTED' ? 'Acceptance is unavailable until conversations are integrated. No acceptance has been confirmed.' : denied(error) ? 'You can no longer decide this request. Check your account access.' : 'We could not confirm the decision. Check the live status, then retry this same action if still pending.')
+      setUncertainAction(response)
+      setMessage(reason === 'INTEGRITY_ERROR' ? 'This request needs support review. Contact HelpiNUS support before trying again.' : denied(error) ? 'You can no longer decide this request. Check your account access.' : 'We could not confirm the decision. Check the live status, then retry this same action if still pending.')
     }
   }
   return <section className="help-page"><header className="page-heading"><Link to={`/${role}/requests`}>← Help requests</Link><h1>Request details</h1></header>
@@ -253,11 +300,12 @@ function RequestDetailContent({ role }: { role: 'student' | 'mentor' }) {
     {state === 'error' && <div className="help-card" role="alert">This request is unavailable or your access has changed.</div>}
     {state === 'ready' && !item && <div className="help-card">Request not found.</div>}
     {item && <article className="help-card help-detail"><div className="help-detail-heading"><h2>{item.title}</h2><span className={`status-pill status-${item.status.toLowerCase()}`}>{item.status}</span></div>
-      <p><strong>{role === 'student' ? 'Mentor' : 'Student'}:</strong> {role === 'student' ? item.mentorDisplayName : item.studentDisplayName}</p><p><strong>Module:</strong> <ModuleName id={item.moduleId} /></p>
-      <p className="help-description">{item.description}</p><p>Sent: <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('en-SG')}</time></p>{item.status !== 'PENDING' && <p>Decided: <time dateTime={item.updatedAt}>{new Date(item.updatedAt).toLocaleString('en-SG')}</time></p>}
-      {role === 'mentor' && item.status === 'PENDING' && <div className="help-actions"><button className="button button-primary" disabled title="Acceptance needs conversation integration" onClick={() => { setConfirm('ACCEPTED'); operation.current = null }}>Accept</button><button className="button button-secondary" disabled={decision === 'working'} onClick={() => { setConfirm('REJECTED'); operation.current = null }}>Reject</button><p>Acceptance will be available after conversations are integrated.</p></div>}
-      {confirm && item.status === 'PENDING' && <div className="help-confirm" role="group" aria-label="Confirm decision"><p>Confirm {confirm.toLowerCase()} for this request?</p><button className="button button-primary" disabled={decision === 'working'} onClick={() => void decide()}>{decision === 'working' ? 'Checking…' : decision === 'uncertain' ? 'Retry same decision' : 'Confirm'}</button><button className="button button-secondary" disabled={decision === 'working'} onClick={() => { setConfirm(null); setDecision('idle'); operation.current = null }}>Cancel</button></div>}
-      {message && <p role="alert" className="help-notice">{message}</p>}{(location.state as { created?: boolean } | null)?.created && role === 'student' && <p role="status">Your request was saved.</p>}
+      <div className="help-detail-sections"><section aria-labelledby="request-information-heading"><h3 id="request-information-heading">Request information</h3><dl className="help-metadata"><dt>{role === 'student' ? 'Mentor' : 'Student'}</dt><dd>{role === 'student' ? item.mentorDisplayName : item.studentDisplayName}</dd><dt>Module</dt><dd><ModuleName id={item.moduleId} /></dd><dt>Submitted</dt><dd><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('en-SG')}</time></dd>{item.status !== 'PENDING' && <><dt>Decided</dt><dd><time dateTime={item.updatedAt}>{new Date(item.updatedAt).toLocaleString('en-SG')}</time></dd></>}</dl></section>
+        <section className="help-question" aria-labelledby="request-question-heading"><h3 id="request-question-heading">Question</h3><p className="help-description">{item.description}</p></section></div>
+      {item.status === 'ACCEPTED' && (chatReady ? <div className="help-detail-footer"><Link className="button button-primary" to={`/${role}/conversations/${item.id}`}>Open conversation</Link></div> : <p>This conversation needs support review. Contact HelpiNUS support.</p>)}
+      {role === 'mentor' && item.status === 'PENDING' && <div className="help-actions help-detail-footer"><button className="button button-primary" disabled={decision === 'working' || (decision === 'uncertain' && uncertainAction !== 'ACCEPTED')} onClick={(event) => { decisionTrigger.current = event.currentTarget; setConfirm('ACCEPTED'); if (decision === 'idle') operation.current = null }}>Accept</button><button className="button button-secondary" disabled={decision === 'working' || (decision === 'uncertain' && uncertainAction !== 'REJECTED')} onClick={(event) => { decisionTrigger.current = event.currentTarget; setConfirm('REJECTED'); if (decision === 'idle') operation.current = null }}>Reject</button></div>}
+      {message && !confirm && <p role="alert" className="help-notice">{message}</p>}{(location.state as { created?: boolean } | null)?.created && role === 'student' && <p role="status">Your request was saved.</p>}
     </article>}
+    {confirm && item?.status === 'PENDING' && createPortal(<div className="help-modal-backdrop"><div className="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-dialog-title" aria-describedby="help-dialog-description" ref={dialogRef} tabIndex={-1}><h2 id="help-dialog-title">{confirm === 'ACCEPTED' ? 'Accept this request?' : 'Reject this request?'}</h2><p id="help-dialog-description">Confirming will {confirm === 'ACCEPTED' ? 'accept' : 'reject'} {item.studentDisplayName}’s help request.</p><div className="help-modal-summary"><strong>{item.title}</strong><span>{item.studentDisplayName} · <ModuleName id={item.moduleId} /></span></div>{message && <p role="alert" className="help-notice">{message}</p>}<div className="help-modal-actions"><button className="button button-secondary" disabled={decision === 'working'} onClick={() => { setConfirm(null); if (decision === 'idle') operation.current = null }}>Cancel</button><button className="button button-primary" disabled={decision === 'working'} onClick={() => void decide()}>{decision === 'working' ? 'Checking…' : decision === 'uncertain' ? 'Retry same decision' : confirm === 'ACCEPTED' ? 'Accept request' : 'Reject request'}</button></div></div></div>, document.body)}
   </section>
 }

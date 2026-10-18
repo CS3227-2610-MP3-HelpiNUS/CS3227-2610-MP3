@@ -11,8 +11,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint --config ../frontend/eslint.config.js src scripts",
     "test": "vitest run src",
-    "test:rules": "firebase emulators:exec --only firestore --project helpinus-rules-test 'vitest run rules-tests'",
-    "test:integration": "npm run build && firebase emulators:exec --only auth,firestore,functions --project helpinus-integration-test 'npm --prefix src/functions exec -- vitest run integration-tests --no-file-parallelism'",
+    "test:rules": "firebase emulators:exec --only firestore --project helpinus-rules-test \"npm exec --prefix src/functions -- vitest run rules-tests\"",
+    "test:integration": "npm run build && firebase emulators:exec --only auth,firestore,functions --project helpinus-integration-test \"npm exec --prefix src/functions -- vitest run integration-tests --no-file-parallelism\"",
     "seed:emulator": "tsx scripts/seed-emulator.ts",
     "provision:mentor": "tsx scripts/provision-mentor.ts",
     "audit:help-requests": "tsx scripts/audit-help-requests.ts"

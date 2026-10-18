@@ -10,9 +10,9 @@ summaries.
 Sprint 1 provides account creation, sign-in, sign-out, session restoration,
 role-based access, Mentor discovery, and Mentor profile management. Sprint 2
 F01 adds Student help-request submission and history, a persisted Student
-request summary, and a Mentor request inbox with rejection. Conversation
-provisioning and request acceptance await F02; consultations and AI actions
-remain scaffolds.
+request summary, and a Mentor request inbox. The local F02 implementation adds
+atomic Mentor acceptance and private request-linked text conversations for
+the Student and addressed Mentor. Consultations and AI actions remain scaffolds.
 
 ## 2. Supported users and devices
 
@@ -74,7 +74,7 @@ the header.
 | Dashboard | Shows persisted help-request counts and recent requests; other widgets use labelled sample data |
 | Find a mentor | Browse available Mentors, search and filter loaded results, and inspect public details |
 | Help requests | Submit, review, and track your own requests |
-| Conversations | Route and interface scaffold |
+| Conversations | Open accepted request conversations, read saved history, send messages and see sender-side read status |
 | Consultations | Route and interface scaffold |
 | Study assistant | Route and interface scaffold; no live LLM call |
 
@@ -101,7 +101,7 @@ role.
    information is missing, the page says **Module information unavailable**;
    if the Mentor lists none, it says **No modules listed**.
 5. Within the details, choose **Ask for help** to review the Mentor and your
-   selected module, if any. Choose **Request help** to open the request form, or
+   selected module, if any, in a centered dialog with a bold title and spaced action buttons. Choose **Request help** to open the request form, or
    **Close** or Escape to return to discovery. Opening the form does not send a
    request.
 
@@ -127,7 +127,10 @@ search or filter finds nothing, clear the controls or load more when offered.
 1. From a Mentor's **Ask for help** dialog, choose **Request help**. Select one
    active module that Mentor supports, enter a question title (up to 120
    characters) and a detailed question (up to 2,000 characters), then choose
-   **Send request**. The form preserves line breaks and trims outer spaces.
+   **Send request**. The form checks the selected Mentor's current public name
+   and supported modules before enabling a new request. A direct link or page
+   refresh performs the same check; if the selection is unavailable, return to
+   Mentor discovery. The form preserves line breaks and trims outer spaces.
 2. Wait for the saved confirmation and request detail. A network interruption
    may leave the result uncertain. Keep the draft and choose **Check this
    attempt again**; the app reuses the same operation ID and content. It also
@@ -138,10 +141,11 @@ search or filter finds nothing, clear the controls or load more when offered.
    new question is delivered. The form keeps your draft and links to the
    existing request. Once that request is decided, you can send a new one.
 4. Open **Help requests** to see your own recent and older requests. **Load
-   more requests** appears when a page may contain further results. Open a
-   request to read the original question, Mentor, module, status, and decision
-   time. Module metadata that is no longer available is labelled **Module
-   information unavailable**.
+   more requests** appears when a page may contain further results. Choose
+   **View details** on a request card to read its labelled request information
+   and full question. The detail shows the Mentor, module, status, and decision
+   time when decided. Module metadata that is no longer available is labelled
+   **Module information unavailable**.
 
 If supported modules fail to load, choose **Try again** on the request form.
 If the app says a request needs support review, contact HelpiNUS support
@@ -150,6 +154,38 @@ before retrying that operation.
 Your dashboard request panel uses saved request counts and recent records.
 Its other activity widgets are still previews. A missing or changed account
 permission shows an access/error state; it is not treated as an empty history.
+
+### Use a conversation
+
+After your addressed Mentor accepts a request, open its detail and choose
+**Open conversation**, or use **Conversations** in Student navigation. Each
+accepted request has its own conversation, even if you have other requests
+with the same Mentor. The list labels the request title, Mentor and module,
+and each card has an **Open conversation** button. It is ordered by newest
+acceptance first. **Load more** reaches older accepted requests. A
+request with an inconsistent or missing conversation shows support guidance
+instead of a chat link.
+
+The conversation fills the space beside the desktop navigation. Its header
+contains **Back to conversations**, the other participant, module, and
+question title. Expand **Request context** to read the full request title and
+original question; long details scroll inside that section. On small screens the header also
+keeps **Sign out** available. **Load earlier messages** reaches older history.
+Enter plain text up to 4,000 characters in the
+**Write a message…** field and choose the send icon, labelled **Send
+message** for assistive technology. The field grows as you type multiple
+lines, then scrolls vertically; internal line breaks remain and outer
+whitespace is removed when sent.
+The page shows **Sending** while a message is unresolved, **Sent** after it is
+saved, and **Read** when the other participant's account has acknowledged it.
+A question mark means saving is uncertain: **Retry** checks the server for
+the same message ID before trying again. A definitive failure is labelled
+**Failed**. Same-account refresh in the same browser session retains pending
+message recovery; signing out or changing accounts clears it.
+
+The official app acknowledges an incoming saved message when it enters the
+foreground conversation viewport. Read does not prove the recipient paid
+attention: a modified client can acknowledge early or withhold acknowledgement.
 
 ## 6. Mentor access
 
@@ -192,16 +228,23 @@ other activity totals.
 
 Choose **Help requests** in Mentor navigation. **Pending** shows requests
 addressed to you, oldest first. **Decided** shows accepted and rejected
-history, newest first. Use **Load more requests** for another page and open a
-row for the question, Student display name, module, status, and times. The
-request page does not show the Student's email address.
+history, newest first. Use **Load more requests** for another page and choose
+**View details** on a request card for the question, Student display name,
+module, status, and times. The request page does not show the Student's email
+address.
 
-To reject a pending request, choose **Reject**, review the confirmation, then
-choose **Confirm**. The request moves to Decided after the saved result is
-confirmed. If confirmation is interrupted, check the live status and use
-**Retry same decision** while it remains pending. Acceptance is currently
-disabled until F02 can create the conversation in the same transaction; no
-accepted result is claimed by the F01 interface.
+To decide a pending request, choose **Accept** or **Reject**, review the
+pop-up confirmation, then choose **Accept request** or **Reject request**.
+**Cancel** or Escape closes the pop-up without deciding. Acceptance saves the
+request and its matching conversation in one transaction; the page checks the accepted pair
+before offering **Open conversation**. If confirmation is interrupted, check
+the live status and use **Retry same decision** while it remains pending.
+The accepted detail shows one **ACCEPTED** badge and a white-text
+**Open conversation** button, without a second success notice.
+The Mentor **Conversations** list and detail use the same request-linked chat
+as the Student view, with the Student's historical display name and question
+context. The message, history, retry and read-status behavior above applies
+to both roles.
 
 ### Manage your Mentor profile
 
@@ -326,18 +369,32 @@ npm run dev --workspace src/frontend
 | --- | --- | --- |
 | Student | `student@example.test` | `Student-demo-123!` |
 | Mentor | `mentor@example.test` | `Mentor-demo-123!` |
+| Jamie Tan (Student) | `jamie.tan@example.test` | `Jamie-demo-123!` |
+| Sample Aisha (Mentor) | `aisha@example.test` | `Aisha-demo-123!` |
 
-The seed marks both demo emails verified so Firestore Rules allow module reads.
+The seed marks all demo emails verified so Firestore Rules allow module reads.
 The accounts and synthetic emulator-only verification fallback must not be used
 in a real Firebase project.
 
-The current emulator seed has one Mentor with no listed modules and a module
-catalogue with two active examples (`CS2103T`, `CS2040S`) and one inactive
-example (`CS3230`). Search can add the active examples; the inactive example
-does not appear as a new selection. Re-running the seed preserves existing demo
-profile edits and module records while the emulators are running. Live Firebase
-mode displays the eligible Mentor records and module information available in
-that environment.
+The emulator seed has a Demo Mentor with no listed modules and Sample Aisha
+with `CS2103T` and `CS2040S`. Jamie Tan can request help from Sample Aisha for
+either module. The catalogue also has inactive `CS3230`; it does not appear
+as a new selection. Re-running the seed preserves existing demo profile edits
+and module records while the emulators are running. Live Firebase mode displays
+the eligible Mentor records and module information available in that environment.
+
+Use `npm run dev:emulators` from the repository root for this two-account
+conversation walkthrough. A plain frontend `npm run dev` without Firebase web
+configuration opens a mock preview: it initially shows Jamie Tan, does not
+authenticate entered credentials, and cannot accept a request.
+
+To try the conversation flow, sign in as Jamie Tan with the emulator credentials
+above, find **Sample Aisha**, and request help for `CS2103T` or `CS2040S`.
+Sign out, sign in as Sample Aisha, open **Help requests**, and accept Jamie's
+pending request. Choose **Open conversation** on the accepted request, or open
+it from **Conversations**. Sign back in as Jamie to see the same saved chat.
+Requests made in the mock preview are separate fixtures and do not transfer
+into the emulator.
 
 ## 10. Manual Sprint 1 verification
 

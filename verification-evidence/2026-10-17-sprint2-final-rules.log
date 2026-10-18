@@ -1,0 +1,25 @@
+
+> test:rules
+> firebase emulators:exec --only firestore --project helpinus-rules-test "npm exec --prefix src/functions -- vitest run rules-tests"
+
+!  emulators: You are not currently authenticated so some features may not work correctly. Please run firebase login to authenticate the CLI.
+i  emulators: Starting emulators: firestore
+i  firestore: Firestore Emulator logging to firestore-debug.log
++  firestore: Firestore Emulator was started in standard edition.
++  firestore: Firestore Emulator UI websocket is running on 9150.
+i  Running script: npm exec --prefix src/functions -- vitest run rules-tests
+
+ RUN  v4.1.11 C:/Users/royde/Desktop/NUS/Sem 5/CS3227/MP3/CS3227-2610-MP3-conversation-management/src/functions
+
+
+ Test Files  2 passed (2)
+      Tests  23 passed (23)
+   Start at  23:21:31
+   Duration  7.12s (transform 96ms, setup 0ms, import 560ms, tests 9.50s, environment 0ms)
+
++  Script exited successfully (code 0)
+i  emulators: Shutting down emulators.
+i  firestore: Stopping Firestore Emulator
+!  Firestore Emulator has exited upon receiving signal: SIGINT
+i  hub: Stopping emulator hub
+i  logging: Stopping Logging Emulator

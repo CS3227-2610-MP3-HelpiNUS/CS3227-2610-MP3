@@ -1,0 +1,1599 @@
+
+> test:integration
+> npm run build && firebase emulators:exec --only auth,firestore,functions --project helpinus-integration-test "npm exec --prefix src/functions -- vitest run integration-tests --no-file-parallelism"
+
+
+> build
+> npm --prefix ../shared run build && tsc -p tsconfig.json --noEmit && esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --external:firebase-admin --external:firebase-functions --outfile=lib/index.js && node scripts/prepare-deploy-package.mjs
+
+
+> @helpinus/shared@0.1.0 build
+> tsc -p tsconfig.json
+
+
+  lib\index.js  794.7kb
+
+Done in 38ms
+!  emulators: You are not currently authenticated so some features may not work correctly. Please run firebase login to authenticate the CLI.
+i  emulators: Starting emulators: auth, functions, firestore
+!  functions: The following emulators are not running, calls to these services from the Functions emulator will affect production: apphosting, database, hosting, pubsub, storage, dataconnect
+!  functions: Unable to fetch project Admin SDK configuration, Admin SDK behavior in Cloud Functions emulator may be incorrect.
+i  firestore: Firestore Emulator logging to firestore-debug.log
++  firestore: Firestore Emulator was started in standard edition.
++  firestore: Firestore Emulator UI websocket is running on 9150.
+i  functions: Watching "C:\Users\royde\Desktop\NUS\Sem 5\CS3227\MP3\CS3227-2610-MP3-conversation-management\src\functions\deploy" for Cloud Functions...
++  functions: Using node@22 from host.
+Serving at port 8030
+
++  functions: Loaded functions definitions from source: acknowledgeMessage, cancelAppointment, closeHelpRequest, completeAppointment, createAvailabilitySlot, createHelpRequest, discoverMentors, getMentorRequestSelection, initializeStudentProfile, mentorConsultationSummary, readOwnMentorProfile, reserveAppointment, respondToAppointment, respondToHelpRequest, searchMentorModules, sendMessage, studentStudyAssist, testAuthenticated, updateOwnMentorProfile, withdrawAvailabilitySlot.
++  functions[asia-southeast1-acknowledgeMessage]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/acknowledgeMessage).
++  functions[asia-southeast1-cancelAppointment]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/cancelAppointment).
++  functions[asia-southeast1-closeHelpRequest]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/closeHelpRequest).
++  functions[asia-southeast1-completeAppointment]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/completeAppointment).
++  functions[asia-southeast1-createAvailabilitySlot]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/createAvailabilitySlot).
++  functions[asia-southeast1-createHelpRequest]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/createHelpRequest).
++  functions[asia-southeast1-discoverMentors]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/discoverMentors).
++  functions[asia-southeast1-getMentorRequestSelection]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/getMentorRequestSelection).
++  functions[asia-southeast1-initializeStudentProfile]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/initializeStudentProfile).
++  functions[asia-southeast1-mentorConsultationSummary]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/mentorConsultationSummary).
++  functions[asia-southeast1-readOwnMentorProfile]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/readOwnMentorProfile).
++  functions[asia-southeast1-reserveAppointment]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/reserveAppointment).
++  functions[asia-southeast1-respondToAppointment]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/respondToAppointment).
++  functions[asia-southeast1-respondToHelpRequest]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/respondToHelpRequest).
++  functions[asia-southeast1-searchMentorModules]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/searchMentorModules).
++  functions[asia-southeast1-sendMessage]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/sendMessage).
++  functions[asia-southeast1-studentStudyAssist]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/studentStudyAssist).
++  functions[asia-southeast1-testAuthenticated]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/testAuthenticated).
++  functions[asia-southeast1-updateOwnMentorProfile]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/updateOwnMentorProfile).
++  functions[asia-southeast1-withdrawAvailabilitySlot]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/withdrawAvailabilitySlot).
+i  Running script: npm exec --prefix src/functions -- vitest run integration-tests --no-file-parallelism
+
+ RUN  v4.1.11 C:/Users/royde/Desktop/NUS/Sem 5/CS3227/MP3/CS3227-2610-MP3-conversation-management/src/functions
+
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 227.841ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 194.4986ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 88.3974ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 88.8297ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 187.0894ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 49.8792ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 56.6707ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 61.8523ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 173.9088ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 62.5555ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 66.3759ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 59.4594ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 70.314ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 56.4774ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 64.663ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 2.9432ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.6383ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.9762ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.8406ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 62.8968ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 66.9456ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 49.402ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.5626ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.7536ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.9613ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 2.1328ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.8119ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.6797ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.6824ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.8255ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 2.0533ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.8847ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.7253ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.9596ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.9586ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 2.0369ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 2.2236ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.8507ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.8296ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.7596ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 2.1501ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.9759ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.8571ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 2.1268ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.8158ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 2.3535ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.81ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 2.112ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 62.5324ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 63.3197ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 67.371ms
+i  To reset your email address to f02-student-c60f11ce-e9c3-4a9e-8e47-a42fa2026e47@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=lUcVg1GRef69SHoGcCL2WXGzjPZZK781B3BKQ8VxbyfQgVrukRGRiv&apiKey=fake-api-key
+i  To reset your email address to f02-student-c60f11ce-e9c3-4a9e-8e47-a42fa2026e47@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=r7Uj50QZqd_kGGF-CCyyzz8hb8W4IwOLThs0MmUHPnbsMQjfnnXC5R&apiKey=fake-api-key
+i  To reset your email address to f02-mentor-e40eb450-5392-4c6b-acc0-63d7e1e4547c@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=5Ple9r2B_w-VQGAZA3btXA5e10gW1jmniK8-skG26GlwKqUwEo_-Xu&apiKey=fake-api-key
+i  To reset your email address to f02-mentor-e40eb450-5392-4c6b-acc0-63d7e1e4547c@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=mDJqEaKa-IWTcQ2Jwt3aFg9DFXzxbBu2x-r1X5VRXdFyau1j6TVvPj&apiKey=fake-api-key
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 63.515ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 62.8259ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 60.35ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 59.515ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 12.6317ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 66.1561ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 60.1129ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 66.1263ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 56.5437ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 57.5908ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 57.9993ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 58.6298ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 2.3701ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 62.7688ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 64.4441ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 52.3911ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 66.316ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 59.6144ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 59.6739ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 68.0773ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 58.4292ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 1.9221ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 57.2543ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 7.4993ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 8.3622ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 10.6282ms
+i  To reset your email address to f02-student-c60f11ce-e9c3-4a9e-8e47-a42fa2026e47@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=Eq3_mFZ7VURAZnucQAtdjdzQEaUKC85xVYxe3-kqWlpIm6utQH9Dd0&apiKey=fake-api-key
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 10.3366ms
+i  To reset your email address to f02-student-c60f11ce-e9c3-4a9e-8e47-a42fa2026e47@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=9oqz3GSHArbK-rO3a0Bw0jcALZmDNpTbEj52YFz00psHSkoGhUuRA7&apiKey=fake-api-key
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 65.8832ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 62.0157ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 72.0836ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 59.1466ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 67.3894ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 61.2243ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 64.908ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 63.5074ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 62.7658ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 65.8366ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 6.9477ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 14.5178ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 54.7163ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 61.1185ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 7.5545ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 13.9184ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 7.6425ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 13.8174ms
+i  To reset your email address to f02-student-c60f11ce-e9c3-4a9e-8e47-a42fa2026e47@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=XAVs4iM10-H5DBP9rovRk1l9gxohdjSA1KWjb6k1QBHlGpl8kgAGmA&apiKey=fake-api-key
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 15.1722ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 13.5753ms
+i  To reset your email address to f02-student-c60f11ce-e9c3-4a9e-8e47-a42fa2026e47@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=ytHG_5-ptDpaSaUPQfH377KYzpRFKMdh5vL0hKqlCiYYF5y67vXJ0S&apiKey=fake-api-key
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 15.9519ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+i  functions: Beginning execution of "asia-southeast1-searchMentorModules"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 13.7465ms
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-searchMentorModules" in 13.4335ms
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+!  Multiple projectIds are not recommended in single project mode. Requested project ID helpinus-integration-test-seed, but the emulator is configured for helpinus-integration-test. To opt-out of single project mode add/set the '"singleProjectMode"' false' property in the firebase.json emulators config.
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 139.7961ms
+i  functions: Beginning execution of "asia-southeast1-searchMentorModules"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-searchMentorModules" in 141.6465ms
+i  functions: Beginning execution of "asia-southeast1-searchMentorModules"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-searchMentorModules" in 25.0687ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 3.0143ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 47.1292ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 167.61ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 67.9688ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 62.0478ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 61.069ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 59.3728ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 56.3291ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 45.9952ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 60.8562ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 77.4572ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 48.0994ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 62.2391ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 59.289ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 59.0022ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 59.7533ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 59.7454ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 76.6521ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 75.2894ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 1.9628ms
+i  functions: Beginning execution of "asia-southeast1-searchMentorModules"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-searchMentorModules" in 42.1088ms
+i  functions: Beginning execution of "asia-southeast1-searchMentorModules"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-searchMentorModules" in 34.7743ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 56.8179ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 64.5824ms
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 183.9096ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 8.5847ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 61.6024ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 61.2626ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 76.0713ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 62.4317ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 78.8249ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 64.7373ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 56.7691ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 62.8728ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 59.3808ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 62.5577ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 60.4002ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 57.6836ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 49.3542ms
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 56.8906ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 58.3065ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+i  functions: Beginning execution of "asia-southeast1-searchMentorModules"
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 5.8711ms
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 8.1814ms
+i  functions: Finished "asia-southeast1-searchMentorModules" in 8.3812ms
+i  functions: Beginning execution of "asia-southeast1-discoverMentors"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-discoverMentors" in 141.6539ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 40.4352ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+i  functions: Beginning execution of "asia-southeast1-searchMentorModules"
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 11.7155ms
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 10.614ms
+i  functions: Finished "asia-southeast1-searchMentorModules" in 11.9532ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+i  functions: Beginning execution of "asia-southeast1-searchMentorModules"
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 4.6982ms
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 19.2119ms
+i  functions: Finished "asia-southeast1-searchMentorModules" in 20.7696ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+i  functions: Beginning execution of "asia-southeast1-searchMentorModules"
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 10.7926ms
+i  functions: Finished "asia-southeast1-searchMentorModules" in 10.5265ms
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 10.2649ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+i  functions: Beginning execution of "asia-southeast1-searchMentorModules"
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 19.6141ms
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 18.678ms
+i  functions: Finished "asia-southeast1-searchMentorModules" in 20.1116ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 40.7762ms
+i  functions: Beginning execution of "asia-southeast1-readOwnMentorProfile"
+i  functions: Beginning execution of "asia-southeast1-searchMentorModules"
+i  functions: Beginning execution of "asia-southeast1-updateOwnMentorProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-readOwnMentorProfile" in 14.6633ms
+i  functions: Finished "asia-southeast1-updateOwnMentorProfile" in 13.8919ms
+i  functions: Finished "asia-southeast1-searchMentorModules" in 15.3025ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 61.014ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 86.6623ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 63.6191ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 58.7063ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 78.6391ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 64.5402ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 77.1507ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 78.5973ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 77.1223ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 65.5906ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 47.6743ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 78.8966ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 79.2582ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 75.9522ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 58.6316ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 78.6183ms
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 181.1139ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 64.4125ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 66.8724ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 2077.9098ms
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 3251.9427ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 74.1246ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 62.2655ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 89.2082ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 79.2557ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 77.494ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 60.2859ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 64.6986ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 72.0219ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 9.4466ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 78.7613ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 61.2697ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 76.4492ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 80.7295ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 72.2021ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 76.4229ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 71.1111ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 51.5155ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 60.2871ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 64.2646ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 74.3099ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 67.0752ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 82.0422ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 63.879ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 73.0719ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 62.2418ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 81.5147ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 44.1754ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 72.6795ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 45.2302ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 83.7967ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 50.4432ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 73.2849ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 73.626ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 59.6276ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 76.5926ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 73.7703ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 73.3679ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 75.5702ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 75.7944ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 2.7788ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.9695ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 3.3998ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.8615ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.9844ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.2198ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.1461ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 63.9463ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 58.3679ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 62.6737ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 60.0672ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 61.185ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 56.5095ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 60.0018ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 67.2641ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 58.2371ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 77.036ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 76.581ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 65.1738ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 43.8071ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 61.2963ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 59.6444ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 10.58ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 11.9963ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 66.1563ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 82.9095ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 45.3382ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 75.7673ms
+i  functions: Beginning execution of "asia-southeast1-initializeStudentProfile"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-initializeStudentProfile" in 13.409ms
+i  functions: Beginning execution of "asia-southeast1-testAuthenticated"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-testAuthenticated" in 109.376ms
+i  functions: Beginning execution of "asia-southeast1-initializeStudentProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-initializeStudentProfile" in 139.577ms
+i  functions: Beginning execution of "asia-southeast1-initializeStudentProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-initializeStudentProfile" in 40.398ms
+i  functions: Beginning execution of "asia-southeast1-testAuthenticated"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-testAuthenticated" in 10.1911ms
+i  functions: Beginning execution of "asia-southeast1-discoverMentors"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-discoverMentors" in 115.3628ms
+i  functions: Beginning execution of "asia-southeast1-discoverMentors"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-discoverMentors" in 14.8043ms
+i  functions: Beginning execution of "asia-southeast1-initializeStudentProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-initializeStudentProfile" in 2.5307ms
+i  functions: Beginning execution of "asia-southeast1-initializeStudentProfile"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-initializeStudentProfile" in 25.3475ms
+i  functions: Beginning execution of "asia-southeast1-testAuthenticated"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-testAuthenticated" in 20.646ms
+i  functions: Beginning execution of "asia-southeast1-testAuthenticated"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-testAuthenticated" in 9.3578ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 38.8861ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 60.7652ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 61.6131ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 2643.3945ms
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 3030.1778ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 81.8892ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 138.7279ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 15.6987ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 16.8912ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 30.5065ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 30.6455ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 27.5364ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 26.8615ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 29.107ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 13.4936ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 28.0323ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 28.43ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 30.002ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 29.3009ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 29.4439ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 2.3297ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 1.8676ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 1.4679ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 1.1476ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 12.6672ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 10.8067ms
+i  functions: Beginning execution of "asia-southeast1-getMentorRequestSelection"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-getMentorRequestSelection" in 19.9197ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 71.2864ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 84.2808ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 61.9887ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 56.3737ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 63.0459ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 117.8238ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 21.2526ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 1.2492ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 9.2794ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 12.6025ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 1.269ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 12.8195ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 12.272ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 2.5298ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 8.406ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 13.2824ms
+i  functions: Beginning execution of "asia-southeast1-closeHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-closeHelpRequest" in 1.1256ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 69.4545ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 71.9815ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 44.9919ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 58.5492ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 58.5736ms
+i  functions: Finished "asia-southeast1-sendMessage" in 227.1234ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 67.5147ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 66.0865ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 60.6818ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 61.3501ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 60.2744ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 70.6065ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 61.3791ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.5593ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 2.4025ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 2.0448ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 2.1497ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.8569ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 2.3051ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 42.9361ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.8083ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 2.1573ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 62.7748ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 7.2464ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 14.5415ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 83.9265ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 9.9944ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 13.0327ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 82.143ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 10.102ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 13.1666ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 19.9583ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 5.674ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 13.4521ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 79.8617ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 8.6685ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 14.4549ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 71.6338ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.884ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.218ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.1853ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 2.4565ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 1.4994ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 1.4591ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 2.1369ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 14.0063ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 13.8538ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 17.4109ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 12.4356ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 12.4478ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 71.9175ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 2.0568ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 12.8639ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 18.4048ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 14.3438ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 8.6011ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 14.7841ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 67.4725ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 71.7278ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 56.2169ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 46.037ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 17.4884ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 65.6758ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 66.592ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 65.8999ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 17.9275ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 65.7192ms
+i  To reset your email address to f02-eligibility-student-92dbec0a-df5a-45c7-be69-16d2d250f40b@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=wBMyvCsx1BvV-SeUjYy6KvUKbq7KayYHYNyaEVdxMGCqcPCFfFEhG7&apiKey=fake-api-key
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 17.822ms
+i  To reset your email address to f02-eligibility-student-92dbec0a-df5a-45c7-be69-16d2d250f40b@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=IfXEEJvfhWsaKyY3ApPf_zH-p5SDQlMMlJvYIfnwFstjNwjYx3XYhM&apiKey=fake-api-key
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 67.029ms
+i  To reset your email address to f02-eligibility-student-92dbec0a-df5a-45c7-be69-16d2d250f40b@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=EuzSfVBY0VTrWhR_b-4k_qM3RDdcn-W4QevuR7VDiYdBLHOI5TB46f&apiKey=fake-api-key
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 18.0228ms
+i  To reset your email address to f02-eligibility-student-92dbec0a-df5a-45c7-be69-16d2d250f40b@example.test, follow this link: http://127.0.0.1:9099/emulator/action?mode=recoverEmail&lang=en&oobCode=2XwiKoCtkHFAlrbITnh5q6AU17VIaljbGD7XGdIn1VQWIfGBIISk5B&apiKey=fake-api-key
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 65.7935ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 1.3793ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 50.3984ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.976ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.5257ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 17.5251ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 64.9037ms
+i  functions: Finished "asia-southeast1-createHelpRequest" in 274.1135ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 77.3719ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 62.8819ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 60.8624ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 12.7954ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 80.4838ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 72.9272ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 71.5798ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 75.6154ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 59.89ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 67.4098ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 45.2018ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 60.53ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 42.8277ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 17.7865ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 10.2321ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 67.1506ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 76.4382ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 69.9338ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 56.2053ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 63.2558ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 62.8986ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 63.0614ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 72.8487ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.5423ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 83.442ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 4.3208ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 74.2317ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 12.6008ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 80.8192ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 14.5302ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 68.297ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 13.2992ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 82.6367ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 66.3013ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 68.5138ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 70.2215ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 61.6421ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 58.2186ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 62.1106ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 8.7011ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 14.4689ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 62.2766ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 60.1606ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 66.373ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 49.0859ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 65.4608ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 63.8561ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 66.0536ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 73.7882ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 48.832ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 65.4837ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 72.5974ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 62.1966ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 72.6595ms
+i  functions: Beginning execution of "asia-southeast1-acknowledgeMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-acknowledgeMessage" in 64.1523ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 60.2728ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 60.5703ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 49.5817ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 63.5385ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 43.488ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 63.6326ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 53.7185ms
+i  functions: Beginning execution of "asia-southeast1-discoverMentors"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-discoverMentors" in 76.4606ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 63.7777ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 50.9337ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 63.8526ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 67.8426ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 64.9466ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 64.0651ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 74.8691ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 61.6679ms
+i  functions: Finished "asia-southeast1-createHelpRequest" in 72.1044ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 61.72ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 70.0361ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 76.8529ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 72.2774ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 65.9978ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 80.7058ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 64.4046ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 70.9522ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 65.9994ms
+i  functions: Beginning execution of "asia-southeast1-sendMessage"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-sendMessage" in 62.9303ms
+i  functions: Beginning execution of "asia-southeast1-discoverMentors"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-discoverMentors" in 58.9087ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 62.7289ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 54.9477ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 3.7449ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.707ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.9344ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.5559ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.7942ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.8288ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.6882ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.9801ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 2.4246ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.7896ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.949ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 65.9399ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 52.084ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 46.1553ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 84.9519ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 3.741ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 2.3897ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.6041ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 2.3019ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.427ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.4469ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.5197ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.5043ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 1.3778ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 48.7333ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 56.4055ms
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 85.2273ms
+i  functions: Beginning execution of "asia-southeast1-createHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-createHelpRequest" in 63.4543ms
+
+ Test Files  30 passed (30)
+      Tests  96 passed (96)
+   Start at  23:22:33
+   Duration  128.14s (transform 601ms, setup 0ms, import 23.09s, tests 100.18s, environment 3ms)
+
++  Script exited successfully (code 0)
+i  emulators: Shutting down emulators.
+i  functions: Stopping Functions Emulator
+i  firestore: Stopping Firestore Emulator
+!  Firestore Emulator has exited upon receiving signal: SIGINT
+i  auth: Stopping Authentication Emulator
+i  eventarc: Stopping Eventarc Emulator
+i  tasks: Stopping Cloud Tasks Emulator
+i  hub: Stopping emulator hub
+i  logging: Stopping Logging Emulator

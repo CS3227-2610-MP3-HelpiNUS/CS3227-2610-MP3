@@ -20,10 +20,10 @@ Sprint 1 establishes the production-shaped foundation:
 - separate development and production deployment paths; and
 - specification, handoff, testing, and interaction evidence.
 
-Sprint 2 F01 implements help-request creation, rejection, owner reads and
-summaries. Acceptance remains unavailable until F02 supplies real conversation
-provisioning in the same transaction. Messaging, appointment, and AI workflows
-remain outside F01.
+Sprint 2 F01 implements help-request creation, decisions, owner reads and
+summaries. F02 now provides the real transaction-compatible conversation
+provisioner, authenticated text messaging, bounded read acknowledgements, and
+Student/Mentor chat pages. Appointment and AI workflows remain outside F02.
 
 ## 2. Technology baseline
 
@@ -174,8 +174,8 @@ erDiagram
 | `helpRequestOperations/{studentId}/operations/{operationId}` | Private immutable create receipt and payload fingerprint |
 | `pendingHelpRequestKeys/{tupleHash}` | Private unique pending Student/Mentor/module tuple lock |
 | `helpRequestSummaries/{studentId}` | Trusted pending, accepted, rejected and open counts |
-| `conversations/{conversationId}` | two participant IDs, optional help request, timestamps |
-| `conversations/{conversationId}/messages/{messageId}` | sender, body, server timestamp |
+| `conversations/{helpRequestId}` | immutable accepted request ID, Student/Mentor IDs, ordered participants, matching native acceptance timestamps |
+| `conversations/{helpRequestId}/messages/{messageId}` | authenticated sender, normalized plain text, server timestamp, nullable recipient acknowledgement timestamp |
 | `availabilitySlots/{slotId}` | Mentor, start/end, withdrawal state, creation time |
 | `appointments/{appointmentId}` | slot, Student, Mentor, topic, status, timestamps |
 | `aiAuditEvents/{eventId}` | actor, role, feature, outcome, prompt hash, timestamp |
@@ -207,10 +207,10 @@ stateDiagram-v2
     CONFIRMED --> COMPLETED: completeAppointment
 ```
 
-F01 creates PENDING requests and supports PENDING to REJECTED. The ACCEPTED
-transition in the diagram is a transaction seam that fails closed in this
-branch until F02 provides the real conversation helper. `closeHelpRequest`
-remains dormant and unavailable. The appointment functions remain scaffolds.
+F01 creates PENDING requests and supports PENDING to REJECTED or ACCEPTED.
+Acceptance now calls F02's real provisioner inside the same Firestore
+transaction. `closeHelpRequest` remains dormant and unavailable. The
+appointment functions remain scaffolds.
 
 ## 8. Authorization design
 
@@ -224,8 +224,8 @@ remains dormant and unavailable. The appointment functions remain scaffolds.
 | Help requests | Bounded owner queries and individual reads for owning Student or assigned Mentor | Denied; callable transitions only |
 | Request receipts and tuple keys | Denied | Denied |
 | Request summary | Owning Student only | Denied |
-| Conversations | Accepted parent request's matching Student/Mentor may get an individual conversation; list currently denied | Denied |
-| Messages | Accepted parent request's matching participants | Participant may create as self with bounded non-blank body and server time; update/delete denied |
+| Conversations | Accepted parent request's matching Student/Mentor may get an individual conversation; the list uses bounded owner-scoped accepted Help Request queries | Denied |
+| Messages | Accepted parent request's matching participants may get or list with limit at most 20 | Denied; send and read acknowledgement use authenticated callables |
 | Availability slots | ACTIVE users; available future slots only | Denied; callable operations only |
 | Appointments | Involved Student or Mentor | Denied; callable transitions only |
 | AI audit events | Denied | Denied; backend only |
@@ -237,7 +237,9 @@ remains dormant and unavailable. The appointment functions remain scaffolds.
 | Initialize Student profile | Own identity only | Denied if Mentor profile exists | Denied |
 | Create help request | Allowed | Denied | Denied |
 | Reject addressed help request | Denied | Allowed | Denied |
-| Accept/close help request | Unavailable | Unavailable | Denied |
+| Accept addressed help request | Denied | Allowed | Denied |
+| Close help request | Unavailable | Unavailable | Denied |
+| Send/read-acknowledge a matched conversation message | Participant only | Participant only | Denied |
 | Create/withdraw availability | Denied | Allowed | Denied |
 | Reserve appointment | Allowed | Denied | Denied |
 | Respond/complete appointment | Denied | Allowed | Denied |
@@ -261,7 +263,9 @@ their existing `requestId` fields.
 | `initializeStudentProfile` | Authenticated new Student | Create or return the trusted Student profile |
 | `discoverMentors` | Active Student or Mentor | Return a cursor-paginated list of public Mentor fields after verifying each profile against its authoritative ACTIVE Mentor account; sign-in email and account metadata are never returned |
 | `createHelpRequest` | Student | Create a pending request or return an authorized duplicate/replay outcome |
-| `respondToHelpRequest` | Mentor | Reject an addressed pending request; acceptance fails closed pending F02 |
+| `respondToHelpRequest` | Mentor | Accept or reject an addressed pending request; acceptance atomically creates its matching conversation |
+| `sendMessage` | Student or Mentor participant | Create or replay one normalized text message under a UUID ID |
+| `acknowledgeMessage` | Other participant | Set a saved message's `readAt` once |
 | `closeHelpRequest` | Student | Dormant unavailable closure seam |
 | `createAvailabilitySlot` | Mentor | Publish availability |
 | `withdrawAvailabilitySlot` | Mentor | Withdraw an unreserved slot |
@@ -272,10 +276,10 @@ their existing `requestId` fields.
 | `studentStudyAssist` | Student | Future SoC LLM study-assistance seam |
 | `mentorConsultationSummary` | Mentor | Future SoC LLM summary seam |
 
-F01 additionally executes `createHelpRequest` and the rejection branch of
-`respondToHelpRequest`. Existing unrelated callables retain their own feature
-status. F01 production acceptance returns `unavailable` without changing the
-request, key, summary or conversation.
+F01/F02 execute both branches of `respondToHelpRequest` with the real
+conversation provisioner. Existing unrelated callables retain their own
+feature status. Production enablement still requires the real-data accepted
+pair audit and remaining release verification.
 
 The frontend exposes a typed generic callable adapter. Firebase responses are
 validated against the shared output schema. `createMockCallableClient` accepts
@@ -300,7 +304,7 @@ Student navigation:
   activity widgets still labelled preview data;
 - Find a mentor — Student Mentor discovery and module filtering;
 - Help requests — Student submission, history and detail;
-- Conversations — scaffold;
+- Conversations — accepted request-linked list and message detail;
 - Consultations — scaffold; and
 - Study assistant — scaffold.
 
@@ -385,6 +389,15 @@ selected Mentor/request. The Student form keeps an uncertain create operation
 and frozen payload in per-account `sessionStorage` until confirmation. The
 session service clears these private drafts on sign-out or account change.
 
+Before showing the selected Mentor's name or enabling a new request, the form
+uses `getMentorRequestSelection` with the exact route Mentor ID. The callable
+requires a current active, verified Student and reads the Mentor account and
+profile with the Admin SDK. Its strict response contains only the current
+public display name and supported canonical module IDs, or a generic
+`unavailable` result. Route state and saved drafts cannot provide trusted
+display data. Refresh and direct links repeat the lookup; `createHelpRequest`
+still rechecks eligibility at commit time.
+
 The strict shared F01 contract uses `operationId` for UUID retries and
 `helpRequestId` for the server document. `createHelpRequest` checks the current
 Auth user, authoritative ACTIVE Student record, current ACTIVE Mentor record
@@ -396,14 +409,14 @@ A different operation for a pending tuple returns `duplicate` without creating
 a new request. No client supplies the persistent ID.
 
 `respondToHelpRequest` rechecks the addressed Mentor's current account and
-transactionally rejects a PENDING request, removes the exact tuple key, and
-updates the summary. Same-outcome terminal retries return the stored result
-without writes; opposite-outcome retries return a conflict. An unexpected
-conversation or malformed coordination record fails closed. The production
-export intentionally lacks the F02 transaction provision helper: acceptance
-returns `F02_UNAVAILABLE` with no state change. The isolated test adapter in
-`helpRequestAdapter.test.ts` verifies the transaction interface and is never
-registered in production.
+transactionally accepts or rejects a PENDING request, removes the exact tuple
+key, and updates the summary. On acceptance the real F02 helper queues one
+`conversations/{helpRequestId}` create in that same transaction. Same-outcome
+terminal retries return the stored result without writes; opposite-outcome
+retries return a conflict only after strict accepted-pair validation. An
+unexpected conversation or malformed coordination record fails closed. The
+isolated test adapter in `helpRequestAdapter.test.ts` still verifies the
+missing-provisioner fallback; production uses the real helper.
 
 Run `npm run audit:help-requests --workspace src/functions` with an authorized
 Admin/emulator configuration before enabling creation against an existing
@@ -415,14 +428,91 @@ rejected request is also an anomaly, reported as `nonaccepted_conversation`.
 A passing empty emulator audit proves only that the
 emulator started empty. Do not treat it as production data clearance.
 
-The F01/F02 boundary still needs a real transaction-compatible conversation
-provision helper, deterministic `conversations/{helpRequestId}` persistence,
-accepted-parent Rules and an F02 list/query strategy, authenticated end-to-end
-evidence, and a real-data audit. The local Node 22 root check and full
-Auth/Firestore/Functions integration suite pass after the 2026-10-16
-stabilization; remaining standalone RTT assertions are recorded in the F01
-handoff. F01 is a local implementation checkpoint and is not ready for
-production release.
+The F01/F02 boundary now has the real provisioner, deterministic conversation
+path, accepted-parent Rules, and owner-scoped list query. The local Emulator
+suite exercises an acceptance path; broader race, corruption and live-client
+evidence and a real-data audit remain release gates. Neither the F01 nor F02
+local implementation checkpoint alone authorizes production release.
+
+### Conversation management (S2-D2-F02)
+
+The strict F02 shared schemas keep request-linked conversations separate from
+legacy dashboard fixtures. `provisionForAcceptedRequest` uses only transaction
+writes and copies the accepted request's Student/Mentor IDs and native
+`updatedAt` into the deterministic conversation. `assertMatchingAcceptedConversation`
+checks stored ID, parent, ordered participants, native timestamps and exact
+field grammar before accepted terminal replay. A missing or corrupt pair is
+never silently repaired.
+
+`sendMessage` and `acknowledgeMessage` independently recheck current Auth and
+`users/{uid}` eligibility, the accepted request, matching conversation, and
+target message inside a transaction. Sends trim outer whitespace and count
+Unicode code points from 1 to 4,000. The message UUID is the idempotency key:
+same sender/body at the same path returns the saved message; changed content
+fails without overwrite. Only the other participant may set `readAt`, once.
+Rules deny every direct message write. They allow only matching accepted-pair
+conversation get and bounded message get/list; a broad conversation list is
+denied. Owner-scoped accepted Help Request queries with the new
+`updatedAt`/document-ID indexes supply the list, followed by direct pair
+validation. The read receipt proves authenticated recipient acknowledgement,
+not visual attention. The official client triggers it only when an incoming
+saved bubble intersects the foreground chat viewport.
+
+`firebaseConversations` owns native Timestamp cursors, server-backed pair and
+retry reads, 20-item pages and bounded live listeners. `ConversationPages`
+merges pages by message ID and orders saved messages by authoritative timestamp
+then ID. `chatRetryStore` persists each unresolved intention in per-account
+`sessionStorage` before dispatch; a retry checks the same ID from the server
+before resending. Account, role or permission loss clears private retry state.
+The shared Student/Mentor routes are `/student/conversations` and
+`/mentor/conversations`, with `/:requestId` detail routes. The mock adapter is
+only component evidence.
+
+The approved 2026-10-17 UI amendment is recorded in the F01 and F02
+`UIAmendment.md` files. `HelpRequestPages` renders labelled metadata and a
+separate question section for both roles; request cards expose an explicit
+`View details` route. Decision confirmation uses a portalled modal with an
+inert background, keyboard focus containment/return, and the existing
+operation-ID recovery path. `ConversationPages` uses a compact expandable
+request context, scrollable message panel, and a full-width composer row.
+Its textarea grows from one line to a 168 px cap before vertical scrolling;
+the send icon retains the accessible name `Send message`. Message and composer
+text wrap without horizontal scrolling.
+
+The approved second UI refinement is recorded in the F01 and F02
+`UIRefinementRound2.md` files. The discovery dialog is centered in the
+viewport with bounded height and a keyboard loop covering its link and Close
+button. Accepted request detail keeps its status badge and conversation
+action while clearing redundant success feedback; its primary link has white
+text in normal, visited, hover and focus states. Conversation detail alone
+removes the shell's content-width cap and gives message history flexible
+viewport height. The textarea has an accessible name without a visible
+label, and list cards separate labelled request, participant and module
+details from the explicit conversation button. Request and conversation data
+contracts are unchanged by this UI revision.
+
+The approved third UI refinement is in the F01 and F02
+`UIRefinementRound3.md` files. The discovery dialog uses a bold heading and
+an action row with a 10 px gap, 44 px targets, and narrow-screen wrapping.
+Conversation detail removes the separate large page heading and shared top
+bar; its routed back link, participant/module/title context, and expandable
+request question sit inside the edge-to-edge chat header. History flexes to
+fill the remaining viewport and scrolls independently of the composer. The
+expanded question has bounded height and keyboard-accessible internal
+scrolling. At 400 px and below, the header previews the participant and
+title on one line each; the complete title remains readable in the expanded
+details. Since the mobile top bar is absent on this route, `AppShell`
+passes its existing sign-out action through the outlet context to a
+mobile-only header button. Other routes retain their shell layout and sign-out
+controls. No conversation data contract changed.
+
+Local `npm run check` at `305af72` used Node 22.23.3: root lint, typecheck,
+unit tests and build passed; the earlier focused real Functions integration suite
+passed 9/9 and the Rules Emulator suite passed 14/14. The current F02 ledger
+records exact commands and remaining RTT evidence. Node 22 CI, manual 320 px
+keyboard/screen-reader observations, a production accepted-pair audit, and
+the full approved RTT crosswalk remain unverified. Do not label the feature
+release-ready from the local suite alone.
 
 ### Mentor dashboard (S1-D2-F03)
 
@@ -602,6 +692,10 @@ $env:FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080'
 $env:GCLOUD_PROJECT = 'helpinus-dev'
 fnm exec --using 22 node node_modules/tsx/dist/cli.mjs src/functions/scripts/seed-emulator.ts
 $env:VITE_USE_FIREBASE_EMULATORS = 'true'
+$env:VITE_FIREBASE_DEV_API_KEY = 'fake-api-key'
+$env:VITE_FIREBASE_DEV_AUTH_DOMAIN = 'helpinus-dev.firebaseapp.com'
+$env:VITE_FIREBASE_DEV_PROJECT_ID = 'helpinus-dev'
+$env:VITE_FIREBASE_DEV_APP_ID = 'demo-helpinus-dev'
 Push-Location src/frontend
 try { fnm exec --using 22 node ../../node_modules/vite/bin/vite.js --host 127.0.0.1 }
 finally { Pop-Location }
@@ -616,11 +710,17 @@ them; seed again on restart.
 | --- | --- | --- |
 | Student | `student@example.test` | `Student-demo-123!` |
 | Mentor | `mentor@example.test` | `Mentor-demo-123!` |
+| Jamie Tan (Student) | `jamie.tan@example.test` | `Jamie-demo-123!` |
+| Sample Aisha (Mentor) | `aisha@example.test` | `Aisha-demo-123!` |
 
-The seed marks both demo emails verified so Firestore Rules allow module reads.
+The seed marks all demo emails verified so Firestore Rules allow module reads.
 The accounts and synthetic verification fallback are emulator-only. It creates
 two active module records (`CS2103T`, `CS2040S`) and one inactive record
-(`CS3230`) when they are missing.
+(`CS3230`) when they are missing. Sample Aisha's new Mentor profile lists the
+two active modules, allowing Jamie Tan to request help without profile setup.
+The root `npm run dev:emulators` launcher supplies the same harmless Firebase
+web configuration automatically so Vite uses the seeded emulators rather than
+the mock Jamie Tan preview.
 
 Provision a trusted Mentor in a selected real project with Application Default
 Credentials:

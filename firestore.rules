@@ -5,6 +5,7 @@ service cloud.firestore {
     function userExists() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
     function activeUser() {
       return userExists()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.id == request.auth.uid
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'ACTIVE'
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['STUDENT', 'MENTOR']
         && request.auth.token.email_verified == true
@@ -12,15 +13,23 @@ service cloud.firestore {
     }
     function acceptedConversation(data, id) {
       return activeUser()
+        && data.keys().hasAll(['id', 'helpRequestId', 'studentId', 'mentorId', 'participantIds', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'helpRequestId', 'studentId', 'mentorId', 'participantIds', 'createdAt', 'updatedAt'])
+        && data.id == id
         && data.helpRequestId == id
         && data.studentId is string
         && data.mentorId is string
         && data.participantIds == [data.studentId, data.mentorId]
         && ((role() == 'STUDENT' && request.auth.uid == data.studentId) || (role() == 'MENTOR' && request.auth.uid == data.mentorId))
         && exists(/databases/$(database)/documents/helpRequests/$(id))
+        && get(/databases/$(database)/documents/helpRequests/$(id)).data.id == id
         && get(/databases/$(database)/documents/helpRequests/$(id)).data.status == 'ACCEPTED'
         && get(/databases/$(database)/documents/helpRequests/$(id)).data.studentId == data.studentId
-        && get(/databases/$(database)/documents/helpRequests/$(id)).data.mentorId == data.mentorId;
+        && get(/databases/$(database)/documents/helpRequests/$(id)).data.mentorId == data.mentorId
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.createdAt == get(/databases/$(database)/documents/helpRequests/$(id)).data.updatedAt
+        && data.updatedAt == get(/databases/$(database)/documents/helpRequests/$(id)).data.updatedAt;
     }
     function role() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; }
     function activeMentor(mentorId) {
@@ -57,16 +66,10 @@ service cloud.firestore {
       allow write: if false;
       match /messages/{messageId} {
         function conversation() { return get(/databases/$(database)/documents/conversations/$(id)).data; }
-        allow read: if exists(/databases/$(database)/documents/conversations/$(id)) && acceptedConversation(conversation(), id);
-        allow create: if exists(/databases/$(database)/documents/conversations/$(id))
-          && acceptedConversation(conversation(), id)
-          && request.resource.data.keys().hasOnly(['senderId', 'body', 'createdAt'])
-          && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.body is string
-          && request.resource.data.body.matches('(?s).*[^\\s].*')
-          && request.resource.data.body.size() <= 4000
-          && request.resource.data.createdAt == request.time;
-        allow update, delete: if false;
+        allow get: if exists(/databases/$(database)/documents/conversations/$(id)) && acceptedConversation(conversation(), id);
+        allow list: if request.query.limit != null && request.query.limit <= 20
+          && exists(/databases/$(database)/documents/conversations/$(id)) && acceptedConversation(conversation(), id);
+        allow write: if false;
       }
     }
     match /availabilitySlots/{id} { allow read: if activeUser() && resource.data.withdrawn == false && resource.data.startsAt > request.time && activeMentor(resource.data.mentorId); allow write: if false; }

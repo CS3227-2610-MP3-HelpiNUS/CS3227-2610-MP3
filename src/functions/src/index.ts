@@ -7,9 +7,11 @@ import { callableSchemas } from '@helpinus/shared'
 import type { ZodType } from 'zod'
 import { initializeStudentProfileHandler } from './profile.js'
 import { discoverMentorsHandler } from './mentorDiscovery.js'
+import { getMentorRequestSelectionHandler } from './mentorRequestSelection.js'
 import { readOwnMentorProfileHandler, updateOwnMentorProfileHandler } from './mentorProfileManagement.js'
 import { searchMentorModulesHandler } from './mentorModuleSearch.js'
 import { createHelpRequestHandler, respondToHelpRequestHandler } from './helpRequests.js'
+import { acknowledgeMessageHandler, provisionForAcceptedRequest, sendMessageHandler } from './conversations.js'
 
 initializeApp()
 const db = getFirestore()
@@ -29,6 +31,10 @@ export const discoverMentors = callable(
   callableSchemas.discoverMentors.input,
   (input, request) => discoverMentorsHandler(input, request, db),
 )
+export const getMentorRequestSelection = callable(
+  callableSchemas.getMentorRequestSelection.input,
+  (input, request) => getMentorRequestSelectionHandler(input, request, db),
+)
 export const readOwnMentorProfile = callable(callableSchemas.readOwnMentorProfile.input, (input, request) => readOwnMentorProfileHandler(input, request, db))
 export const searchMentorModules = callable(callableSchemas.searchMentorModules.input, (input, request) => searchMentorModulesHandler(input, request, db))
 export const updateOwnMentorProfile = callable(callableSchemas.updateOwnMentorProfile.input, (input, request) => updateOwnMentorProfileHandler(input, request, db))
@@ -42,7 +48,9 @@ function notImplemented(name: string, role?: 'STUDENT' | 'MENTOR') {
 }
 
 export const createHelpRequest = callable(callableSchemas.createHelpRequest.input, (input, request) => createHelpRequestHandler(input, request, db))
-export const respondToHelpRequest = callable(callableSchemas.respondToHelpRequest.input, (input, request) => respondToHelpRequestHandler(input, request, db))
+export const respondToHelpRequest = callable(callableSchemas.respondToHelpRequest.input, (input, request) => respondToHelpRequestHandler(input, request, db, provisionForAcceptedRequest))
+export const sendMessage = callable(callableSchemas.sendMessage.input, (input, request) => sendMessageHandler(input, request, db))
+export const acknowledgeMessage = callable(callableSchemas.acknowledgeMessage.input, (input, request) => acknowledgeMessageHandler(input, request, db))
 export const closeHelpRequest = notImplemented('closeHelpRequest', 'STUDENT')
 export const createAvailabilitySlot = notImplemented('createAvailabilitySlot', 'MENTOR')
 export const withdrawAvailabilitySlot = notImplemented('withdrawAvailabilitySlot', 'MENTOR')

@@ -11,7 +11,12 @@ import type {
   CallableOutput,
   F01HelpRequest,
   HelpRequestSummary,
+  F02SavedMessage,
 } from '@helpinus/shared'
+
+export type ChatCursor = { seconds: number; nanoseconds: number; id: string }
+export type ChatRow = { kind: 'ready'; request: F01HelpRequest } | { kind: 'support_needed'; requestId: string; acceptedAt: string }
+export type ChatDetail = { request: F01HelpRequest }
 
 export interface DashboardData {
   user: User
@@ -51,12 +56,18 @@ export interface HelpiNUSServices {
     getById(id: string): Promise<Module | null>
   }
   helpRequests: {
-    getSelection(mentorId: string): Promise<{ moduleIds: string[] } | null>
+    getSelection(mentorId: string): Promise<{ userId: string; displayName: string; moduleIds: string[] } | null>
     subscribeStudentPage(uid: string, cursor: { createdAt: string; id: string } | null, onData: (items: F01HelpRequest[]) => void, onError: (error: unknown) => void): () => void
     subscribeMentorPendingPage(uid: string, cursor: { createdAt: string; id: string } | null, onData: (items: F01HelpRequest[]) => void, onError: (error: unknown) => void): () => void
     subscribeMentorDecidedPage(uid: string, cursor: { createdAt: string; id: string } | null, onData: (items: F01HelpRequest[]) => void, onError: (error: unknown) => void): () => void
     subscribeDetail(id: string, onData: (item: F01HelpRequest | null) => void, onError: (error: unknown) => void): () => void
     subscribeStudentSummary(uid: string, onData: (summary: HelpRequestSummary) => void, onError: (error: unknown) => void): () => void
+  }
+  conversations: {
+    subscribeList(uid: string, role: 'STUDENT' | 'MENTOR', cursor: ChatCursor | null, onData: (rows: ChatRow[], next: ChatCursor | null) => void, onError: (error: unknown) => void): () => void
+    subscribeDetail(requestId: string, onData: (detail: ChatDetail | null) => void, onError: (error: unknown) => void): () => void
+    subscribeMessages(requestId: string, cursor: ChatCursor | null, onData: (messages: F02SavedMessage[], next: ChatCursor | null) => void, onError: (error: unknown) => void): () => void
+    getMessageFromServer(requestId: string, messageId: string): Promise<F02SavedMessage | null>
   }
   callables: CallableClient
 }

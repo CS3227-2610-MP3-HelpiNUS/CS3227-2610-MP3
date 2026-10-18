@@ -9,6 +9,7 @@ import { WorkspacePage } from '../pages/WorkspacePage'
 import { MentorDiscoveryPage } from '../pages/MentorDiscoveryPage'
 import { MentorProfilePage } from '../pages/MentorProfilePage'
 import { MentorDashboard } from '../pages/MentorDashboard'
+import { ConversationDetailPage } from '../pages/ConversationPages'
 import { ProtectedRoute } from '../routes/ProtectedRoute'
 import { ServiceProvider } from '../services/ServiceProvider'
 import type { HelpiNUSServices } from '../services/contracts'
@@ -21,6 +22,7 @@ function renderStudentAt(path: string, services: HelpiNUSServices = mockServices
       { path: '/student/mentors', element: <MentorDiscoveryPage /> },
       { path: '/student/requests', element: <WorkspacePage /> },
       { path: '/student/conversations', element: <WorkspacePage /> },
+      { path: '/student/conversations/:requestId', element: <ConversationDetailPage role="student" /> },
       { path: '/student/consultations', element: <WorkspacePage /> },
       { path: '/student/study-assistant', element: <WorkspacePage /> },
     ] }] },
@@ -34,6 +36,12 @@ function renderStudentAt(path: string, services: HelpiNUSServices = mockServices
 }
 
 describe('Student application foundation', () => {
+  it('keeps mobile account access inside the full-screen conversation header', async () => {
+    renderStudentAt('/student/conversations/sample-request')
+    const signOut = (await screen.findAllByRole('button', { name: 'Sign out' })).find((button) => button.closest('.chat-header'))
+    expect(signOut).toBeDefined()
+    expect(screen.getByRole('link', { name: 'Back to conversations' }).closest('.chat-header')).toBeInTheDocument()
+  })
   it('renders a meaningful dashboard with mock domain data', async () => {
     renderStudentAt('/student/dashboard')
 

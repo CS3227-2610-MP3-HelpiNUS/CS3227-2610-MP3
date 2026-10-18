@@ -145,18 +145,24 @@ export const mockServices: HelpiNUSServices = {
     registerStudent: async () => { signedInUser = student; return { user: student } },
     retryStudentProfile: async () => ({ user: signedInUser }),
     resendVerificationEmail: async () => {},
-    signIn: async () => { signedInUser = student; return { user: student } },
+    signIn: async () => { throw Object.assign(new Error('Mock preview does not authenticate. Start npm run dev:emulators to sign in with seeded accounts.'), { code: 'mock/preview-only' }) },
     signOut: async () => { signedInUser = null },
   },
   dashboard: { getStudentDashboard: async () => mockDashboard },
   modules: createMockModuleLookup(discoveryModules),
   helpRequests: {
-    async getSelection(mentorId) { const found = Object.values(discoveryPages).flatMap((page) => page.mentors).find((item) => item.userId === mentorId); return found ? { moduleIds: found.moduleIds } : null },
+    async getSelection(mentorId) { const found = Object.values(discoveryPages).flatMap((page) => page.mentors).find((item) => item.userId === mentorId); return found ? { userId: found.userId, displayName: found.displayName, moduleIds: found.moduleIds } : null },
     subscribeStudentPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.studentId === uid).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20), onData) },
     subscribeMentorPendingPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.mentorId === uid && item.status === 'PENDING').sort((a, b) => a.createdAt.localeCompare(b.createdAt)).slice(0, 20), onData) },
     subscribeMentorDecidedPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.mentorId === uid && item.status !== 'PENDING').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20), onData) },
     subscribeDetail(id, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.id === id), (items) => onData(items[0] ?? null)) },
     subscribeStudentSummary(uid, onData) { const listener = () => { const own = f01Requests.filter((item) => item.studentId === uid); const pendingCount = own.filter((item) => item.status === 'PENDING').length; const acceptedCount = own.filter((item) => item.status === 'ACCEPTED').length; onData({ pendingCount, acceptedCount, rejectedCount: own.filter((item) => item.status === 'REJECTED').length, openCount: pendingCount + acceptedCount, updatedAt: new Date().toISOString() }) }; requestListeners.add(listener); listener(); return () => { requestListeners.delete(listener) } },
+  },
+  conversations: {
+    subscribeList(_uid, _role, _cursor, onData) { onData([], null); return () => {} },
+    subscribeDetail(_id, onData) { onData(null); return () => {} },
+    subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} },
+    async getMessageFromServer() { return null },
   },
   callables: createMockCallableClient({
     createHelpRequest: async (input) => {

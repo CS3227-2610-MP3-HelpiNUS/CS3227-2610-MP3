@@ -1,0 +1,27 @@
+# Sprint 2 manual local browser evidence
+
+**Date:** 2026-10-17, Asia/Singapore. **Environment:** integrated `royden/feat-conversation-management` worktree at committed HEAD `647639849e778cb6b9e2a6083d50d5d4cf40b9bd` plus the in-scope uncommitted corrections described in the final report. Local Firebase Auth, Firestore and Functions emulators for `helpinus-dev`; Vite served the real frontend at `http://127.0.0.1:5173/`. Synthetic seeded Student `jamie.tan@example.test` and Mentor `aisha@example.test` accounts were used. Browser was the Codex in-app browser, inspected through rendered screenshots, DOM and accessibility snapshots. No production data was accessed.
+
+## Observed journey
+
+1. At 1280 × 800, Student Jamie signed in, found Sample Aisha in mentor discovery, opened Ask for help, and submitted an empty form. The form showed distinct module, title and description errors. Jamie selected CS2103T, entered a title with outer whitespace and a multiline question with outer whitespace, and submitted. The persisted detail at `/student/requests/7Iu3NcaxNzUOiURsjF16` showed normalized title `Integration test question`, PENDING status, Sample Aisha and CS2103T. Student history listed the request.
+2. Jamie signed out and Mentor Aisha signed in. The pending inbox listed Jamie's request. Its detail showed the question and module. Aisha clicked Accept, saw the confirmation dialog, and confirmed. Detail then showed ACCEPTED with a decision time and a link to `/mentor/conversations/7Iu3NcaxNzUOiURsjF16`.
+3. The new conversation initially had an empty message log. Aisha sent a two-line message containing literal `<script>alert('x')</script>`. The UI first showed Sending, then Sent. After browser reload, the persisted message was still present. Jamie signed in and opened the conversation from the Student list; Aisha's message appeared without manual refresh. The HTML-like substring was escaped in the paragraph's `innerHTML` as `&lt;script&gt;...&lt;/script&gt;`, and no injected script element containing the test text existed. Jamie sent a reply and observed Sending then Sent.
+4. At a 320 × 640 viewport, the Student conversation, request history and accepted request detail rendered with `document.documentElement.scrollWidth === window.innerWidth === 320`. The rendered conversation screenshot showed readable messages, composer and bottom navigation without clipped content. The accepted request detail linked back to the same conversation ID. The browser viewport was reset to 1280 before closing the local session.
+5. The read-only F01 audit against this populated **synthetic emulator** returned `requestCount: 1`, `conversationCount: 1`, `pendingKeyCount: 0`, `summaryCount: 1`, `receiptCount: 1`, `anomalies: {}`, `clean: true`. The first audit invocation was blocked from loopback by the command sandbox (`EACCES`); the identical command succeeded with narrow local loopback escalation. This says nothing about a real existing dataset.
+
+## Second integrated browser pass: rejection and keyboard focus
+
+The local emulators were restarted with a fresh synthetic dataset on the **same source tree used for the first browser pass**. Later in-scope test and request-route corrections were made after these browser observations. Jamie submitted a CS2040S request titled `Rejection path exercise`. Aisha's pending inbox showed that exact request; its detail showed Jamie's name, module and question. Aisha opened the Reject confirmation. While it was open, focus was on Cancel; Escape closed it and returned focus to the original Reject button. On the second opening, Aisha confirmed rejection. The detail changed to REJECTED with a decision time, and the request moved from Pending to Decided. Aisha's conversation list said there were no accepted conversations. A direct URL to `/mentor/conversations/3sQd0ycT2FQZ6WNMCWEb` displayed only support guidance and no chat. After account switch, Jamie's history and detail showed REJECTED with no Open conversation link.
+
+The discovery Ask for help dialog also received a narrow keyboard check: clicking it focused Close; Tab from Close wrapped to Request help; Shift+Tab returned to Close; Escape dismissed it and restored focus to Ask for help. This checks those actual focus transitions, not a complete keyboard-only walkthrough. At 320 × 640, Mentor request list and rejected detail both had `scrollWidth === innerWidth === 320`; the rendered detail screenshot showed a readable card and bottom navigation. The viewport was reset afterward.
+
+A second read-only synthetic audit after rejection returned `requestCount: 1`, `conversationCount: 0`, `pendingKeyCount: 0`, `summaryCount: 1`, `receiptCount: 1`, `anomalies: {}`, `clean: true`.
+
+## Manual evidence still missing
+
+- A genuine second simultaneously open browser session to prove live cross-client delivery without relogin. The local Auth/Firestore integration suite supplies two-client SDK evidence, but this browser run used sequential account switches.
+- Full loading, empty, denial, error and retry screens for both roles in the browser; complete focus order and keyboard-only navigation beyond the two dialog checks; zoom/short-viewport and mobile keyboard behavior; and a real screen-reader observation. DOM/accessibility snapshots are useful checks but do not satisfy screen-reader evidence.
+- Production or real-data observations, CI, and any release environment. The synthetic audit is not the mandatory real-data audit.
+
+This manual run is PARTIAL evidence for the relevant RTT rows, not a blanket PASS for any case.

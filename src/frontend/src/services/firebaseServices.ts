@@ -1,12 +1,13 @@
 import { createUserWithEmailAndPassword, onAuthStateChanged, sendEmailVerification, signInWithEmailAndPassword, signOut, updateProfile, type User as AuthUser } from 'firebase/auth'
 import { Timestamp, collection, doc, documentId, getDoc, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { callableSchemas, f01HelpRequestSchema, helpRequestSummarySchema, initializeStudentProfileOutputSchema, mentorProfileSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
+import { callableSchemas, f01HelpRequestSchema, helpRequestSummarySchema, initializeStudentProfileOutputSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
 import { firebase } from './firebase'
 import { firebaseEnvironment, isEmulatorConnectionAllowed } from './firebaseConfig'
 import type { DashboardData, HelpiNUSServices, Session } from './contracts'
 import { mockDashboard } from './mockServices'
 import { isStaleAuthIdentityError, normalizeFirestoreTimestamp } from './firestoreData'
+import { firebaseConversations } from './firebaseConversations'
 
 function configured() {
   if (!firebase) throw new Error('Firebase is not configured. Add the development Firebase settings to continue.')
@@ -141,11 +142,9 @@ export const firebaseServices: HelpiNUSServices = {
   },
   helpRequests: {
     async getSelection(mentorId) {
-      const snapshot = await getDoc(doc(configured().firestore, 'mentorProfiles', mentorId))
-      if (!snapshot.exists()) return null
-      const parsed = mentorProfileSchema.safeParse(snapshot.data())
-      if (!parsed.success || parsed.data.userId !== mentorId || !parsed.data.active) return null
-      return { moduleIds: parsed.data.moduleIds }
+      const result = await invokeCallable('getMentorRequestSelection', { mentorId })
+      if (result.kind !== 'ready' || result.mentor.userId !== mentorId) return null
+      return result.mentor
     },
     subscribeStudentPage(uid, cursor, onData, onError) { return subscribeRequestPage('studentId', uid, null, 'desc', cursor, onData, onError) },
     subscribeMentorPendingPage(uid, cursor, onData, onError) { return subscribeRequestPage('mentorId', uid, 'PENDING', 'asc', cursor, onData, onError) },
@@ -164,6 +163,7 @@ export const firebaseServices: HelpiNUSServices = {
       }, onError)
     },
   },
+  conversations: firebaseConversations,
   callables: { invoke: invokeCallable },
 }
 

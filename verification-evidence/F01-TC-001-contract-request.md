@@ -1,0 +1,24 @@
+# F01-TC-001: selected Mentor display-name provenance request
+
+**Decision (2026-10-17, Asia/Singapore):** the user approved this targeted callable and shared/frontend contract during the autonomous verification continuation. Implementation and independent production verification are being tracked separately; approval alone is not PASS evidence.
+
+## Requested narrow contract
+
+F01 owner: approve a targeted `getMentorRequestSelection` callable before implementation. Input is strict `{ mentorId: string }`, where `mentorId` is an exact canonical document ID. Output is a discriminated result: `{ kind: 'ready', mentor: { userId: string, displayName: string, moduleIds: string[] } }` or `{ kind: 'unavailable' }`. `displayName` must satisfy the existing public Mentor name bound; no email, Student data, profile biography, account status or private user record is returned. A generic unavailable result prevents Mentor existence or account-state disclosure. The existing `createHelpRequest` remains the final eligibility authority and may reject a selection that changes after lookup.
+
+The handler should require a current active, verified Student, read `users/{mentorId}` and `mentorProfiles/{mentorId}` with the Admin SDK, parse both existing schemas, require matching IDs, Mentor role, active account/profile, and return only the public name and supported canonical module IDs. Missing, inactive or malformed data has the same generic result. Infrastructure failures retain a retryable error. The frontend service's `getSelection` would return this trusted projection rather than a bare `moduleIds` result, while the form would resolve each module through the existing catalogue adapter and still require one active supported ID. The route can retain exact Mentor/module IDs across refresh; route state and session storage may retain a draft but cannot supply the verified display name or enable submission on their own. A direct link waits for lookup, displays the returned Mentor name, and otherwise offers retry or discovery without issuing `createHelpRequest`.
+
+## Why the current path cannot prove the name
+
+`src/frontend/src/pages/MentorDiscoveryPage.tsx` passes `mentorName` through writable router state, and `HelpRequestPages.tsx` persists it in writable session storage. `helpRequests.getSelection` reads `mentorProfiles/{mentorId}` and returns only `moduleIds`. That profile schema has no public display name. `firestore.rules` permits `users/{uid}` reads only for the signed-in user, so the Student cannot safely read the selected Mentor's authoritative user record. The existing `discoverMentors` callable does return public names after joining current account/profile data, but it offers cursor pages, not an exact-ID lookup. Scanning every page on each form entry or refresh is unbounded, can miss a moving record during pagination, and cannot provide a reliable single-selection result. Broadening `users` Rules would expose private account fields and is not proposed.
+
+## Verification to add after contract approval
+
+1. Shared schema: strict canonical input ID and strict output; reject extra identity fields and output containing email/private fields.
+2. Callable emulator: active verified Student receives exact current name and module IDs; missing/inactive/wrong-role/mismatched/malformed Mentor account or profile returns the same generic unavailable result; signed-out, Mentor, disabled, suspended, unverified and stale-email callers deny without private data. Compare Admin request/key/receipt/summary before and after every lookup to prove it is read-only.
+3. Frontend RTL/router: discovery route with exact IDs, refresh, and direct link all show the authoritative name returned for that ID; forged route state and forged session-storage name are ignored; pending/error/unavailable lookup never enables submission; stale module ID and filter label never select a module; success uses the exact returned Mentor ID and selected supported module ID. Changing the name between lookup and submission does not change backend identity or bypass its current eligibility check.
+4. Browser observation: repeat discovery-to-form, refresh and direct-link flows with keyboard at desktop and 320 px; record the name, module selection, retry and focus behavior.
+
+## Compatibility and ownership
+
+This preserves PRD FR-01/FR-03 and TDD §3's explicit rule that draft-stored names are display context, never authorization, and its neutral/direct-link fallback when safe display context is absent. It strengthens the RTT TC-001 demand for a name from trusted metadata. It introduces one F01 callable/shared wire contract and a frontend service response change, so the F01 owner should approve that contract and coordinate shared, Functions and frontend ownership before implementation. No approved PRD/TDD/RTT text, Rules policy or product code is changed by this request.

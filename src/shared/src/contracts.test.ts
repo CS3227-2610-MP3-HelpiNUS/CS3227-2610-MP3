@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
   availabilitySlotSchema,
+  closeHelpRequestInputSchema,
   createHelpRequestInputSchema,
   respondToHelpRequestInputSchema,
   discoverMentorsInputSchema,
   discoverMentorsOutputSchema,
+  getMentorRequestSelectionInputSchema,
+  getMentorRequestSelectionOutputSchema,
   readOwnMentorProfileInputSchema,
   readOwnMentorProfileOutputSchema,
   searchMentorModulesInputSchema,
@@ -144,6 +147,22 @@ describe('shared contracts', () => {
     expect(respondToHelpRequestInputSchema.safeParse({ ...decision, helpRequestId: operationId, operationId: 'bad' }).success).toBe(false)
   })
 
+  it('keeps F04 update and dormant close requestId contracts while F01 requires operationId', () => {
+    const requestId = 'b70f16a0-5010-4a53-95d7-718e396090a5'
+    const helpRequestId = 'server-generated-help-request'
+    const update = { requestId, baseline: { revision: 0, updateTime: '1:000000000' }, biography: 'Updated', moduleIds: ['cs2103t'] }
+    const close = { requestId, helpRequestId }
+    expect(updateOwnMentorProfileInputSchema.parse(update)).toEqual(update)
+    expect(closeHelpRequestInputSchema.parse(close)).toEqual(close)
+    expect(updateOwnMentorProfileInputSchema.safeParse({ ...update, requestId: undefined, operationId: requestId }).success).toBe(false)
+    expect(closeHelpRequestInputSchema.safeParse({ operationId: requestId, helpRequestId }).success).toBe(false)
+    const create = { mentorId: 'mentor-1', moduleId: 'cs2103t', title: 'Question', description: 'Explain this topic' }
+    expect(createHelpRequestInputSchema.safeParse({ ...create, requestId }).success).toBe(false)
+    expect(respondToHelpRequestInputSchema.safeParse({ requestId, helpRequestId, response: 'REJECTED' }).success).toBe(false)
+    expect(createHelpRequestInputSchema.parse({ ...create, operationId: requestId })).toEqual({ ...create, operationId: requestId })
+    expect(respondToHelpRequestInputSchema.parse({ operationId: requestId, helpRequestId, response: 'REJECTED' })).toEqual({ operationId: requestId, helpRequestId, response: 'REJECTED' })
+  })
+
   it('defaults Mentor discovery pagination and rejects private account fields', () => {
     expect(discoverMentorsInputSchema.parse({})).toEqual({ limit: 20 })
     expect(discoverMentorsOutputSchema.safeParse({
@@ -156,6 +175,22 @@ describe('shared contracts', () => {
       }],
       nextCursor: null,
     }).success).toBe(false)
+  })
+
+  it('keeps targeted Mentor selection strict and public', () => {
+    expect(getMentorRequestSelectionInputSchema.parse({ mentorId: 'mentor-1' })).toEqual({ mentorId: 'mentor-1' })
+    for (const input of [{ mentorId: ' mentor-1 ' }, { mentorId: 'mentor/1' }, { mentorId: 'mentor-1', studentId: 'forged' }]) {
+      expect(getMentorRequestSelectionInputSchema.safeParse(input).success).toBe(false)
+    }
+    const ready = { kind: 'ready', mentor: { userId: 'mentor-1', displayName: 'Mentor One', moduleIds: ['cs2103t'] } }
+    expect(getMentorRequestSelectionOutputSchema.parse(ready)).toEqual(ready)
+    expect(getMentorRequestSelectionOutputSchema.parse({ kind: 'unavailable' })).toEqual({ kind: 'unavailable' })
+    for (const output of [
+      { ...ready, mentor: { ...ready.mentor, email: 'private@example.test' } },
+      { ...ready, mentor: { ...ready.mentor, biography: 'private' } },
+      { ...ready, mentor: { ...ready.mentor, moduleIds: [' bad '] } },
+      { kind: 'unavailable', reason: 'inactive' },
+    ]) expect(getMentorRequestSelectionOutputSchema.safeParse(output).success).toBe(false)
   })
 
   it('rejects a message with only whitespace', () => {

@@ -21,6 +21,7 @@ function message(error: unknown) {
     'functions/failed-precondition': 'Verify your email, then retry profile setup.',
     'functions/permission-denied': 'Your account could not be verified. Contact HelpiNUS support.',
     'functions/unavailable': 'The account service is temporarily unavailable. Try again shortly.',
+    'mock/preview-only': 'This preview has no sign-in accounts. Start the Firebase emulator demo to sign in as a Student or Mentor.',
   }
   if (typeof code === 'string') return messages[code] ?? 'We could not complete that request. Please try again.'
   return 'We could not complete that request. Please try again.'

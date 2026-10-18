@@ -9,6 +9,7 @@ vi.mock('../src/auth.js', () => ({
 }))
 
 import { respondToHelpRequestHandler } from '../src/helpRequests.js'
+import { provisionForAcceptedRequest } from '../src/conversations.js'
 
 const app = initializeApp({ projectId: 'helpinus-integration-test' }, 'f01-adapter')
 const db = getFirestore(app)
@@ -35,10 +36,36 @@ afterAll(async () => {
 })
 
 describe('F01 decision orchestration with an explicitly isolated F02 test adapter', () => {
+  it('keeps handler acceptance unavailable when its F02 binding is absent (F02-TC-004 partial)', async () => {
+    const requestRef = db.collection('helpRequests').doc(id)
+    const keyRef = db.collection('pendingHelpRequestKeys').doc(tupleHash)
+    const summaryRef = db.collection('helpRequestSummaries').doc('adapter-student')
+    const before = await Promise.all([requestRef.get(), keyRef.get(), summaryRef.get()])
+    await expect(respondToHelpRequestHandler({ operationId: crypto.randomUUID(), helpRequestId: id, response: 'ACCEPTED' }, request, db)).rejects.toMatchObject({ code: 'unavailable' })
+    const after = await Promise.all([requestRef.get(), keyRef.get(), summaryRef.get()])
+    expect(after.map((item) => item.data())).toEqual(before.map((item) => item.data()))
+    expect((await db.collection('conversations').doc(id).get()).exists).toBe(false)
+  })
+
+  it('rolls back the real F02 provision write when a controlled fault aborts before commit (F01-TC-030)', async () => {
+    const requestRef = db.collection('helpRequests').doc(id)
+    const keyRef = db.collection('pendingHelpRequestKeys').doc(tupleHash)
+    const summaryRef = db.collection('helpRequestSummaries').doc('adapter-student')
+    const before = await Promise.all([requestRef.get(), keyRef.get(), summaryRef.get()])
+    const failAfterProvision: NonNullable<Parameters<typeof respondToHelpRequestHandler>[3]> = (tx, stored, existing) => {
+      provisionForAcceptedRequest(tx, stored, existing)
+      throw new Error('controlled provision fault before commit')
+    }
+    await expect(respondToHelpRequestHandler({ operationId: crypto.randomUUID(), helpRequestId: id, response: 'ACCEPTED' }, request, db, failAfterProvision)).rejects.toThrow('controlled provision fault before commit')
+    const after = await Promise.all([requestRef.get(), keyRef.get(), summaryRef.get()])
+    expect(after.map((item) => item.data())).toEqual(before.map((item) => item.data()))
+    expect((await db.collection('conversations').doc(id).get()).exists).toBe(false)
+  })
+
   it('commits accepted request and deterministic test conversation together under racing accepts', async () => {
     const testAdapter: NonNullable<Parameters<typeof respondToHelpRequestHandler>[3]> = (tx, stored, existing) => {
       if (existing.exists) throw new Error('Unexpected preexisting conversation')
-      tx.create(db.collection('conversations').doc(stored.id), { helpRequestId: stored.id, studentId: stored.studentId, mentorId: stored.mentorId, participantIds: [stored.studentId, stored.mentorId], createdAt: stored.updatedAt, updatedAt: stored.updatedAt })
+      tx.create(db.collection('conversations').doc(stored.id), { id: stored.id, helpRequestId: stored.id, studentId: stored.studentId, mentorId: stored.mentorId, participantIds: [stored.studentId, stored.mentorId], createdAt: stored.updatedAt, updatedAt: stored.updatedAt })
       return stored.id
     }
     const attempt = (operationId: string) => respondToHelpRequestHandler({ operationId, helpRequestId: id, response: 'ACCEPTED' }, request, db, testAdapter)

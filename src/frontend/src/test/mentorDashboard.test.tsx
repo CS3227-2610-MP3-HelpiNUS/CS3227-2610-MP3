@@ -201,9 +201,10 @@ describe('S1-D2-F03 Mentor dashboard', () => {
 
   it('TC-08 announces deferred loading and error without an empty-profile claim', async () => {
     const pending = deferred<ReadOwnMentorProfileOutput>()
-    setup({ read: () => pending.promise })
+    const { invoke } = setup({ read: () => pending.promise })
     expect(await screen.findByText('Loading your profile…')).toHaveAttribute('role', 'status')
     expect(within(screen.getByRole('main')).getByRole('link', { name: 'My profile' })).toHaveAttribute('href', '/mentor/profile')
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('readOwnMentorProfile', {}))
     await act(async () => pending.reject(new Error('offline')))
     expect(await screen.findByRole('alert')).toHaveTextContent('We could not load your profile.')
     expect(screen.queryByText('No biography provided')).not.toBeInTheDocument()
