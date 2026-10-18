@@ -14,7 +14,8 @@
 .consultation-month-controls { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; gap: 4px; margin-bottom: 22px; }
 .consultation-month-controls h2 { margin: 0; font-size: 15px; font-weight: 680; letter-spacing: -.02em; text-align: center; }
 .consultation-month-controls button { display: grid; width: 40px; height: 40px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
-.consultation-month-controls button:hover { background: var(--green-soft); color: var(--green-dark); }
+.consultation-month-controls button:hover:not(:disabled) { background: var(--green-soft); color: var(--green-dark); }
+.consultation-month-controls button:disabled { color: #aab5b0; cursor: not-allowed; }
 .consultation-month-controls button:first-child svg { transform: rotate(180deg); }
 .consultation-month-controls svg { width: 16px; height: 16px; }
 .consultation-weekdays, .consultation-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
@@ -22,8 +23,9 @@
 .consultation-weekdays span { color: var(--quiet); font-size: 10px; font-weight: 700; text-align: center; text-transform: uppercase; }
 .consultation-days { gap: 3px; }
 .consultation-days button { position: relative; display: grid; aspect-ratio: 1; min-width: 0; place-items: center; border: 0; border-radius: 9px; background: transparent; color: var(--ink); cursor: pointer; font-size: 12px; font-variant-numeric: tabular-nums; }
-.consultation-days button:hover { background: #edf3f0; }
+.consultation-days button:hover:not(:disabled) { background: #edf3f0; }
 .consultation-days button.is-outside { color: #a6b0ad; }
+.consultation-days button.is-past { color: #adb5b2; background: transparent; cursor: not-allowed; opacity: .62; }
 .consultation-days button.is-selected { background: var(--green); color: #fff; font-weight: 700; }
 .consultation-days button[aria-current='date']:not(.is-selected) { box-shadow: inset 0 0 0 1px #8fb9a5; color: var(--green-dark); font-weight: 700; }
 .consultation-days button i { position: absolute; bottom: 5px; width: 4px; height: 4px; border-radius: 50%; background: #248367; }
@@ -58,13 +60,20 @@
 .consultation-loading { margin: 0; padding: 28px 0; color: var(--muted); font-size: 12px; }
 .consultation-error { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; border-radius: 8px; }
 .consultation-error p { margin: 0; font-size: 12px; }
-.consultation-create-form { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 10px; margin-bottom: 18px; padding: 14px; border-radius: 10px; background: #f1f7f4; }
-.consultation-create-form label { display: grid; gap: 6px; color: var(--ink); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.consultation-create-form { display: grid; grid-template-columns: auto minmax(120px, 1fr) auto minmax(120px, 1fr) auto; align-items: start; gap: 8px 10px; margin-bottom: 18px; padding: 14px; border-radius: 10px; background: #f1f7f4; }
+.consultation-create-form > label { padding-top: 14px; color: var(--ink); font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .consultation-create-form input { width: 100%; padding: 8px; font-variant-numeric: tabular-nums; }
+.consultation-create-form input[aria-invalid='true'] { border-color: #a8493d; box-shadow: 0 0 0 2px rgb(168 73 61 / 12%); }
+.consultation-create-form > .button { align-self: start; margin-top: 2px; }
+.consultation-time-field { display: grid; min-width: 0; gap: 4px; }
+.consultation-time-field small { color: var(--muted); font-size: 9px; line-height: 1.35; }
+.consultation-field-error { color: #80352b; font-size: 10px; font-weight: 650; line-height: 1.35; }
 .consultation-state { width: fit-content; padding: 4px 8px; border-radius: 20px; color: var(--green-dark); background: var(--green-soft); font-size: 10px; font-weight: 750; letter-spacing: .035em; text-transform: uppercase; }
 .state-booked, .state-confirmed { color: #174f6a; background: #e4f2f7; }
 .state-withdrawn, .state-cancelled { color: #7b4c43; background: #f8ebe7; }
 .state-elapsed, .state-completed { color: #55615d; background: #edf0ef; }
+.state-in-progress { color: #6a4a14; background: #fff3d9; }
+.state-awaiting { color: #614d72; background: #f1eaf7; }
 .mentor-slot-list .consultation-slot-main .consultation-state { margin-right: auto; }
 .consultation-booking-detail { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 14px; border-top: 1px solid var(--line); background: #f7faf9; }
 .consultation-booking-detail > div:first-child { min-width: 0; }
@@ -74,7 +83,7 @@
 .consultation-confirm > span { width: 100%; color: #77372e; font-size: 10px; text-align: right; }
 .consultation-danger { border-color: #a8493d; background: #a8493d; color: #fff; }
 .consultation-danger:hover:not(:disabled) { background: #8e382e; }
-.consultation-records { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.consultation-records { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 .consultation-record-section { min-width: 0; border-top: 1px solid var(--line); padding-top: 17px; }
 .consultation-section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
 .consultation-section-heading h2 { margin: 0; font-size: 15px; font-weight: 680; }
@@ -92,6 +101,7 @@
   .consultation-scheduler { grid-template-columns: minmax(250px, .8fr) minmax(360px, 1.2fr); }
   .consultation-calendar { padding-inline: 16px; }
   .consultation-agenda { padding-inline: 18px; }
+  .consultation-records { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 760px) {
   .consultation-header { align-items: flex-start; }
@@ -113,8 +123,8 @@
   .consultation-time { min-width: 90px; }
   .consultation-mentor { min-width: calc(100% - 106px); }
   .consultation-slot-main .button { width: 100%; }
-  .consultation-create-form { grid-template-columns: 1fr 1fr; }
-  .consultation-create-form .button { grid-column: 1 / -1; width: 100%; }
+  .consultation-create-form { grid-template-columns: auto 1fr; }
+  .consultation-create-form > .button { grid-column: 1 / -1; width: 100%; }
   .consultation-book-form > div .button { width: 100%; }
   .consultation-booking-detail, .consultation-appointment-row { align-items: stretch; flex-direction: column; }
   .consultation-booking-detail > .button, .consultation-appointment-row > .button { width: 100%; }

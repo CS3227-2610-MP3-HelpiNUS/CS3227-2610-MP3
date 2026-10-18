@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon'
 import { useServices } from '../services/useServices'
 import type { F01HelpRequest, HelpRequestSummary } from '@helpinus/shared'
 import type { Appointment } from '@helpinus/shared'
+import { useCurrentTime } from '../hooks/useCurrentTime'
 
 const dateFormat = new Intl.DateTimeFormat('en-SG', {
   weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Singapore',
@@ -21,7 +22,7 @@ export function StudentDashboard() {
   const [requestRetry, setRequestRetry] = useState(0)
   const [scheduleState, setScheduleState] = useState<{ key: string; kind: 'ready'; value: Appointment[] } | { key: string; kind: 'error' } | null>(null)
   const [scheduleRetry, setScheduleRetry] = useState(0)
-  const [now] = useState(() => Date.now())
+  const now = useCurrentTime()
   useEffect(() => {
     const uid = session?.user?.id
     if (!uid) return

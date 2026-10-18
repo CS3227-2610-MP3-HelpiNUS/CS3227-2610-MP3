@@ -4,6 +4,7 @@ import type { Appointment, ReadOwnMentorProfileOutput } from '@helpinus/shared'
 import type { HelpiNUSServices } from '../services/contracts'
 import { useServices } from '../services/useServices'
 import './MentorDashboard.css'
+import { useCurrentTime } from '../hooks/useCurrentTime'
 
 type Ready = Extract<ReadOwnMentorProfileOutput, { kind: 'ready' }>
 type View = { kind: 'loading' | 'error' | 'sessionError' | 'unavailable' | 'accessLost' } | { kind: 'ready'; result: Ready; refreshing: boolean; metadataFailed: boolean }
@@ -56,7 +57,7 @@ function MentorDashboardContent({ services, uid, refreshSession }: { services: H
   const denied = typeof deniedUid === 'string' && deniedUid === uid
   const [view, setView] = useState<View>(denied ? { kind: 'accessLost' } : { kind: 'loading' })
   const [consultationState, setConsultationState] = useState<{ uid: string; kind: 'error' } | { uid: string; kind: 'ready'; items: Appointment[] } | null>(null)
-  const [now] = useState(() => Date.now())
+  const now = useCurrentTime()
   const generation = useRef(0)
   const mounted = useRef(false)
 
