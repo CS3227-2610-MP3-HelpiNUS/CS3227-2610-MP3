@@ -4,6 +4,7 @@ import { StudentDashboard } from '../pages/StudentDashboard'
 import { WorkspacePage } from '../pages/WorkspacePage'
 import { MentorDiscoveryPage } from '../pages/MentorDiscoveryPage'
 import { MentorProfilePage } from '../pages/MentorProfilePage'
+import { MentorDashboard } from '../pages/MentorDashboard'
 import { AccountAccessPage, ForgotPasswordPage, LoginPage, RegisterPage } from '../pages/AuthPages'
 import { ErrorPage } from '../pages/ErrorPage'
 import { ProtectedRoute } from './ProtectedRoute'
@@ -24,7 +25,7 @@ export const appRoutes: RouteObject[] = [
     { path: '/student/study-assistant', element: <WorkspacePage /> },
   ] }] },
   { element: <ProtectedRoute role="MENTOR" />, errorElement: <ErrorPage />, children: [{ element: <AppShell />, children: [
-    { path: '/mentor/dashboard', element: <WorkspacePage /> },
+    { path: '/mentor/dashboard', element: <MentorDashboard /> },
     { path: '/mentor/profile', element: <MentorProfilePage /> },
   ] }] },
   { path: '*', element: <ErrorPage /> },

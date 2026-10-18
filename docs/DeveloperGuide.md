@@ -293,8 +293,9 @@ Student navigation:
 - Consultations — scaffold; and
 - Study assistant — scaffold.
 
-The Mentor dashboard is a role-protected scaffold. Desktop and mobile layouts
-have equal support. Both expose a sign-out action. The app includes semantic
+The Mentor dashboard is a role-protected, read-only own-profile summary.
+Desktop and mobile layouts have equal support. Both expose a sign-out action.
+The app includes semantic
 labels, visible focus, a skip link, keyboard-operable controls, responsive form
 layouts, and reduced-motion support as part of its WCAG 2.1 AA target.
 
@@ -360,6 +361,43 @@ unexpected cursor or page size. For targeted cases, pass a fresh
 contain private fields. The F04 emulator seed creates one Mentor with empty
 `moduleIds` and two active example modules, so local discovery can demonstrate
 module filtering after the Mentor selects and saves a module.
+
+### Mentor dashboard (S1-D2-F03)
+
+`/mentor/dashboard` renders `MentorDashboard` inside the existing
+`ProtectedRoute role="MENTOR"` and `AppShell`. Its **My profile** link and the
+shell's desktop/mobile links go to F04's `/mentor/profile`. The dashboard
+reads only the signed-in Mentor's own profile through
+`services.callables.invoke('readOwnMentorProfile', {})`. It adds no callable,
+direct Firestore access, writes, cache, or activity data. A route revisit after
+profile editing remounts the dashboard and starts a fresh read.
+
+The page displays the saved name and a plain-text biography excerpt cut after
+at most 180 Unicode code points, with an ellipsis only when shortened and a
+word boundary when possible. For ready metadata, it walks saved module IDs in
+order, previews at most three
+explicitly active code/title labels, and counts additional active entries.
+The page uses initials derived from the saved name as a decorative avatar,
+separate biography/module panels, and stable module-ID keys for the compact
+active labels. The two panels stack on narrow screens; actions retain visible
+keyboard focus and the existing 320 px scoped layout fix.
+Only explicit inactive or missing metadata is counted as needing review;
+unmatched saved IDs are reported separately as details unavailable. When all
+module metadata is unavailable, the page retains the name, biography, and
+saved-ID count without inventing labels or status, and a retry re-reads the
+whole own-profile result. Blank biography and an empty saved list have
+separate labels and one completion link to F04.
+
+The page distinguishes loading, transient full-read error, ready profile with
+unavailable module metadata, and missing/inactive/invalid own-profile results.
+The last three share support guidance and no editing invitation. Entry checks
+the current Mentor session before reading. Local request generations and a
+service/identity key prevent late results from a prior session, service, or
+route mount from appearing. A protected-call denial clears profile content,
+places a UID-only marker in route state, then calls `refreshSession()` so the
+guard can revalidate access. If that session still looks eligible, the marker
+suppresses automatic re-reads until the user explicitly chooses **Try again**;
+this avoids a backend denial loop after guard remount.
 
 ### Mentor profile management (S1-D2-F04)
 
@@ -604,6 +642,20 @@ in `App.css` below 520 px; the in-app browser recheck measured equal document
 scroll and client widths at both 320 and 375 px, including 320 px details and
 dialog states. The underlying global rule was not edited.
 An actual screen-reader walkthrough remains outstanding for F02-TC-044.
+
+For F03, run `src/frontend/src/test/mentorDashboard.test.tsx` and the existing
+F04 Mentor Profile, F02 Mentor Discovery, authentication, and shared-route
+frontend suites. The F03 route test must mount the exported production
+`appRoutes` with its real Mentor guard and shell; a copied test route tree
+cannot prove `/mentor/dashboard` uses the new page. Cover the own-profile
+callable input, module preview/counts, metadata retry and replacement, empty
+and unavailable states, stale response rejection, access-denial revalidation
+without repeated automatic calls, and denied-role routing. Then run frontend
+lint, typecheck, tests, and build plus the applicable repository gate. Check
+the page manually at laptop width, 320 px mobile, and 200% zoom, including
+navigation, wrapping, keyboard focus, and loading/error announcements. Record
+actual observations in the F03 handoff; these instructions are not test
+results. F03 adds no backend or emulator suite.
 
 For F04, use the repository's Node 22 runtime for the root gate and both
 frontend and Functions test processes. On this Windows host, `fnm` supplies
