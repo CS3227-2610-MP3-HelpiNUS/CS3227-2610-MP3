@@ -926,7 +926,8 @@ Configure Google authentication separately in both `helpinus-dev` and
 `helpinus-prod` before deploying:
 
 1. In **Firebase Console > Authentication > Sign-in method**, enable Google and
-   configure the project's support email.
+   configure the project's support email. Disable Email/Password so Google is
+   the only public sign-in provider.
 2. In **Authentication > Settings > Authorized domains**, add the Hosting
    domain for that environment. Add `localhost` only when intentionally testing
    the real development project locally; the standard local workflow uses the
