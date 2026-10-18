@@ -31,18 +31,18 @@ async function expectAllProfileCallablesDenied(
   baseline: UpdateOwnMentorProfileInput['baseline'],
   code: string,
 ) {
-  for (const operation of [
+  await Promise.all([
     () => callables.read({}),
     () => callables.search({ query: 'cs21' }),
     () => callables.update({ requestId: crypto.randomUUID(), baseline, biography: 'Unauthorized change', moduleIds: [] }),
-  ]) {
+  ].map(async (operation) => {
     const error = await operation().then(() => null, (reason: unknown) => reason)
     expect(error).toMatchObject({ code })
     expect(String((error as Error).message)).not.toContain('Integration Mentor')
     expect(String((error as Error).message)).not.toContain('Line one')
     expect(String((error as Error).message)).not.toContain(uid)
     expect(String((error as Error).message)).not.toContain(email)
-  }
+  }))
 }
 
 beforeAll(async () => {

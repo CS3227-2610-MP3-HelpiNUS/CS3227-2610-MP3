@@ -12,6 +12,7 @@
     "src/shared"
   ],
   "scripts": {
+    "dev:emulators": "node scripts/dev-emulators.mjs",
     "build": "npm run build --workspace src/shared && npm run build --workspaces --if-present",
     "typecheck": "npm run build --workspace src/shared && npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",

@@ -39,9 +39,9 @@ describe('Student application foundation', () => {
 
     expect(await screen.findByRole('heading', { name: 'Welcome back, Jamie' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Help requests' })).toBeInTheDocument()
-    expect(screen.getByText('Understanding sequence diagrams')).toBeInTheDocument()
+    expect(screen.getByText('No requests yet.')).toBeInTheDocument()
     expect(screen.getByText('Thu, 15 Oct, 3:00 pm')).toBeInTheDocument()
-    expect(screen.getByText('Sample workspace data for frontend preview.')).toBeInTheDocument()
+    expect(screen.getByText('Consultation and conversation widgets show sample workspace data in preview mode.')).toBeInTheDocument()
   })
 
   it('provides named navigation and keyboard accessible primary actions', async () => {

@@ -1,5 +1,19 @@
 {
   "indexes": [
+    { "collectionGroup": "helpRequests", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "studentId", "order": "ASCENDING" },
+      { "fieldPath": "createdAt", "order": "DESCENDING" }
+    ] },
+    { "collectionGroup": "helpRequests", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "mentorId", "order": "ASCENDING" },
+      { "fieldPath": "status", "order": "ASCENDING" },
+      { "fieldPath": "createdAt", "order": "ASCENDING" }
+    ] },
+    { "collectionGroup": "helpRequests", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "mentorId", "order": "ASCENDING" },
+      { "fieldPath": "status", "order": "ASCENDING" },
+      { "fieldPath": "createdAt", "order": "DESCENDING" }
+    ] },
     {
       "collectionGroup": "availabilitySlots",
       "queryScope": "COLLECTION",

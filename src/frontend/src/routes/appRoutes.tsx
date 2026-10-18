@@ -5,6 +5,7 @@ import { WorkspacePage } from '../pages/WorkspacePage'
 import { MentorDiscoveryPage } from '../pages/MentorDiscoveryPage'
 import { MentorProfilePage } from '../pages/MentorProfilePage'
 import { MentorDashboard } from '../pages/MentorDashboard'
+import { MentorRequestsPage, RequestDetailPage, RequestHelpPage, StudentRequestsPage } from '../pages/HelpRequestPages'
 import { AccountAccessPage, ForgotPasswordPage, LoginPage, RegisterPage } from '../pages/AuthPages'
 import { ErrorPage } from '../pages/ErrorPage'
 import { ProtectedRoute } from './ProtectedRoute'
@@ -19,7 +20,9 @@ export const appRoutes: RouteObject[] = [
     { path: '/student', element: <Navigate to="/student/dashboard" replace /> },
     { path: '/student/dashboard', element: <StudentDashboard /> },
     { path: '/student/mentors', element: <MentorDiscoveryPage /> },
-    { path: '/student/requests', element: <WorkspacePage /> },
+    { path: '/student/mentors/:mentorId/request', element: <RequestHelpPage /> },
+    { path: '/student/requests', element: <StudentRequestsPage /> },
+    { path: '/student/requests/:id', element: <RequestDetailPage role="student" /> },
     { path: '/student/conversations', element: <WorkspacePage /> },
     { path: '/student/consultations', element: <WorkspacePage /> },
     { path: '/student/study-assistant', element: <WorkspacePage /> },
@@ -27,6 +30,8 @@ export const appRoutes: RouteObject[] = [
   { element: <ProtectedRoute role="MENTOR" />, errorElement: <ErrorPage />, children: [{ element: <AppShell />, children: [
     { path: '/mentor/dashboard', element: <MentorDashboard /> },
     { path: '/mentor/profile', element: <MentorProfilePage /> },
+    { path: '/mentor/requests', element: <MentorRequestsPage /> },
+    { path: '/mentor/requests/:id', element: <RequestDetailPage role="mentor" /> },
   ] }] },
   { path: '*', element: <ErrorPage /> },
 ]

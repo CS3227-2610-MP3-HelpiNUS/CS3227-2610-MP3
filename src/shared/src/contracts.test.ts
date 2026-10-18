@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   availabilitySlotSchema,
   createHelpRequestInputSchema,
+  respondToHelpRequestInputSchema,
   discoverMentorsInputSchema,
   discoverMentorsOutputSchema,
   readOwnMentorProfileInputSchema,
@@ -122,6 +123,25 @@ describe('shared contracts', () => {
         description: 'Please explain the topic.',
       }).success,
     ).toBe(false)
+  })
+
+  it('uses explicit F01 operation and persistent IDs with strict normalized bounds', () => {
+    const operationId = 'b70f16a0-5010-4a53-95d7-718e396090a5'
+    const create = { operationId, mentorId: 'mentor-1', moduleId: 'cs2103t', title: '  Question  ', description: '  Line one\nLine two  ' }
+    expect(createHelpRequestInputSchema.parse(create)).toMatchObject({ title: 'Question', description: 'Line one\nLine two' })
+    for (const invalid of [
+      { ...create, operationId: 'not-a-uuid' },
+      { ...create, title: ' '.repeat(3) },
+      { ...create, title: 'X'.repeat(121) },
+      { ...create, description: 'X'.repeat(2001) },
+      { ...create, studentId: 'forged' },
+      { ...create, requestId: operationId },
+      { ...create, mentorId: null },
+    ]) expect(createHelpRequestInputSchema.safeParse(invalid).success).toBe(false)
+    const decision = { operationId, helpRequestId: 'request-1', response: 'REJECTED' }
+    expect(respondToHelpRequestInputSchema.safeParse(decision).success).toBe(true)
+    expect(respondToHelpRequestInputSchema.safeParse({ ...decision, requestId: operationId }).success).toBe(false)
+    expect(respondToHelpRequestInputSchema.safeParse({ ...decision, helpRequestId: operationId, operationId: 'bad' }).success).toBe(false)
   })
 
   it('defaults Mentor discovery pagination and rejects private account fields', () => {

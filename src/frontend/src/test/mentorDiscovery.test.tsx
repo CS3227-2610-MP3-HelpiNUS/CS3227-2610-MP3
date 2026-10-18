@@ -177,7 +177,7 @@ describe('Mentor discovery route', () => {
     expect(screen.getByRole('region', { name: 'Sample Cora Tan details' })).toHaveTextContent('No modules listed')
   })
 
-  it('F02-TC-035/036: opens informational help dialog, closes by Escape, and makes no mutation', async () => {
+  it('F02-TC-035/036: opens selected-Mentor request entry, closes by Escape, and makes no mutation', async () => {
     const user = userEvent.setup()
     const scenario = setup()
     await screen.findByRole('heading', { name: 'Sample Aisha Rahman' })
@@ -187,7 +187,7 @@ describe('Mentor discovery route', () => {
     await user.click(trigger)
     const dialog = screen.getByRole('dialog', { name: 'Ask for help' })
     expect(dialog).toHaveTextContent('Sample Aisha Rahman')
-    expect(dialog).toHaveTextContent('cannot yet be sent')
+    expect(within(dialog).getByRole('link', { name: 'Request help' })).toHaveAttribute('href', '/student/mentors/sample-a/request')
     expect(within(dialog).getByRole('button', { name: 'Close' })).toHaveFocus()
     fireEvent.keyDown(dialog, { key: 'Escape' })
     expect(screen.queryByRole('dialog', { name: 'Ask for help' })).not.toBeInTheDocument()
@@ -442,6 +442,7 @@ describe('Mentor discovery route', () => {
     await user.click(within(card).getByRole('button', { name: 'View details' }))
     await user.click(within(card).getByRole('button', { name: 'Ask for help' }))
     expect(screen.getByRole('dialog', { name: 'Ask for help' })).toHaveTextContent('Selected module: CS2040S — Data Structures and Algorithms')
+    expect(within(screen.getByRole('dialog', { name: 'Ask for help' })).getByRole('link', { name: 'Request help' })).toHaveAttribute('href', '/student/mentors/sample-a/request?moduleId=cs2040s')
     await user.click(screen.getByRole('button', { name: 'Close' }))
     await user.click(screen.getByRole('button', { name: 'Clear module' }))
     await user.click(within(card).getByRole('button', { name: 'Ask for help' }))

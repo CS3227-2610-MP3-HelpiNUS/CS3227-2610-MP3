@@ -65,6 +65,25 @@ export const helpRequestSchema = z.object({
 })
 export type HelpRequest = z.infer<typeof helpRequestSchema>
 
+// F01 records have a selected Mentor and server-sourced historical names.
+// Keep the older schema for dormant Sprint 1 fixtures and closure scaffolding.
+export const f01HelpRequestSchema = helpRequestSchema.extend({
+  mentorId: identifierSchema,
+  studentDisplayName: z.string().trim().min(1).max(100),
+  mentorDisplayName: z.string().trim().min(1).max(100),
+  status: z.enum(['PENDING', 'ACCEPTED', 'REJECTED']),
+}).strict()
+export type F01HelpRequest = z.infer<typeof f01HelpRequestSchema>
+
+export const helpRequestSummarySchema = z.object({
+  pendingCount: z.number().int().nonnegative(),
+  acceptedCount: z.number().int().nonnegative(),
+  rejectedCount: z.number().int().nonnegative(),
+  openCount: z.number().int().nonnegative(),
+  updatedAt: timestampSchema,
+}).strict()
+export type HelpRequestSummary = z.infer<typeof helpRequestSummarySchema>
+
 export const conversationSchema = z.object({
   id: identifierSchema,
   participantIds: z.array(identifierSchema).min(2).max(2),

@@ -9,6 +9,8 @@ import type {
   CallableInput,
   CallableName,
   CallableOutput,
+  F01HelpRequest,
+  HelpRequestSummary,
 } from '@helpinus/shared'
 
 export interface DashboardData {
@@ -47,6 +49,14 @@ export interface HelpiNUSServices {
   }
   modules: {
     getById(id: string): Promise<Module | null>
+  }
+  helpRequests: {
+    getSelection(mentorId: string): Promise<{ moduleIds: string[] } | null>
+    subscribeStudentPage(uid: string, cursor: { createdAt: string; id: string } | null, onData: (items: F01HelpRequest[]) => void, onError: (error: unknown) => void): () => void
+    subscribeMentorPendingPage(uid: string, cursor: { createdAt: string; id: string } | null, onData: (items: F01HelpRequest[]) => void, onError: (error: unknown) => void): () => void
+    subscribeMentorDecidedPage(uid: string, cursor: { createdAt: string; id: string } | null, onData: (items: F01HelpRequest[]) => void, onError: (error: unknown) => void): () => void
+    subscribeDetail(id: string, onData: (item: F01HelpRequest | null) => void, onError: (error: unknown) => void): () => void
+    subscribeStudentSummary(uid: string, onData: (summary: HelpRequestSummary) => void, onError: (error: unknown) => void): () => void
   }
   callables: CallableClient
 }
