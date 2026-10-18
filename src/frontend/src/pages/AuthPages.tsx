@@ -10,26 +10,28 @@ function destination(role: 'STUDENT' | 'MENTOR') {
 function message(error: unknown) {
   const code = (error as { code?: unknown })?.code
   const messages: Record<string, string> = {
-    'auth/email-already-in-use': 'An account already uses this email. Try signing in.',
-    'auth/invalid-credential': 'Email or password is incorrect.',
-    'auth/wrong-password': 'Email or password is incorrect.',
-    'auth/user-not-found': 'Email or password is incorrect.',
-    'auth/invalid-email': 'Enter a valid email address.',
-    'auth/weak-password': 'Choose a stronger password with at least 6 characters.',
-    'auth/too-many-requests': 'Too many attempts. Wait a moment, then try again.',
-    'auth/network-request-failed': 'We could not reach the sign-in service. Check your connection and try again.',
-    'functions/failed-precondition': 'Verify your email, then retry profile setup.',
+    'auth/popup-blocked': 'Your browser blocked the Google sign-in window. Allow popups for HelpiNUS and try again.',
+    'auth/cancelled-popup-request': 'A Google sign-in window is already open. Complete it or try again.',
+    'auth/network-request-failed': 'We could not reach Google sign-in. Check your connection and try again.',
+    'auth/unauthorized-domain': 'Google sign-in is not configured for this website. Contact HelpiNUS support.',
+    'auth/operation-not-allowed': 'Google sign-in is temporarily unavailable. Contact HelpiNUS support.',
+    'auth/configuration-not-found': 'Google sign-in is temporarily unavailable. Contact HelpiNUS support.',
+    'auth/user-disabled': 'This Google account cannot access HelpiNUS. Contact HelpiNUS support.',
+    'functions/failed-precondition': 'Your Google account details could not be verified. Try another account or contact support.',
     'functions/permission-denied': 'Your account could not be verified. Contact HelpiNUS support.',
     'functions/unavailable': 'The account service is temporarily unavailable. Try again shortly.',
-    'mock/preview-only': 'This preview has no sign-in accounts. Start the Firebase emulator demo to sign in as a Student or Mentor.',
+    'mock/preview-only': 'This preview has no sign-in accounts. Start the Firebase emulator demo to use Google sign-in.',
   }
   if (typeof code === 'string') return messages[code] ?? 'We could not complete that request. Please try again.'
   return 'We could not complete that request. Please try again.'
 }
 
-function issueMessage(issue: Session['issue']) {
-  if (issue === 'EMAIL_UNVERIFIED') return 'Verify your email before continuing.'
-  if (issue === 'PROFILE_MISSING') return 'Your sign-in identity exists, but Student setup is incomplete. Enter your name to retry safely.'
+function issueMessage(issue: Session['issue'], registering = false) {
+  if (issue === 'PROFILE_MISSING') {
+    return registering
+      ? 'Your Google account is ready, but we need your name to finish creating your Student profile.'
+      : 'No HelpiNUS profile is linked to this Google account. Create a Student account to continue.'
+  }
   if (issue === 'ACCOUNT_INACTIVE') return 'This account is suspended or disabled. Contact HelpiNUS support.'
   return 'Your account profile could not be validated. Contact HelpiNUS support.'
 }
@@ -38,9 +40,8 @@ function Brand({ to = '/login' }: { to?: string }) {
   return <Link className="brand auth-brand" to={to}><span className="brand-mark">H</span><span>Helpi<span className="brand-accent">NUS</span></span></Link>
 }
 
-function ProfileRecoveryForm({ busy, defaultName = '', onRetry }: {
+function ProfileRecoveryForm({ busy, onRetry }: {
   busy: boolean
-  defaultName?: string
   onRetry: (displayName: string) => Promise<void>
 }) {
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -51,93 +52,42 @@ function ProfileRecoveryForm({ busy, defaultName = '', onRetry }: {
 
   return <form className="auth-actions" onSubmit={submit} aria-busy={busy}>
     <label htmlFor="recovery-name">Name</label>
-    <input id="recovery-name" name="displayName" autoComplete="name" defaultValue={defaultName} maxLength={100} required />
+    <input id="recovery-name" name="displayName" autoComplete="name" maxLength={100} required />
     <button className="button button-primary auth-submit" disabled={busy}>
-      {busy ? 'Retrying setup…' : 'Retry Student profile setup'}
+      {busy ? 'Finishing setup…' : 'Finish Student profile setup'}
     </button>
   </form>
 }
 
-function VerificationActions({ busy, verificationSent, onResend, onRefresh }: {
+function GoogleButton({ busy, label, busyLabel, onClick }: {
   busy: boolean
-  verificationSent: boolean
-  onResend: () => Promise<void>
-  onRefresh: () => Promise<void>
+  label: string
+  busyLabel: string
+  onClick: () => Promise<void>
 }) {
-  return <div className="auth-actions">
-    {verificationSent && <p role="status">Verification email sent. Check your inbox.</p>}
-    <button className="button button-secondary auth-submit" disabled={busy} onClick={() => void onResend()}>
-      {busy ? 'Please wait…' : verificationSent ? 'Resend verification email' : 'Send verification email'}
-    </button>
-    <button className="button button-primary auth-submit" disabled={busy} onClick={() => void onRefresh()}>
-      {busy ? 'Checking…' : 'I’ve verified my email'}
-    </button>
-  </div>
+  return <button type="button" className="button button-primary auth-submit" disabled={busy} onClick={() => void onClick()}>
+    {busy ? busyLabel : label}
+  </button>
 }
 
 export function LoginPage() {
   const { session, services, refreshSession } = useServices()
   const navigate = useNavigate()
   const [error, setError] = useState('')
-  const [verificationSent, setVerificationSent] = useState(false)
   const [busy, setBusy] = useState(false)
   if (session?.user?.status === 'ACTIVE') return <Navigate to={destination(session.user.role)} replace />
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function signIn() {
+    if (busy) return
     setError('')
     setBusy(true)
-    const data = new FormData(event.currentTarget)
     try {
-      const result = await services.session.signIn({ email: String(data.get('email')), password: String(data.get('password')) })
+      const result = await services.session.signInWithGoogle()
       await refreshSession()
       if (result.user) navigate(destination(result.user.role))
       else setError(issueMessage(result.issue))
     } catch (cause) {
-      setError(message(cause))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function retry(displayName: string) {
-    setError('')
-    setBusy(true)
-    try {
-      const result = await services.session.retryStudentProfile(displayName)
-      await refreshSession()
-      if (result.user) navigate(destination(result.user.role))
-      else setError(issueMessage(result.issue))
-    } catch (cause) {
-      setError(message(cause))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function resendVerification() {
-    setError('')
-    setBusy(true)
-    try {
-      await services.session.resendVerificationEmail()
-      setVerificationSent(true)
-    } catch (cause) {
-      setError(message(cause))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function refreshVerification() {
-    setError('')
-    setBusy(true)
-    try {
-      const result = await services.session.getCurrent()
-      await refreshSession()
-      if (result.user) navigate(destination(result.user.role))
-      else setError(issueMessage(result.issue))
-    } catch (cause) {
-      setError(message(cause))
+      if ((cause as { code?: unknown })?.code !== 'auth/popup-closed-by-user') setError(message(cause))
     } finally {
       setBusy(false)
     }
@@ -147,21 +97,13 @@ export function LoginPage() {
     <Brand />
     <section className="auth-panel" aria-labelledby="login-title">
       <h1 id="login-title">Welcome to HelpiNUS</h1>
-      <p>Find the support you need to keep learning.</p>
-      <form onSubmit={(event) => void submit(event)} aria-busy={busy}>
-        <label htmlFor="login-email">Email</label>
-        <input id="login-email" name="email" type="email" autoComplete="email" autoCapitalize="none" required aria-describedby={error ? 'login-error' : undefined} />
-        <label htmlFor="login-password">Password</label>
-        <input id="login-password" name="password" type="password" autoComplete="current-password" required aria-describedby={error ? 'login-error' : undefined} />
-        {error && <p id="login-error" className="auth-error" role="alert">{error}</p>}
-        <button type="submit" className="button button-primary auth-submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-      </form>
-      {session?.issue === 'PROFILE_MISSING' && <ProfileRecoveryForm busy={busy} onRetry={retry} />}
-      {session?.issue === 'EMAIL_UNVERIFIED' && <VerificationActions busy={busy} verificationSent={verificationSent} onResend={resendVerification} onRefresh={refreshVerification} />}
+      <p>Use your Google account to continue.</p>
+      {error && <p id="login-error" className="auth-error" role="alert">{error}</p>}
+      <GoogleButton busy={busy} label="Continue with Google" busyLabel="Opening Google…" onClick={signIn} />
       <p className="auth-secondary">New to HelpiNUS? <Link to="/register">Create a Student account</Link></p>
-      <Link className="auth-secondary" to="/forgot-password">Forgot your password?</Link>
+      <p className="auth-secondary"><Link to="/forgot-password">Need help with your Google password?</Link></p>
     </section>
-    <p className="auth-footnote">For NUS students and mentors</p>
+    <p className="auth-footnote">For students and mentors</p>
   </main>
 }
 
@@ -169,130 +111,74 @@ export function RegisterPage() {
   const { services, session, refreshSession } = useServices()
   const navigate = useNavigate()
   const [error, setError] = useState('')
-  const [partial, setPartial] = useState(false)
-  const [unverified, setUnverified] = useState(false)
-  const [recoveryName, setRecoveryName] = useState('')
-  const [verificationSent, setVerificationSent] = useState(false)
+  const [needsName, setNeedsName] = useState(session?.issue === 'PROFILE_MISSING')
   const [busy, setBusy] = useState(false)
+  if (session?.user?.status === 'ACTIVE') return <Navigate to={destination(session.user.role)} replace />
 
-  async function resendVerification() {
-    setBusy(true)
+  async function register() {
+    if (busy) return
     setError('')
-    try {
-      await services.session.resendVerificationEmail()
-      setVerificationSent(true)
-    } catch (cause) {
-      setError(message(cause))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function refreshVerification() {
     setBusy(true)
-    setError('')
     try {
-      const result = await services.session.getCurrent()
+      const result = await services.session.registerStudentWithGoogle()
       await refreshSession()
       if (result.user) navigate(destination(result.user.role))
       else {
-        setPartial(true)
-        setUnverified(result.issue === 'EMAIL_UNVERIFIED')
-        setError(issueMessage(result.issue))
+        setNeedsName(result.issue === 'PROFILE_MISSING')
+        setError(issueMessage(result.issue, true))
       }
     } catch (cause) {
-      setError(message(cause))
+      if ((cause as { code?: unknown })?.code !== 'auth/popup-closed-by-user') setError(message(cause))
     } finally {
       setBusy(false)
     }
   }
 
   async function retry(displayName: string) {
-    setBusy(true)
     setError('')
-    setRecoveryName(displayName)
+    setBusy(true)
     try {
       const result = await services.session.retryStudentProfile(displayName)
       await refreshSession()
       if (result.user) navigate(destination(result.user.role))
-      else {
-        setError(issueMessage(result.issue))
-        setPartial(true)
-        setUnverified(result.issue === 'EMAIL_UNVERIFIED')
-      }
+      else setError(issueMessage(result.issue, true))
     } catch (cause) {
       setError(message(cause))
-      setPartial(true)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-    setBusy(true)
-    const data = new FormData(event.currentTarget)
-    const displayName = String(data.get('displayName'))
-    setRecoveryName(displayName)
-    try {
-      const result = await services.session.registerStudent({ displayName, email: String(data.get('email')), password: String(data.get('password')) })
-      await refreshSession()
-      if (result.user) navigate(destination(result.user.role))
-      else {
-        setError(issueMessage(result.issue))
-        setPartial(true)
-        setUnverified(result.issue === 'EMAIL_UNVERIFIED')
-      }
-    } catch (cause) {
-      setError(message(cause))
-      const current = await services.session.getCurrent().catch(() => null)
-      if (current?.user) navigate(destination(current.user.role))
-      else if (current?.issue) {
-        setError(issueMessage(current.issue))
-        setPartial(true)
-        setUnverified(current.issue === 'EMAIL_UNVERIFIED')
-      }
     } finally {
       setBusy(false)
     }
   }
 
   return <main className="auth-screen">
-    <Brand to={session?.user ? destination(session.user.role) : '/login'} />
+    <Brand />
     <section className="auth-panel" aria-labelledby="register-title">
-      <h1 id="register-title">Create your account</h1>
-      <p>Public registration creates a Student account.</p>
-      {partial ? <>
-        <p role="status">{unverified ? 'Your account exists but still needs email verification.' : 'Your sign-in identity exists, but Student setup is incomplete. Enter your name to retry safely.'}</p>
-        {unverified
-          ? <VerificationActions busy={busy} verificationSent={verificationSent} onResend={resendVerification} onRefresh={refreshVerification} />
-          : <ProfileRecoveryForm busy={busy} defaultName={recoveryName} onRetry={retry} />}
-      </> : <form onSubmit={(event) => void submit(event)} aria-busy={busy}>
-        <label htmlFor="register-name">Name</label>
-        <input id="register-name" name="displayName" autoComplete="name" maxLength={100} required aria-describedby={error ? 'register-error' : undefined} />
-        <label htmlFor="register-email">Email</label>
-        <input id="register-email" name="email" type="email" autoComplete="email" autoCapitalize="none" required aria-describedby={error ? 'register-error' : undefined} />
-        <label htmlFor="register-password">Password</label>
-        <input id="register-password" name="password" type="password" autoComplete="new-password" minLength={6} required aria-describedby={error ? 'register-error' : undefined} />
-        {error && <p id="register-error" className="auth-error" role="alert">{error}</p>}
-        <button className="button button-primary auth-submit" disabled={busy}>{busy ? 'Creating account…' : 'Create Student account'}</button>
-      </form>}
-      {error && partial && <p id="register-error" className="auth-error" role="alert">{error}</p>}
+      <h1 id="register-title">Create your Student account</h1>
+      <p>Continue with any Google account. Public registration always creates a Student profile.</p>
+      {error && <p id="register-error" className="auth-error" role="alert">{error}</p>}
+      {needsName
+        ? <ProfileRecoveryForm busy={busy} onRetry={retry} />
+        : <GoogleButton busy={busy} label="Create Student account with Google" busyLabel="Opening Google…" onClick={register} />}
       <p className="auth-secondary">Already registered? <Link to="/login">Sign in</Link></p>
     </section>
   </main>
 }
 
 export function ForgotPasswordPage() {
-  return <main className="auth-screen"><Brand /><section className="auth-panel"><h1>Reset your password</h1><p>Password recovery will be available with account sign-in.</p><Link className="button button-secondary auth-submit" to="/login">Back to sign in</Link></section></main>
+  return <main className="auth-screen">
+    <Brand />
+    <section className="auth-panel" aria-labelledby="password-help-title">
+      <h1 id="password-help-title">Recover your Google account</h1>
+      <p>HelpiNUS does not store your password. Use Google Account Recovery to reset it securely.</p>
+      <a className="button button-primary auth-submit" href="https://accounts.google.com/signin/recovery" target="_blank" rel="noreferrer">Open Google Account Recovery</a>
+      <p className="auth-secondary"><Link to="/login">Back to sign in</Link></p>
+    </section>
+  </main>
 }
 
 export function AccountAccessPage() {
   const { session, services, refreshSession } = useServices()
   const navigate = useNavigate()
   const [notice, setNotice] = useState('')
-  const [verificationSent, setVerificationSent] = useState(false)
   const [busy, setBusy] = useState(false)
   if (session?.user?.status === 'ACTIVE') return <Navigate to={destination(session.user.role)} replace />
 
@@ -303,35 +189,7 @@ export function AccountAccessPage() {
       const result = await services.session.retryStudentProfile(displayName)
       await refreshSession()
       if (result.user) navigate(destination(result.user.role), { replace: true })
-      else setNotice(issueMessage(result.issue))
-    } catch (cause) {
-      setNotice(message(cause))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function resendVerification() {
-    setBusy(true)
-    setNotice('')
-    try {
-      await services.session.resendVerificationEmail()
-      setVerificationSent(true)
-    } catch (cause) {
-      setNotice(message(cause))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function refreshVerification() {
-    setBusy(true)
-    setNotice('')
-    try {
-      const result = await services.session.getCurrent()
-      await refreshSession()
-      if (result.user) navigate(destination(result.user.role), { replace: true })
-      else setNotice(issueMessage(result.issue))
+      else setNotice(issueMessage(result.issue, true))
     } catch (cause) {
       setNotice(message(cause))
     } finally {
@@ -340,14 +198,12 @@ export function AccountAccessPage() {
   }
 
   const missing = session?.issue === 'PROFILE_MISSING'
-  const unverified = session?.issue === 'EMAIL_UNVERIFIED'
   return <main className="auth-screen">
     <Brand />
     <section className="auth-panel" aria-labelledby="access-title">
-      <h1 id="access-title">{missing ? 'Student profile setup incomplete' : unverified ? 'Verify your email' : 'Account access unavailable'}</h1>
-      <p>{missing ? 'Your sign-in identity is ready, but your trusted profile has not been created yet.' : unverified ? 'Open the verification message, then return here to refresh your account.' : session?.issue === 'ACCOUNT_INACTIVE' ? 'This account is suspended or disabled. Contact HelpiNUS support.' : 'Your account profile could not be validated. Contact HelpiNUS support.'}</p>
+      <h1 id="access-title">{missing ? 'Student profile setup incomplete' : 'Account access unavailable'}</h1>
+      <p>{missing ? 'Your Google identity is ready, but your trusted Student profile still needs a name.' : session?.issue === 'ACCOUNT_INACTIVE' ? 'This account is suspended or disabled. Contact HelpiNUS support.' : 'Your account profile could not be validated. Contact HelpiNUS support.'}</p>
       {missing && <ProfileRecoveryForm busy={busy} onRetry={retry} />}
-      {unverified && <VerificationActions busy={busy} verificationSent={verificationSent} onResend={resendVerification} onRefresh={refreshVerification} />}
       {notice && <p className="auth-error" role="alert">{notice}</p>}
       <Link to="/login">Return to sign in</Link>
     </section>

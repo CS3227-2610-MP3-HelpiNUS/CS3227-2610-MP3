@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword, GoogleAuthProvider, onAuthStateChanged, sendEmailVerification, signInWithEmailAndPassword, signInWithPopup, signOut, updateProfile, type User as AuthUser } from 'firebase/auth'
+import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, updateProfile, type User as AuthUser } from 'firebase/auth'
 import { Timestamp, collection, doc, documentId, getDoc, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { callableSchemas, f01HelpRequestSchema, helpRequestSummarySchema, initializeStudentProfileOutputSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
@@ -125,25 +125,7 @@ export const firebaseServices: HelpiNUSServices = {
     },
     async signInWithGoogle() { return authenticateWithGoogle(false) },
     async registerStudentWithGoogle() { return authenticateWithGoogle(true) },
-    async registerStudent({ displayName, email, password }) {
-      const client = configured()
-      const normalizedName = displayName.trim()
-      const credential = await createUserWithEmailAndPassword(client.auth, email, password)
-      await updateProfile(credential.user, { displayName: normalizedName })
-      if (!syntheticEmulatorUser(credential.user)) await sendEmailVerification(credential.user)
-      return initializeProfile(normalizedName)
-    },
     async retryStudentProfile(displayName) { return initializeProfile(displayName) },
-    async resendVerificationEmail() {
-      const identity = configured().auth.currentUser
-      if (!identity) throw new Error('Sign in again to resend your verification email.')
-      await sendEmailVerification(identity)
-    },
-    async signIn({ email, password }) {
-      const client = configured()
-      await signInWithEmailAndPassword(client.auth, email, password)
-      return currentSession()
-    },
     async signOut() { await signOut(configured().auth) },
   },
   dashboard: {
