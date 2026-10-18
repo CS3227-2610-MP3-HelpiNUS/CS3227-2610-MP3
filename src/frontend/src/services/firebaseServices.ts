@@ -1,7 +1,7 @@
 import { createUserWithEmailAndPassword, onAuthStateChanged, sendEmailVerification, signInWithEmailAndPassword, signOut, updateProfile, type User as AuthUser } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { callableSchemas, initializeStudentProfileOutputSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
+import { callableSchemas, initializeStudentProfileOutputSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
 import { firebase } from './firebase'
 import { firebaseEnvironment, isEmulatorConnectionAllowed } from './firebaseConfig'
 import type { DashboardData, HelpiNUSServices, Session } from './contracts'
@@ -127,6 +127,17 @@ export const firebaseServices: HelpiNUSServices = {
   },
   dashboard: {
     async getStudentDashboard(): Promise<DashboardData> { return mockDashboard },
+  },
+  modules: {
+    async getById(id) {
+      const snapshot = await getDoc(doc(configured().firestore, 'modules', id))
+      if (!snapshot.exists()) return null
+      const data = snapshot.data()
+      if (data.id !== undefined && data.id !== snapshot.id) {
+        throw new Error('Module document ID does not match stored ID.')
+      }
+      return moduleSchema.parse({ ...data, id: snapshot.id })
+    },
   },
   callables: { invoke: invokeCallable },
 }

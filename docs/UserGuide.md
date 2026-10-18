@@ -9,9 +9,9 @@ summaries.
 
 Sprint 1 provides account creation, sign-in, sign-out, session restoration,
 role-based access, a Student dashboard with clearly labelled sample data, and
-the navigation structure for upcoming features. Mentor discovery, help-request
-management, conversations, consultation booking, and AI actions are currently
-scaffolds and do not yet complete their domain workflows.
+Mentor discovery for Students. Help-request management, conversations,
+consultation booking, and AI actions are currently scaffolds and do not yet
+complete their domain workflows.
 
 ## 2. Supported users and devices
 
@@ -71,7 +71,7 @@ the header.
 | Destination | Current Sprint 1 behaviour |
 | --- | --- |
 | Dashboard | Shows representative, clearly labelled sample data |
-| Find a mentor | Route and interface scaffold |
+| Find a mentor | Browse available Mentors, search and filter loaded results, and inspect public details |
 | Help requests | Route and interface scaffold |
 | Conversations | Route and interface scaffold |
 | Consultations | Route and interface scaffold |
@@ -80,6 +80,46 @@ the header.
 Use **Skip to content** when navigating by keyboard to bypass repeated
 navigation. The HelpiNUS brand returns to the dashboard for the authenticated
 role.
+
+### Find a mentor
+
+1. Sign in as a Student and choose **Find a mentor**. The first page loads up to
+   20 available Mentors. If **Load more** appears, choose it to add the next
+   page without losing the Mentors already shown.
+2. Use **Search loaded mentors** to find a name, biography text, or a supported
+   module code or title. Search ignores letter case and spaces at the start or
+   end of the query.
+3. Use **Academic module** to show loaded Mentors who support that module.
+   Available choices are active modules supported by at least one loaded
+   Mentor. You can combine the module choice with text search. Choose **Clear
+   module** to remove only the module filter; clear the search box to remove
+   only the text search.
+4. Choose **View details** on a Mentor to see their public biography, when
+   provided, and supported modules. Only one Mentor's details are open at a
+   time. A known inactive module is labelled **Inactive**. If module
+   information is missing, the page says **Module information unavailable**;
+   if the Mentor lists none, it says **No modules listed**.
+5. Within the details, choose **Ask for help** to see an informational dialog
+   naming the Mentor and your selected module, if any. Help requests cannot
+   yet be sent from this page. Choose **Close** or press Escape to return to
+   discovery; nothing is submitted or saved.
+
+Search and module filtering apply only to Mentors already loaded. **Load more**
+may reveal further matches or module choices. The list retains the order
+returned by the service; it is not a ranking. Search and filter choices stay
+in place while you load another page, and reset when you leave discovery.
+
+While Mentor results or module information load, the page shows a status
+message. The module selector is temporarily unavailable while module
+information loads or needs a retry; name and biography search remain usable.
+If no loaded Mentor supports an active module, the selector stays unavailable;
+you can still browse Mentors and search names and biographies.
+If the page cannot load Mentors, choose **Retry**. If **Load more** fails,
+previously loaded Mentors remain visible and **Retry** requests that page
+again. If module information fails, choose **Retry module information**. An
+empty list says **No mentors available** when there are no further pages. If a
+page is empty but **Load more** remains available, continue loading. If your
+search or filter finds nothing, clear the controls or load more when offered.
 
 ## 6. Mentor access
 
@@ -108,7 +148,9 @@ npm run dev --workspace src/frontend
 
 If no Firebase Web configuration is present, HelpiNUS intentionally uses its
 mock service adapter. Open the URL printed by Vite. This mode demonstrates the
-Student dashboard and navigation without contacting Firebase.
+Student dashboard, navigation, and Mentor discovery without contacting
+Firebase. Mentor names beginning with **Sample** and their module information
+are demonstration data, not live Mentor profiles.
 
 ## 9. Run with Firebase emulators
 
@@ -158,6 +200,11 @@ These synthetic accounts bypass email verification only while the application
 is explicitly connected to the local emulators. Do not create or use them in a
 real Firebase project.
 
+The current emulator seed has one Mentor with no listed modules and does not
+populate a module catalogue. Use mock mode to explore module filtering with
+sample data. Live Firebase mode displays the eligible Mentor records and
+module information available in that environment.
+
 ## 10. Manual Sprint 1 verification
 
 ### Mock frontend
@@ -165,8 +212,9 @@ real Firebase project.
 1. Remove or temporarily rename `src/frontend/.env.local`.
 2. Start the frontend.
 3. Confirm the Student dashboard renders sample data.
-4. Open every Student navigation destination and confirm it renders its
-   accurately labelled scaffold.
+4. Open **Find a mentor** and confirm the Sample Mentor list, search, module
+   filter, details, and informational **Ask for help** dialog work. Open the
+   other Student destinations and confirm their labelled scaffolds render.
 5. Narrow the browser to a phone-sized viewport.
 6. Confirm bottom navigation, header branding, and mobile sign-out are usable.
 7. Use only the keyboard to reach navigation, form controls, and sign-out;

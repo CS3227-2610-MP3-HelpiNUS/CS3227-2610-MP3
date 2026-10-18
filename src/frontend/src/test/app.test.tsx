@@ -6,6 +6,7 @@ import { AppShell } from '../components/AppShell'
 import { LoginPage } from '../pages/AuthPages'
 import { StudentDashboard } from '../pages/StudentDashboard'
 import { WorkspacePage } from '../pages/WorkspacePage'
+import { MentorDiscoveryPage } from '../pages/MentorDiscoveryPage'
 import { ProtectedRoute } from '../routes/ProtectedRoute'
 import { ServiceProvider } from '../services/ServiceProvider'
 import type { HelpiNUSServices } from '../services/contracts'
@@ -15,7 +16,7 @@ function renderStudentAt(path: string, services: HelpiNUSServices = mockServices
   const router = createMemoryRouter([
     { element: <ProtectedRoute role="STUDENT" />, children: [{ element: <AppShell />, children: [
       { path: '/student/dashboard', element: <StudentDashboard /> },
-      { path: '/student/mentors', element: <WorkspacePage /> },
+      { path: '/student/mentors', element: <MentorDiscoveryPage /> },
       { path: '/student/requests', element: <WorkspacePage /> },
       { path: '/student/conversations', element: <WorkspacePage /> },
       { path: '/student/consultations', element: <WorkspacePage /> },
@@ -54,14 +55,14 @@ describe('Student application foundation', () => {
     for (const link of screen.getAllByRole('link', { name: /find a mentor/i })) expect(link).toBeEnabled()
   })
 
-  it('navigates from the dashboard to the mentor discovery scaffold', async () => {
+  it('navigates from the dashboard to mentor discovery', async () => {
     const user = userEvent.setup()
     renderStudentAt('/student/dashboard')
     await screen.findByRole('heading', { name: 'Welcome back, Jamie' })
 
     await user.click(screen.getAllByRole('link', { name: /find a mentor/i })[0])
     expect(await screen.findByRole('heading', { name: 'Find a mentor' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Aisha Rahman' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Sample Aisha' })).toBeInTheDocument()
   })
 
   it.each([
