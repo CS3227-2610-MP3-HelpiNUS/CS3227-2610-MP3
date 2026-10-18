@@ -13,13 +13,10 @@ const mocks = vi.hoisted(() => {
     auth: { currentUser: identity as typeof identity | null },
     identity,
     authStateCallback: null as null | ((identity: unknown) => void),
-    createUserWithEmailAndPassword: vi.fn(),
     getDoc: vi.fn(),
     httpsCallable: vi.fn(),
     onAuthStateChanged: vi.fn(),
     signInWithPopup: vi.fn(),
-    sendEmailVerification: vi.fn(),
-    signInWithEmailAndPassword: vi.fn(),
     signOut: vi.fn(),
     updateProfile: vi.fn(),
   }
@@ -53,11 +50,8 @@ vi.mock('../services/firebaseConfig', () => ({
 }))
 vi.mock('firebase/auth', () => ({
   GoogleAuthProvider: class GoogleAuthProvider {},
-  createUserWithEmailAndPassword: mocks.createUserWithEmailAndPassword,
   onAuthStateChanged: mocks.onAuthStateChanged,
-  sendEmailVerification: mocks.sendEmailVerification,
   signInWithPopup: mocks.signInWithPopup,
-  signInWithEmailAndPassword: mocks.signInWithEmailAndPassword,
   signOut: mocks.signOut,
   updateProfile: mocks.updateProfile,
 }))
@@ -81,7 +75,6 @@ describe('Firebase session recovery', () => {
     mocks.auth.currentUser = mocks.identity
     mocks.getDoc.mockResolvedValue(userSnapshot(mocks.identity.uid, mocks.identity.email))
     mocks.signOut.mockResolvedValue(undefined)
-    mocks.sendEmailVerification.mockResolvedValue(undefined)
     mocks.signInWithPopup.mockResolvedValue({ user: mocks.identity })
     mocks.onAuthStateChanged.mockImplementation((_auth, callback) => {
       mocks.authStateCallback = callback as (identity: unknown) => void
@@ -148,13 +141,8 @@ describe('Firebase session recovery', () => {
   })
 
   it('retries a failed display-name update with a user-supplied recovery name', async () => {
-    mocks.createUserWithEmailAndPassword.mockResolvedValue({ user: mocks.identity })
     mocks.updateProfile.mockRejectedValueOnce(new Error('profile update failed'))
-    await expect(firebaseServices.session.registerStudent({
-      displayName: 'Jamie Tan',
-      email: mocks.identity.email,
-      password: 'Student-demo-123!',
-    })).rejects.toThrow('profile update failed')
+    await expect(firebaseServices.session.retryStudentProfile('Jamie Tan')).rejects.toThrow('profile update failed')
 
     mocks.updateProfile.mockImplementation(async (identity: typeof mocks.identity, update: { displayName: string }) => {
       identity.displayName = update.displayName

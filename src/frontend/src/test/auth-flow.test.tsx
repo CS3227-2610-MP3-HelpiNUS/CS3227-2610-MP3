@@ -2,7 +2,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { AccountAccessPage, LoginPage, RegisterPage } from '../pages/AuthPages'
+import { AccountAccessPage, ForgotPasswordPage, LoginPage, RegisterPage } from '../pages/AuthPages'
 import { AppShell } from '../components/AppShell'
 import { ProtectedRoute } from '../routes/ProtectedRoute'
 import { ServiceProvider } from '../services/ServiceProvider'
@@ -14,7 +14,7 @@ const student = { id: 'u1', displayName: 'Jamie Tan', email: 'jamie@example.test
 const mentor = { ...student, id: 'm1', role: 'MENTOR' as const }
 function renderAt(path: string, services: HelpiNUSServices) {
   const router = createMemoryRouter([
-    { path: '/login', element: <LoginPage /> }, { path: '/register', element: <RegisterPage /> },
+    { path: '/login', element: <LoginPage /> }, { path: '/register', element: <RegisterPage /> }, { path: '/forgot-password', element: <ForgotPasswordPage /> },
     { path: '/account-access', element: <AccountAccessPage /> },
     { path: '/student/dashboard', element: <ProtectedRoute role="STUDENT" />, children: [{ index: true, element: <h1>Student dashboard</h1> }] },
     { path: '/mentor/dashboard', element: <ProtectedRoute role="MENTOR" />, children: [{ index: true, element: <h1>Mentor dashboard</h1> }] },
@@ -26,120 +26,65 @@ function services(session: Session = { user: null }, overrides: Partial<HelpiNUS
 }
 
 describe('authentication and role routing', () => {
-  it('registers a Student without exposing role or status controls', async () => {
+  it('registers a Student with Google without exposing role or status controls', async () => {
     const user = userEvent.setup(); const register = vi.fn().mockResolvedValue({ user: student })
-    const svc = services({ user: null }, { registerStudent: register, getCurrent: async () => ({ user: student }) })
+    const svc = services({ user: null }, { registerStudentWithGoogle: register, getCurrent: async () => ({ user: student }) })
     renderAt('/register', svc)
-    await user.type(screen.getByLabelText('Name'), 'Jamie Tan')
-    await user.type(screen.getByLabelText('Email'), 'jamie@example.test')
-    await user.type(screen.getByLabelText('Password'), 'Student-demo-123!')
-    expect(screen.queryByLabelText(/role|status/i)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Create Student account' }))
-    expect(register).toHaveBeenCalledWith({ displayName: 'Jamie Tan', email: 'jamie@example.test', password: 'Student-demo-123!' })
+    expect(screen.queryByLabelText(/email|password|role|status/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Create Student account with Google' }))
+    expect(register).toHaveBeenCalledOnce()
     expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
   })
 
-  it('offers a safe retry after identity creation when profile initialization fails', async () => {
+  it('signs in with Google and routes using the trusted Mentor profile', async () => {
+    const user = userEvent.setup(); const signInWithGoogle = vi.fn().mockResolvedValue({ user: mentor })
+    renderAt('/login', services({ user: null }, { signInWithGoogle, getCurrent: async () => ({ user: mentor }) }))
+    expect(screen.queryByLabelText(/email|password/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue with Google' }))
+    expect(signInWithGoogle).toHaveBeenCalledOnce()
+    expect(await screen.findByRole('heading', { name: 'Mentor dashboard' })).toBeInTheDocument()
+  })
+
+  it('offers bounded name recovery when Google has no display name', async () => {
     const user = userEvent.setup(); const retry = vi.fn().mockResolvedValue({ user: student }); let current: Session = { user: null, issue: 'PROFILE_MISSING' }
-    const svc = services({ user: null }, { registerStudent: async () => { throw new Error('profile setup failed') }, getCurrent: async () => current, retryStudentProfile: async (displayName) => { current = { user: student }; return retry(displayName) } })
+    const svc = services({ user: null }, { registerStudentWithGoogle: async () => current, getCurrent: async () => current, retryStudentProfile: async (displayName) => { current = { user: student }; return retry(displayName) } })
     renderAt('/register', svc)
-    await user.type(screen.getByLabelText('Name'), 'Jamie Tan'); await user.type(screen.getByLabelText('Email'), 'jamie@example.test'); await user.type(screen.getByLabelText('Password'), 'Student-demo-123!')
-    await user.click(screen.getByRole('button', { name: 'Create Student account' }))
-    await user.click(await screen.findByRole('button', { name: 'Retry Student profile setup' }))
+    await user.click(screen.getByRole('button', { name: 'Create Student account with Google' }))
+    await user.type(await screen.findByLabelText('Name'), 'Jamie Tan')
+    expect(screen.queryByLabelText(/role|status/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Finish Student profile setup' }))
     expect(retry).toHaveBeenCalledWith('Jamie Tan')
     expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
   })
 
-  it('lets a partially registered user resend email verification', async () => {
+  it.each([
+    ['auth/popup-blocked', 'Your browser blocked the Google sign-in window. Allow popups for HelpiNUS and try again.'],
+    ['auth/unauthorized-domain', 'Google sign-in is not configured for this website. Contact HelpiNUS support.'],
+    ['auth/network-request-failed', 'We could not reach Google sign-in. Check your connection and try again.'],
+  ])('maps %s without exposing raw Firebase text', async (code, expected) => {
     const user = userEvent.setup()
-    const resendVerificationEmail = vi.fn().mockResolvedValue(undefined)
-    const svc = services({ user: null }, {
-      registerStudent: async () => { throw Object.assign(new Error('Verification delivery failed'), { code: 'auth/network-request-failed' }) },
-      getCurrent: async () => ({ user: null, issue: 'EMAIL_UNVERIFIED' }),
-      resendVerificationEmail,
-    })
-    renderAt('/register', svc)
-    await user.type(screen.getByLabelText('Name'), 'Jamie Tan')
-    await user.type(screen.getByLabelText('Email'), 'jamie@example.test')
-    await user.type(screen.getByLabelText('Password'), 'Student-demo-123!')
-    await user.click(screen.getByRole('button', { name: 'Create Student account' }))
-    await user.click(await screen.findByRole('button', { name: 'Send verification email' }))
-    expect(resendVerificationEmail).toHaveBeenCalledOnce()
-    expect(await screen.findByText('Verification email sent. Check your inbox.')).toBeInTheDocument()
+    const raw = Object.assign(new Error(`Firebase: Error (${code}). token-secret`), { code })
+    renderAt('/login', services({ user: null }, { signInWithGoogle: async () => { throw raw } }))
+    await user.click(screen.getByRole('button', { name: 'Continue with Google' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(expected)
+    expect(screen.queryByText(/Firebase:|token-secret/)).not.toBeInTheDocument()
   })
 
-  it('recovers a missing profile from the account-access page and redirects immediately', async () => {
+  it('treats popup dismissal as a quiet cancellation', async () => {
     const user = userEvent.setup()
-    let current: Session = { user: null, issue: 'PROFILE_MISSING' }
-    const retryStudentProfile = vi.fn(async (displayName?: string) => {
-      expect(displayName).toBe('Jamie Tan')
-      current = { user: student }
-      return current
-    })
-    renderAt('/account-access', services(current, { getCurrent: async () => current, retryStudentProfile }))
-
-    await user.type(screen.getByLabelText('Name'), 'Jamie Tan')
-    await user.click(screen.getByRole('button', { name: 'Retry Student profile setup' }))
-
-    expect(retryStudentProfile).toHaveBeenCalledWith('Jamie Tan')
-    expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
+    renderAt('/login', services({ user: null }, { signInWithGoogle: async () => { throw Object.assign(new Error('closed'), { code: 'auth/popup-closed-by-user' }) } }))
+    await user.click(screen.getByRole('button', { name: 'Continue with Google' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeEnabled())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('offers resend and refresh actions for a restored unverified session', async () => {
+  it('links password help to Google Account Recovery without requesting a password reset', async () => {
     const user = userEvent.setup()
-    const resendVerificationEmail = vi.fn().mockResolvedValue(undefined)
-    const restored: Session = { user: null, issue: 'EMAIL_UNVERIFIED' }
-    renderAt('/account-access', services(restored, {
-      getCurrent: async () => ({ user: student }),
-      resendVerificationEmail,
-    }))
-
-    await user.click(screen.getByRole('button', { name: 'Send verification email' }))
-    expect(resendVerificationEmail).toHaveBeenCalledOnce()
-    expect(await screen.findByText('Verification email sent. Check your inbox.')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'I’ve verified my email' }))
-    expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
-  })
-
-  it('signs in with email and password and routes based on the trusted profile role', async () => {
-    const user = userEvent.setup(); const signIn = vi.fn().mockResolvedValue({ user: mentor })
-    renderAt('/login', services({ user: null }, { signIn, getCurrent: async () => ({ user: mentor }) }))
-    await user.type(screen.getByLabelText('Email'), 'mentor@example.test'); await user.type(screen.getByLabelText('Password'), 'Mentor-demo-123!')
-    await user.click(screen.getByRole('button', { name: 'Sign in' }))
-    expect(signIn).toHaveBeenCalledWith({ email: 'mentor@example.test', password: 'Mentor-demo-123!' })
-    expect(await screen.findByRole('heading', { name: 'Mentor dashboard' })).toBeInTheDocument()
-  })
-
-  it('routes a Student login to the Student workspace', async () => {
-    const user = userEvent.setup()
-    renderAt('/login', services({ user: null }, { signIn: vi.fn().mockResolvedValue({ user: student }), getCurrent: async () => ({ user: student }) }))
-    await user.type(screen.getByLabelText('Email'), 'student@example.test')
-    await user.type(screen.getByLabelText('Password'), 'Student-demo-123!')
-    await user.click(screen.getByRole('button', { name: 'Sign in' }))
-    expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
-  })
-
-  it('shows a mapped auth error without exposing raw Firebase SDK text', async () => {
-    const user = userEvent.setup()
-    const raw = Object.assign(new Error('Firebase: Error (auth/operation-not-allowed).'), { code: 'auth/operation-not-allowed' })
-    renderAt('/login', services({ user: null }, { signIn: async () => { throw raw } }))
-    await user.type(screen.getByLabelText('Email'), 'student@example.test')
-    await user.type(screen.getByLabelText('Password'), 'Student-demo-123!')
-    await user.click(screen.getByRole('button', { name: 'Sign in' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('We could not complete that request. Please try again.')
-    expect(screen.queryByText(/Firebase:/)).not.toBeInTheDocument()
-  })
-
-  it('does not expose an unclassified service error message', async () => {
-    const user = userEvent.setup()
-    renderAt('/login', services({ user: null }, {
-      signIn: async () => { throw new Error('Service functions is not available') },
-    }))
-    await user.type(screen.getByLabelText('Email'), 'student@example.test')
-    await user.type(screen.getByLabelText('Password'), 'Student-demo-123!')
-    await user.click(screen.getByRole('button', { name: 'Sign in' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('We could not complete that request. Please try again.')
-    expect(screen.queryByText(/Service functions/)).not.toBeInTheDocument()
+    renderAt('/login', services())
+    await user.click(screen.getByRole('link', { name: 'Need help with your Google password?' }))
+    const recovery = screen.getByRole('link', { name: 'Open Google Account Recovery' })
+    expect(recovery).toHaveAttribute('href', 'https://accounts.google.com/signin/recovery')
+    expect(recovery).toHaveAttribute('rel', 'noreferrer')
   })
 
   it('restores an existing session from the auth listener', async () => {
