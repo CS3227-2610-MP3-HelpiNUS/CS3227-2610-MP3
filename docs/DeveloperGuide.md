@@ -13,8 +13,8 @@ Sprint 1 establishes the production-shaped foundation:
   scaffolds;
 - Firebase Authentication, Firestore, Cloud Functions v2, Hosting, and local
   emulators;
-- public Student registration, trusted Mentor provisioning, verified-email
-  enforcement, session restoration, and role routing;
+- Google-only Student registration and sign-in, trusted Mentor provisioning,
+  session restoration, and role routing;
 - shared domain and callable contracts with runtime validation;
 - Firestore Security Rules and emulator tests;
 - separate development and production deployment paths; and
@@ -94,7 +94,7 @@ flowchart LR
 | --- | --- |
 | React pages and routes | Render role-specific screens and route guards; never call Firebase SDKs directly |
 | Frontend services | Adapt Firebase or mock operations into stable interfaces for React |
-| Firebase Authentication | Create and restore identities; issue authenticated ID tokens |
+| Firebase Authentication | Authenticate Google identities, restore sessions, and issue authenticated ID tokens |
 | Shared package | Define domain entities, callable request/response schemas, statuses, and error codes once |
 | Callable Functions | Validate requests and own privileged state transitions |
 | Firestore Rules | Enforce the approved direct client-access matrix |
@@ -119,34 +119,37 @@ sequenceDiagram
     participant Fn as initializeStudentProfile
     participant DB as users/{uid}
 
-    Student->>UI: name, email, password
-    UI->>Auth: create email/password identity
-    UI->>Auth: update display name and send verification
-    Student->>Auth: verify email
+    Student->>UI: Create Student account with Google
+    UI->>Auth: signInWithPopup(GoogleAuthProvider)
+    Auth-->>UI: verified Google identity
     UI->>Fn: authenticated displayName
-    Fn->>Fn: verify token and email
+    Fn->>Fn: verify token, provider, and email
     Fn->>DB: transactionally create STUDENT / ACTIVE
     DB-->>Fn: authoritative profile
     Fn-->>UI: validated profile
     UI-->>Student: Student dashboard
 ```
 
-Registration is recoverable and fail-closed. Firebase Auth necessarily creates
-the identity first. Until `initializeStudentProfile` succeeds, protected routes
-and operations remain unavailable. Retrying is idempotent and cannot select a
-role or status. The recovery form accepts the Student name again so a failed
-Auth display-name update can be retried before trusted profile creation.
-Existing malformed or privileged profiles are rejected rather than overwritten.
+Registration is recoverable and fail-closed. Google authentication creates or
+restores the Firebase identity first. Until `initializeStudentProfile`
+succeeds, protected routes and operations remain unavailable. Retrying is
+idempotent and cannot select a role or status. The recovery form accepts the
+Student name only when the Google identity has no usable display name. Existing
+malformed or privileged profiles are rejected rather than overwritten.
 
-Production requires a verified email. The only bypass is for synthetic
-`@example.test` users when both the browser and Functions are explicitly using
-the local emulators. A stale identity left behind after an emulator restart is
-signed out instead of producing a permanent account-loading error. Auth-state
-subscriptions bind each profile read to the identity that initiated it and
-discard delayed results after sign-out or account switching.
+Sign-in resolves only an existing authoritative `users/{uid}` profile;
+registration initializes a missing profile only as `STUDENT` / `ACTIVE`. A
+single-flight guard prevents concurrent Google pop-ups. Popup closure is a
+quiet cancellation, while blocked pop-ups, unauthorized domains, disabled
+providers, network failures, and callable failures receive bounded messages.
+Raw Firebase errors are never rendered. A stale identity left behind after an
+emulator restart is signed out instead of producing a permanent account-loading
+error. Auth-state subscriptions bind each profile read to the identity that
+initiated it and discard delayed results after sign-out or account switching.
 
-Mentors are never publicly registered. Use the trusted Admin SDK provisioning
-script described in Section 12.
+Mentors are never publicly registered. A Mentor must first establish a verified
+Google Firebase Auth identity; use the trusted Admin SDK provisioning script in
+Section 12 to bind that identity to a Mentor profile.
 
 ## 6. Domain model and Firestore organization
 
@@ -706,21 +709,22 @@ or modules while the emulators are running. With the manual startup, stopping
 the emulators discards their synthetic records unless you export and import
 them; seed again on restart.
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Student | `student@example.test` | `Student-demo-123!` |
-| Mentor | `mentor@example.test` | `Mentor-demo-123!` |
-| Jamie Tan (Student) | `jamie.tan@example.test` | `Jamie-demo-123!` |
-| Sample Aisha (Mentor) | `aisha@example.test` | `Aisha-demo-123!` |
+| Role | Mock Google identity |
+| --- | --- |
+| Student | `student@example.test` |
+| Mentor | `mentor@example.test` |
+| Jamie Tan (Student) | `jamie.tan@example.test` |
+| Sample Aisha (Mentor) | `aisha@example.test` |
 
-The seed marks all demo emails verified so Firestore Rules allow module reads.
-The accounts and synthetic verification fallback are emulator-only. It creates
-two active module records (`CS2103T`, `CS2040S`) and one inactive record
-(`CS3230`) when they are missing. Sample Aisha's new Mentor profile lists the
-two active modules, allowing Jamie Tan to request help without profile setup.
-The root `npm run dev:emulators` launcher supplies the same harmless Firebase
-web configuration automatically so Vite uses the seeded emulators rather than
-the mock Jamie Tan preview.
+The seed links every identity to the mock `google.com` provider and marks its
+email verified so Firestore Rules allow module reads. Select an identity in the
+Auth Emulator's mock Google window; no real account or password is involved.
+It creates two active module records (`CS2103T`, `CS2040S`) and one inactive
+record (`CS3230`) when they are missing. Sample Aisha's new Mentor profile lists
+the two active modules, allowing Jamie Tan to request help without profile
+setup. The root `npm run dev:emulators` launcher supplies the same harmless
+Firebase web configuration automatically so Vite uses the seeded emulators
+rather than the mock Jamie Tan preview.
 
 Provision a trusted Mentor in a selected real project with Application Default
 Credentials:
@@ -731,14 +735,13 @@ npm run provision:mentor --workspace src/functions -- \
   mentor@example.com "Mentor Name"
 ```
 
-For a new passwordless identity, the command prints one-time links for setting
-the Mentor password and verifying the email address. Deliver both links to the
-Mentor through a trusted channel before treating onboarding as complete. An
-existing verified password identity needs no links. The script does not report
-successful onboarding until all required links have been generated.
+Before running the command, have the Mentor choose **Continue with Google** once
+using the same email address. The script refuses to provision a missing,
+disabled, unverified, non-Google, or email-mismatched Firebase identity. It
+never creates an identity, password, reset link, or verification link. The
+trusted `users/{uid}` record remains the sole role and status authority.
 
-Never commit the credential used by Application Default Credentials or record
-the generated onboarding links in repository logs.
+Never commit the credential used by Application Default Credentials.
 
 ## 13. Cloud Functions packaging
 
@@ -893,9 +896,10 @@ run needed process-local `FUNCTIONS_DISCOVERY_TIMEOUT=60` and Vitest
 establish that the original Windows npm emulator scripts pass unchanged.
 
 Automated tests demonstrate the checked cases, not complete security. Manual
-browser testing should still cover registration, verification, Student and
-Mentor sign-in, reload/session restoration, wrong-role URLs, mobile navigation,
-sign-out, keyboard focus, and emulator restart recovery.
+browser testing should still cover Google registration, Student and Mentor
+sign-in, popup cancellation and blocking, missing-name recovery,
+reload/session restoration, wrong-role URLs, mobile navigation, sign-out,
+keyboard focus, and emulator restart recovery.
 
 ## 15. Environments and continuous delivery
 
@@ -917,6 +921,23 @@ Configure the corresponding `VITE_FIREBASE_PROD_*` values as variables on the
 protected `production` environment. Firebase Web configuration is public
 project metadata, but keeping environment values in Actions configuration
 prevents accidental cross-environment builds.
+
+Configure Google authentication separately in both `helpinus-dev` and
+`helpinus-prod` before deploying:
+
+1. In **Firebase Console > Authentication > Sign-in method**, enable Google and
+   configure the project's support email.
+2. In **Authentication > Settings > Authorized domains**, add the Hosting
+   domain for that environment. Add `localhost` only when intentionally testing
+   the real development project locally; the standard local workflow uses the
+   Auth Emulator instead.
+3. Repeat the setup in the other Firebase project. Provider and domain settings
+   are not shared between development and production.
+4. Run a post-deployment Google sign-in smoke test in the selected environment.
+
+Do not place OAuth client secrets, service-account credentials, or other private
+keys in `VITE_*` variables. Production Google authentication remains unverified
+until its provider configuration and deployed smoke test are completed.
 
 Configure service-account JSON as secrets:
 
@@ -973,7 +994,7 @@ available. Browser code must never receive an SoC LLM credential.
 - Complete help-request, conversation, booking, and availability workflows.
 - Implement the two SoC LLM features and their security controls.
 - Build the GitHub Pages product website.
-- Add password reset if adopted as a product requirement.
+- Keep password and account recovery delegated to Google.
 - Perform live development deployment and production promotion after human
   environment setup and review.
 
