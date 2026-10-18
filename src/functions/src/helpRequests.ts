@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { getAuth } from 'firebase-admin/auth'
 import { Timestamp, type DocumentSnapshot, type Firestore, type Transaction } from 'firebase-admin/firestore'
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https'
 import {
@@ -6,7 +7,7 @@ import {
   moduleSchema, userSchema, type CreateHelpRequestInput,
   type F01HelpRequest, type HelpRequestSummary, type RespondToHelpRequestInput,
 } from '@helpinus/shared'
-import { requireCurrentMentor, requireCurrentStudent } from './auth.js'
+import { requireCurrentMentor, requireRole, type AuthorizedUser } from './auth.js'
 import { assertMatchingAcceptedConversation } from './conversations.js'
 
 type Stored = Omit<F01HelpRequest, 'createdAt' | 'updatedAt'> & { createdAt: Timestamp; updatedAt: Timestamp }
@@ -44,6 +45,18 @@ function counts(snapshot: DocumentSnapshot): HelpRequestSummary | null {
   const rejectedCount = raw?.rejectedCount
   if (!raw || ![pendingCount, acceptedCount, rejectedCount].every((n) => Number.isSafeInteger(n) && n >= 0) || raw.openCount !== pendingCount + acceptedCount) return failIntegrity()
   return { pendingCount, acceptedCount, rejectedCount, openCount: raw.openCount, updatedAt: iso(raw.updatedAt) as string }
+}
+
+async function requireCurrentStudent(request: CallableRequest<unknown>): Promise<AuthorizedUser> {
+  const user = await requireRole(request, 'STUDENT')
+  let authUser
+  try { authUser = await getAuth().getUser(user.uid) }
+  catch { throw new HttpsError('permission-denied', 'Student account access has changed.') }
+  const synthetic = process.env.FUNCTIONS_EMULATOR === 'true' && user.email.endsWith('@example.test')
+  if (authUser.disabled || authUser.email !== user.email || (!authUser.emailVerified && !synthetic)) {
+    throw new HttpsError('permission-denied', 'Student account access has changed.')
+  }
+  return user
 }
 
 export async function createHelpRequestHandler(input: CreateHelpRequestInput, request: CallableRequest<unknown>, db: Firestore): Promise<CreateResult> {

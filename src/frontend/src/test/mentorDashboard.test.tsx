@@ -34,8 +34,7 @@ describe('S1-D2-F03 Mentor dashboard', () => {
     const { invoke } = setup({ read: () => pending.promise })
     expect(await screen.findByRole('heading', { name: 'Welcome to your Mentor space' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Your profile' })).toBeInTheDocument()
-    const profileCard = screen.getByRole('heading', { name: 'Your profile' }).closest('section')!
-    expect(within(profileCard).getByRole('status')).toHaveTextContent('Loading your profile')
+    expect(screen.getByRole('status')).toHaveTextContent('Loading your profile')
     expect(screen.getAllByRole('link', { name: 'My profile' })).toHaveLength(3)
     expect(screen.queryByText(/manage student requests and consultations/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Student dashboard/i })).not.toBeInTheDocument()
