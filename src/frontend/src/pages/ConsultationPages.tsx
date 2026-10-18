@@ -1,0 +1,283 @@
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react'
+import type { Appointment, AvailabilitySlot } from '@helpinus/shared'
+import { Icon } from '../components/Icon'
+import { useServices } from '../services/useServices'
+import './ConsultationPages.css'
+
+const singaporeOffset = '+08:00'
+const dateParts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore', year: 'numeric', month: '2-digit', day: '2-digit' })
+const fullDate = new Intl.DateTimeFormat('en-SG', { timeZone: 'Asia/Singapore', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+const monthName = new Intl.DateTimeFormat('en-SG', { timeZone: 'Asia/Singapore', month: 'long', year: 'numeric' })
+const timeFormat = new Intl.DateTimeFormat('en-SG', { timeZone: 'Asia/Singapore', hour: 'numeric', minute: '2-digit' })
+const dateTimeFormat = new Intl.DateTimeFormat('en-SG', { timeZone: 'Asia/Singapore', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+
+function dateKey(value: Date | string) {
+  const parts = dateParts.formatToParts(typeof value === 'string' ? new Date(value) : value)
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+function monthRange(month: string) {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const nextYear = monthNumber === 12 ? year + 1 : year
+  const nextMonth = monthNumber === 12 ? 1 : monthNumber + 1
+  return {
+    startsAt: `${month}-01T00:00:00${singaporeOffset}`,
+    endsAt: `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00${singaporeOffset}`,
+  }
+}
+
+function moveMonth(month: string, amount: number) {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const value = new Date(Date.UTC(year, monthNumber - 1 + amount, 1))
+  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+function dayInMonth(month: string, preferredDay: string) {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const day = Math.min(Number(preferredDay.slice(-2)), new Date(Date.UTC(year, monthNumber, 0)).getUTCDate())
+  return `${month}-${String(day).padStart(2, '0')}`
+}
+
+function moveDay(day: string, amount: number) {
+  const [year, monthNumber, dayNumber] = day.split('-').map(Number)
+  const value = new Date(Date.UTC(year, monthNumber - 1, dayNumber + amount))
+  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}-${String(value.getUTCDate()).padStart(2, '0')}`
+}
+
+function calendarDays(month: string) {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const firstWeekday = new Date(Date.UTC(year, monthNumber - 1, 1)).getUTCDay()
+  const first = Date.UTC(year, monthNumber - 1, 1 - firstWeekday)
+  return Array.from({ length: 42 }, (_, index) => {
+    const value = new Date(first + index * 24 * 60 * 60 * 1000)
+    const key = `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}-${String(value.getUTCDate()).padStart(2, '0')}`
+    return { key, day: value.getUTCDate(), inMonth: value.getUTCMonth() === monthNumber - 1 }
+  })
+}
+
+function localIso(day: string, time: string) {
+  return new Date(`${day}T${time}:00${singaporeOffset}`).toISOString()
+}
+
+function errorReason(error: unknown) {
+  const candidate = error as { code?: unknown; details?: { reason?: unknown } }
+  return { code: String(candidate?.code ?? ''), reason: String(candidate?.details?.reason ?? '') }
+}
+
+function bookingError(error: unknown) {
+  const { code, reason } = errorReason(error)
+  if (reason === 'SLOT_TAKEN' || code.endsWith('already-exists')) return 'That time was just booked. Choose another available slot.'
+  if (reason === 'SLOT_ELAPSED') return 'That time has already passed. Choose another available slot.'
+  if (code.endsWith('permission-denied') || code.endsWith('unauthenticated')) return 'Your account can no longer make this booking. Sign in again or contact support.'
+  return 'We could not save this booking. Check your connection and try again.'
+}
+
+function slotError(error: unknown) {
+  const { code, reason } = errorReason(error)
+  if (reason === 'SLOT_OVERLAP' || code.endsWith('already-exists')) return 'That time overlaps availability you already created.'
+  if (reason === 'PAST_SLOT') return 'Choose a future date and time.'
+  if (reason === 'UNALIGNED_SLOT' || reason === 'INVALID_DURATION') return 'Use 30-minute boundaries and a duration between 30 and 120 minutes.'
+  if (code.endsWith('permission-denied') || code.endsWith('unauthenticated')) return 'Your account can no longer manage Mentor availability.'
+  return 'We could not save this availability. Check your connection and try again.'
+}
+
+function useAppointments(role: 'STUDENT' | 'MENTOR') {
+  const { services, session } = useServices()
+  const [state, setState] = useState<{ key: string; kind: 'ready'; items: Appointment[] } | { key: string; kind: 'error' } | null>(null)
+  const [retry, setRetry] = useState(0)
+  const uid = session?.user?.id
+  const key = `${uid ?? ''}:${role}:${retry}`
+  useEffect(() => {
+    if (!uid) return
+    return services.scheduling.subscribeAppointments(uid, role, (items) => setState({ key, kind: 'ready', items }), () => setState({ key, kind: 'error' }))
+  }, [key, role, services, uid])
+  const current = state?.key === key ? state : null
+  return { appointments: current?.kind === 'ready' ? current.items : [], loading: current === null, error: current?.kind === 'error', retry: () => setRetry((value) => value + 1) }
+}
+
+function Calendar({ month, selected, counts, onMonth, onSelect }: { month: string; selected: string; counts: Map<string, number>; onMonth: (month: string) => void; onSelect: (day: string) => void }) {
+  const today = dateKey(new Date())
+  const days = calendarDays(month)
+  function select(day: string) {
+    onSelect(day)
+    if (day.slice(0, 7) !== month) onMonth(day.slice(0, 7))
+  }
+  function navigateMonth(amount: number) {
+    const nextMonth = moveMonth(month, amount)
+    onMonth(nextMonth)
+    onSelect(dayInMonth(nextMonth, selected))
+  }
+  function navigateByKeyboard(event: KeyboardEvent<HTMLButtonElement>, day: string) {
+    const amount = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : event.key === 'ArrowUp' ? -7 : event.key === 'ArrowDown' ? 7 : null
+    if (amount === null) return
+    event.preventDefault()
+    const nextDay = moveDay(day, amount)
+    select(nextDay)
+    window.requestAnimationFrame(() => document.getElementById(`consultation-day-${nextDay}`)?.focus())
+  }
+  return <section className="consultation-calendar" aria-label="Consultation calendar">
+    <div className="consultation-month-controls">
+      <button type="button" onClick={() => navigateMonth(-1)} aria-label="Previous month"><Icon name="arrow" /></button>
+      <h2>{monthName.format(new Date(`${month}-01T12:00:00${singaporeOffset}`))}</h2>
+      <button type="button" onClick={() => navigateMonth(1)} aria-label="Next month"><Icon name="arrow" /></button>
+    </div>
+    <div className="consultation-weekdays" aria-hidden="true">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>
+    <div className="consultation-days">
+      {days.map((item) => {
+        const count = counts.get(item.key) ?? 0
+        const label = `${fullDate.format(new Date(`${item.key}T12:00:00${singaporeOffset}`))}${count ? `, ${count} ${count === 1 ? 'slot' : 'slots'}` : ''}`
+        return <button id={`consultation-day-${item.key}`} key={item.key} type="button" tabIndex={item.key === selected ? 0 : -1} className={`${item.inMonth ? '' : 'is-outside'}${item.key === selected ? ' is-selected' : ''}${count ? ' has-slots' : ''}`} aria-label={label} aria-pressed={item.key === selected} aria-current={item.key === today ? 'date' : undefined} onKeyDown={(event) => navigateByKeyboard(event, item.key)} onClick={() => select(item.key)}><span>{item.day}</span>{count > 0 && <i aria-hidden="true" />}</button>
+      })}
+    </div>
+    <button type="button" className="consultation-today" onClick={() => { onMonth(today.slice(0, 7)); onSelect(today) }}>Return to today</button>
+  </section>
+}
+
+function TimeRange({ startsAt, endsAt }: { startsAt: string; endsAt: string }) {
+  const minutes = Math.round((Date.parse(endsAt) - Date.parse(startsAt)) / 60000)
+  return <span className="consultation-time"><strong>{timeFormat.format(new Date(startsAt))}</strong><span>– {timeFormat.format(new Date(endsAt))}</span><small>{minutes} min</small></span>
+}
+
+function AppointmentList({ appointments, role, busyId, confirmId, now, onCancel, onConfirm }: { appointments: Appointment[]; role: 'STUDENT' | 'MENTOR'; busyId: string | null; confirmId: string | null; now: number; onCancel: (id: string) => void; onConfirm: (id: string | null) => void }) {
+  const upcoming = appointments.filter((item) => item.status === 'CONFIRMED' && Date.parse(item.startsAt) > now).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+  const history = appointments.filter((item) => !upcoming.includes(item)).sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt))
+  const row = (appointment: Appointment, canCancel: boolean) => <li key={appointment.id} className="consultation-appointment-row">
+    <div><span className={`consultation-state state-${appointment.status.toLowerCase()}`}>{appointment.status.toLowerCase()}</span><h3>{appointment.topic}</h3><p>{dateTimeFormat.format(new Date(appointment.startsAt))} · {role === 'STUDENT' ? appointment.mentorDisplayName : appointment.studentDisplayName}</p></div>
+    {canCancel && (confirmId === appointment.id ? <div className="consultation-confirm" role="group" aria-label={`Confirm cancellation of ${appointment.topic}`}><span>Cancel this consultation?</span><button type="button" className="button consultation-danger" disabled={busyId === appointment.id} onClick={() => onCancel(appointment.id)}>{busyId === appointment.id ? 'Cancelling…' : 'Yes, cancel'}</button><button type="button" className="button button-secondary" onClick={() => onConfirm(null)}>Keep it</button></div> : <button type="button" className="button button-secondary" onClick={() => onConfirm(appointment.id)}>Cancel</button>)}
+  </li>
+  return <section className="consultation-records" aria-labelledby="consultation-upcoming-title">
+    <div className="consultation-record-section"><div className="consultation-section-heading"><h2 id="consultation-upcoming-title">Upcoming consultations</h2><span>{upcoming.length}</span></div>{upcoming.length ? <ul>{upcoming.map((item) => row(item, true))}</ul> : <p className="consultation-empty">No upcoming consultations.</p>}</div>
+    <div className="consultation-record-section"><div className="consultation-section-heading"><h2>History</h2><span>{history.length}</span></div>{history.length ? <ul>{history.map((item) => row(item, false))}</ul> : <p className="consultation-empty">Completed and cancelled consultations will appear here.</p>}</div>
+  </section>
+}
+
+export function StudentConsultationsPage() {
+  const { services } = useServices()
+  const [now] = useState(() => Date.now())
+  const today = dateKey(new Date())
+  const [month, setMonth] = useState(today.slice(0, 7))
+  const [selectedDay, setSelectedDay] = useState(today)
+  const [slotState, setSlotState] = useState<{ key: string; kind: 'ready'; items: AvailabilitySlot[] } | { key: string; kind: 'error' } | null>(null)
+  const [slotRetry, setSlotRetry] = useState(0)
+  const [chosenSlot, setChosenSlot] = useState<string | null>(null)
+  const [topic, setTopic] = useState('')
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
+  const appointmentState = useAppointments('STUDENT')
+  const range = useMemo(() => monthRange(month), [month])
+  const slotKey = `${range.startsAt}:${range.endsAt}:${slotRetry}`
+
+  useEffect(() => {
+    return services.scheduling.subscribeOpenSlots(range, (items) => setSlotState({ key: slotKey, kind: 'ready', items: items.filter((slot) => slot.status === 'OPEN' && Date.parse(slot.startsAt) > Date.now()) }), () => setSlotState({ key: slotKey, kind: 'error' }))
+  }, [range, services, slotKey])
+
+  const currentSlots = slotState?.key === slotKey ? slotState : null
+  const slots = useMemo(() => currentSlots?.kind === 'ready' ? currentSlots.items : [], [currentSlots])
+  const slotsLoading = currentSlots === null
+  const slotsError = currentSlots?.kind === 'error'
+  const counts = useMemo(() => { const result = new Map<string, number>(); slots.forEach((slot) => result.set(dateKey(slot.startsAt), (result.get(dateKey(slot.startsAt)) ?? 0) + 1)); return result }, [slots])
+  const selectedSlots = slots.filter((slot) => dateKey(slot.startsAt) === selectedDay).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+
+  async function book(event: FormEvent, slot: AvailabilitySlot) {
+    event.preventDefault()
+    if (!topic.trim()) { setFeedback({ kind: 'error', message: 'Add a short topic so your Mentor knows what to prepare.' }); return }
+    setBusyId(slot.id); setFeedback(null)
+    try {
+      await services.callables.invoke('reserveAppointment', { requestId: crypto.randomUUID(), slotId: slot.id, helpRequestId: null, topic: topic.trim() })
+      setFeedback({ kind: 'success', message: `Booked ${fullDate.format(new Date(slot.startsAt))} at ${timeFormat.format(new Date(slot.startsAt))} with ${slot.mentorDisplayName}.` }); setChosenSlot(null); setTopic('')
+    } catch (error) { setFeedback({ kind: 'error', message: bookingError(error) }) }
+    finally { setBusyId(null) }
+  }
+
+  async function cancel(appointmentId: string) {
+    setBusyId(appointmentId); setFeedback(null)
+    try { await services.callables.invoke('cancelAppointment', { requestId: crypto.randomUUID(), appointmentId }); setFeedback({ kind: 'success', message: 'The consultation was cancelled and the time is available again.' }); setConfirmId(null) }
+    catch { setFeedback({ kind: 'error', message: 'We could not cancel this consultation. Refresh and try again.' }) }
+    finally { setBusyId(null) }
+  }
+
+  return <section className="consultation-page">
+    <header className="consultation-header"><div><h1>Consultations</h1><p>Choose an open time to learn with a Mentor.</p></div><div className="consultation-zone"><Icon name="calendar"/><span>Singapore time<strong>GMT+8</strong></span></div></header>
+    {feedback && <p className={`consultation-feedback is-${feedback.kind}`} role={feedback.kind === 'error' ? 'alert' : 'status'}>{feedback.message}</p>}
+    <div className="consultation-scheduler">
+      <Calendar month={month} selected={selectedDay} counts={counts} onMonth={setMonth} onSelect={(day) => { setSelectedDay(day); setChosenSlot(null); setTopic(''); setFeedback(null) }} />
+      <section className="consultation-agenda" aria-labelledby="student-agenda-title"><div className="consultation-agenda-heading"><div><h2 id="student-agenda-title">{fullDate.format(new Date(`${selectedDay}T12:00:00${singaporeOffset}`))}</h2><p>{selectedSlots.length ? `${selectedSlots.length} ${selectedSlots.length === 1 ? 'time is' : 'times are'} available` : 'Available times from active Mentors'}</p></div></div>
+        {slotsLoading ? <p className="consultation-loading" role="status">Loading available times…</p> : slotsError ? <div className="consultation-error" role="alert"><p>Availability could not be loaded.</p><button className="button button-secondary" onClick={() => setSlotRetry((value) => value + 1)}>Try again</button></div> : selectedSlots.length ? <ol className="consultation-slot-list">{selectedSlots.map((slot) => <li key={slot.id} className={chosenSlot === slot.id ? 'is-active' : ''}><div className="consultation-slot-main"><TimeRange startsAt={slot.startsAt} endsAt={slot.endsAt}/><span className="consultation-mentor"><strong>{slot.mentorDisplayName}</strong><small>Available Mentor</small></span>{chosenSlot !== slot.id && <button type="button" className="button button-primary" onClick={() => { setChosenSlot(slot.id); setFeedback(null); setTopic('') }}>Choose</button>}</div>{chosenSlot === slot.id && <form className="consultation-book-form" onSubmit={(event) => void book(event, slot)}><label htmlFor={`topic-${slot.id}`}>What would you like help with?</label><input id={`topic-${slot.id}`} value={topic} maxLength={240} autoFocus onChange={(event) => setTopic(event.target.value)} placeholder="e.g. Review my sequence diagram"/><div><button className="button button-primary" disabled={busyId === slot.id}>{busyId === slot.id ? 'Booking…' : 'Confirm booking'}</button><button type="button" className="button button-secondary" onClick={() => { setChosenSlot(null); setTopic('') }}>Choose another time</button></div></form>}</li>)}</ol> : <div className="consultation-empty-day"><Icon name="calendar"/><h3>No availability on this day</h3><p>Choose another highlighted date or check the next month.</p></div>}
+      </section>
+    </div>
+    {appointmentState.loading ? <p className="consultation-loading" role="status">Loading your consultations…</p> : appointmentState.error ? <div className="consultation-error" role="alert"><p>Your consultations could not be loaded.</p><button className="button button-secondary" onClick={appointmentState.retry}>Try again</button></div> : <AppointmentList appointments={appointmentState.appointments} role="STUDENT" busyId={busyId} confirmId={confirmId} now={now} onCancel={(id) => void cancel(id)} onConfirm={setConfirmId}/>}
+  </section>
+}
+
+export function MentorConsultationsPage() {
+  const { services, session } = useServices()
+  const [now] = useState(() => Date.now())
+  const today = dateKey(new Date())
+  const [month, setMonth] = useState(today.slice(0, 7))
+  const [selectedDay, setSelectedDay] = useState(today)
+  const [slotState, setSlotState] = useState<{ key: string; kind: 'ready'; items: AvailabilitySlot[] } | { key: string; kind: 'error' } | null>(null)
+  const [slotRetry, setSlotRetry] = useState(0)
+  const [startTime, setStartTime] = useState('09:00')
+  const [endTime, setEndTime] = useState('09:30')
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
+  const appointmentState = useAppointments('MENTOR')
+  const range = useMemo(() => monthRange(month), [month])
+  const uid = session?.user?.id
+  const slotKey = `${uid ?? ''}:${range.startsAt}:${range.endsAt}:${slotRetry}`
+
+  useEffect(() => {
+    if (!uid) return
+    return services.scheduling.subscribeMentorSlots(uid, range, (items) => setSlotState({ key: slotKey, kind: 'ready', items }), () => setSlotState({ key: slotKey, kind: 'error' }))
+  }, [range, services, slotKey, uid])
+
+  const currentSlots = slotState?.key === slotKey ? slotState : null
+  const slots = useMemo(() => currentSlots?.kind === 'ready' ? currentSlots.items : [], [currentSlots])
+  const slotsLoading = currentSlots === null
+  const slotsError = currentSlots?.kind === 'error'
+  const counts = useMemo(() => { const result = new Map<string, number>(); slots.forEach((slot) => result.set(dateKey(slot.startsAt), (result.get(dateKey(slot.startsAt)) ?? 0) + 1)); return result }, [slots])
+  const selectedSlots = slots.filter((slot) => dateKey(slot.startsAt) === selectedDay).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+  const appointmentById = useMemo(() => new Map(appointmentState.appointments.map((item) => [item.id, item])), [appointmentState.appointments])
+
+  async function createSlot(event: FormEvent) {
+    event.preventDefault(); setFeedback(null)
+    const startsAt = localIso(selectedDay, startTime); const endsAt = localIso(selectedDay, endTime)
+    const duration = Date.parse(endsAt) - Date.parse(startsAt)
+    if (selectedDay < today || Date.parse(startsAt) <= Date.now()) { setFeedback({ kind: 'error', message: 'Choose a future date and time.' }); return }
+    if (duration < 30 * 60000 || duration > 120 * 60000 || duration % (30 * 60000) !== 0) { setFeedback({ kind: 'error', message: 'Availability must last between 30 and 120 minutes in 30-minute increments.' }); return }
+    setBusyId('create')
+    try { await services.callables.invoke('createAvailabilitySlot', { requestId: crypto.randomUUID(), startsAt, endsAt }); setFeedback({ kind: 'success', message: `Availability added for ${fullDate.format(new Date(startsAt))} at ${timeFormat.format(new Date(startsAt))}.` }) }
+    catch (error) { setFeedback({ kind: 'error', message: slotError(error) }) }
+    finally { setBusyId(null) }
+  }
+
+  async function withdraw(slotId: string) {
+    setBusyId(slotId); setFeedback(null)
+    try { await services.callables.invoke('withdrawAvailabilitySlot', { requestId: crypto.randomUUID(), slotId }); setFeedback({ kind: 'success', message: 'The open time was withdrawn.' }) }
+    catch { setFeedback({ kind: 'error', message: 'We could not withdraw this time. Refresh and try again.' }) }
+    finally { setBusyId(null) }
+  }
+
+  async function cancel(appointmentId: string) {
+    setBusyId(appointmentId); setFeedback(null)
+    try { await services.callables.invoke('cancelAppointment', { requestId: crypto.randomUUID(), appointmentId }); setFeedback({ kind: 'success', message: 'The consultation was cancelled and the time was withdrawn.' }); setConfirmId(null) }
+    catch { setFeedback({ kind: 'error', message: 'We could not cancel this consultation. Refresh and try again.' }) }
+    finally { setBusyId(null) }
+  }
+
+  return <section className="consultation-page consultation-mentor-page">
+    <header className="consultation-header"><div><h1>Consultation availability</h1><p>Publish the times when Students can meet with you.</p></div><div className="consultation-zone"><Icon name="calendar"/><span>Singapore time<strong>GMT+8</strong></span></div></header>
+    {feedback && <p className={`consultation-feedback is-${feedback.kind}`} role={feedback.kind === 'error' ? 'alert' : 'status'}>{feedback.message}</p>}
+    <div className="consultation-scheduler">
+      <Calendar month={month} selected={selectedDay} counts={counts} onMonth={setMonth} onSelect={(day) => { setSelectedDay(day); setConfirmId(null); setFeedback(null) }}/>
+      <section className="consultation-agenda" aria-labelledby="mentor-agenda-title"><div className="consultation-agenda-heading"><div><h2 id="mentor-agenda-title">{fullDate.format(new Date(`${selectedDay}T12:00:00${singaporeOffset}`))}</h2><p>Create 30–120 minute openings on half-hour boundaries.</p></div></div>
+        <form className="consultation-create-form" onSubmit={(event) => void createSlot(event)}><label>Starts<input type="time" step="1800" value={startTime} onChange={(event) => setStartTime(event.target.value)}/></label><label>Ends<input type="time" step="1800" value={endTime} onChange={(event) => setEndTime(event.target.value)}/></label><button className="button button-primary" disabled={busyId === 'create' || selectedDay < today}>{busyId === 'create' ? 'Adding…' : 'Add availability'}</button></form>
+        {slotsLoading ? <p className="consultation-loading" role="status">Loading your availability…</p> : slotsError ? <div className="consultation-error" role="alert"><p>Your availability could not be loaded.</p><button className="button button-secondary" onClick={() => setSlotRetry((value) => value + 1)}>Try again</button></div> : selectedSlots.length ? <ol className="consultation-slot-list mentor-slot-list">{selectedSlots.map((slot) => { const appointment = slot.appointmentId ? appointmentById.get(slot.appointmentId) : undefined; const elapsed = Date.parse(slot.endsAt) <= now; const state = elapsed ? 'ELAPSED' : slot.status; return <li key={slot.id}><div className="consultation-slot-main"><TimeRange startsAt={slot.startsAt} endsAt={slot.endsAt}/><span className={`consultation-state state-${state.toLowerCase()}`}>{state.toLowerCase()}</span>{state === 'OPEN' && <button className="button button-secondary" disabled={busyId === slot.id} onClick={() => void withdraw(slot.id)}>{busyId === slot.id ? 'Withdrawing…' : 'Withdraw'}</button>}</div>{appointment && <div className="consultation-booking-detail"><div><strong>{appointment.studentDisplayName}</strong><p>{appointment.topic}</p></div>{appointment.status === 'CONFIRMED' && Date.parse(appointment.startsAt) > now && (confirmId === appointment.id ? <div className="consultation-confirm" role="group" aria-label={`Confirm cancellation of ${appointment.topic}`}><span>Cancel and withdraw this time?</span><button className="button consultation-danger" disabled={busyId === appointment.id} onClick={() => void cancel(appointment.id)}>{busyId === appointment.id ? 'Cancelling…' : 'Yes, cancel'}</button><button className="button button-secondary" onClick={() => setConfirmId(null)}>Keep it</button></div> : <button className="button button-secondary" onClick={() => setConfirmId(appointment.id)}>Cancel consultation</button>)}</div>}</li> })}</ol> : <div className="consultation-empty-day"><Icon name="calendar"/><h3>No availability on this day</h3><p>Choose a future date and add the times that suit you.</p></div>}
+      </section>
+    </div>
+    {appointmentState.loading ? <p className="consultation-loading" role="status">Loading your consultations…</p> : appointmentState.error ? <div className="consultation-error" role="alert"><p>Your consultations could not be loaded.</p><button className="button button-secondary" onClick={appointmentState.retry}>Try again</button></div> : <AppointmentList appointments={appointmentState.appointments} role="MENTOR" busyId={busyId} confirmId={confirmId} now={now} onCancel={(id) => void cancel(id)} onConfirm={setConfirmId}/>}
+  </section>
+}

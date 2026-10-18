@@ -69,5 +69,10 @@ export interface HelpiNUSServices {
     subscribeMessages(requestId: string, cursor: ChatCursor | null, onData: (messages: F02SavedMessage[], next: ChatCursor | null) => void, onError: (error: unknown) => void): () => void
     getMessageFromServer(requestId: string, messageId: string): Promise<F02SavedMessage | null>
   }
+  scheduling: {
+    subscribeOpenSlots(range: { startsAt: string; endsAt: string }, onData: (slots: AvailabilitySlot[]) => void, onError: (error: unknown) => void): () => void
+    subscribeMentorSlots(uid: string, range: { startsAt: string; endsAt: string }, onData: (slots: AvailabilitySlot[]) => void, onError: (error: unknown) => void): () => void
+    subscribeAppointments(uid: string, role: 'STUDENT' | 'MENTOR', onData: (appointments: Appointment[]) => void, onError: (error: unknown) => void): () => void
+  }
   callables: CallableClient
 }

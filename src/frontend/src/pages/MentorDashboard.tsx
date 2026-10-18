@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import type { ReadOwnMentorProfileOutput } from '@helpinus/shared'
+import type { Appointment, ReadOwnMentorProfileOutput } from '@helpinus/shared'
 import type { HelpiNUSServices } from '../services/contracts'
 import { useServices } from '../services/useServices'
 import './MentorDashboard.css'
@@ -9,6 +9,7 @@ type Ready = Extract<ReadOwnMentorProfileOutput, { kind: 'ready' }>
 type View = { kind: 'loading' | 'error' | 'sessionError' | 'unavailable' | 'accessLost' } | { kind: 'ready'; result: Ready; refreshing: boolean; metadataFailed: boolean }
 const serviceKeys = new WeakMap<HelpiNUSServices, number>()
 let nextServiceKey = 0
+const consultationDate = new Intl.DateTimeFormat('en-SG', { timeZone: 'Asia/Singapore', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 
 function excerpt(value: string) {
   const normalized = value.replace(/\s+/gu, ' ').trim()
@@ -54,6 +55,8 @@ function MentorDashboardContent({ services, uid, refreshSession }: { services: H
   const deniedUid = (location.state as { f03AccessDenied?: unknown } | null)?.f03AccessDenied
   const denied = typeof deniedUid === 'string' && deniedUid === uid
   const [view, setView] = useState<View>(denied ? { kind: 'accessLost' } : { kind: 'loading' })
+  const [consultationState, setConsultationState] = useState<{ uid: string; kind: 'error' } | { uid: string; kind: 'ready'; items: Appointment[] } | null>(null)
+  const [now] = useState(() => Date.now())
   const generation = useRef(0)
   const mounted = useRef(false)
 
@@ -103,6 +106,10 @@ function MentorDashboardContent({ services, uid, refreshSession }: { services: H
     // Entry alone starts the read. Retries call read directly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  useEffect(() => {
+    if (!uid) return
+    return services.scheduling.subscribeAppointments(uid, 'MENTOR', (items) => setConsultationState({ uid, kind: 'ready', items }), () => setConsultationState({ uid, kind: 'error' }))
+  }, [services, uid])
 
   async function retryDenied() {
     ++generation.current
@@ -114,6 +121,8 @@ function MentorDashboardContent({ services, uid, refreshSession }: { services: H
   const profile = view.kind === 'ready' ? view.result.profile : null
   const bio = profile ? excerpt(profile.biography) : ''
   const summary = view.kind === 'ready' ? moduleSummary(view.result) : null
+  const consultations = consultationState?.uid === uid ? consultationState : null
+  const upcoming = consultations?.kind === 'ready' ? consultations.items.filter((item) => item.status === 'CONFIRMED' && Date.parse(item.startsAt) > now).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)) : []
   return <section className="mentor-dashboard">
     <header className="mentor-dashboard-header">
       <div className="mentor-dashboard-welcome">
@@ -123,6 +132,10 @@ function MentorDashboardContent({ services, uid, refreshSession }: { services: H
       </div>
       <Link className="button button-primary mentor-dashboard-primary" to="/mentor/profile">My profile</Link>
     </header>
+    <section className="mentor-consultation-summary" aria-labelledby="mentor-consultation-summary-title">
+      <div><h2 id="mentor-consultation-summary-title">Consultation schedule</h2>{consultations === null ? <p role="status">Loading your consultations…</p> : consultations.kind === 'error' ? <p role="alert">Your consultation schedule is unavailable.</p> : upcoming.length ? <p><strong>{upcoming.length}</strong> upcoming · Next {consultationDate.format(new Date(upcoming[0].startsAt))} with {upcoming[0].studentDisplayName}</p> : <p>No upcoming consultations. Publish availability when you are ready.</p>}</div>
+      <Link className="button button-secondary" to="/mentor/consultations">Manage availability</Link>
+    </section>
     <section className="mentor-dashboard-card" aria-labelledby="mentor-dashboard-profile-title">
       <div className="mentor-dashboard-card-heading">
         <h2 id="mentor-dashboard-profile-title">Your profile</h2>

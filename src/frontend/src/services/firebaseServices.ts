@@ -1,7 +1,7 @@
 import { createUserWithEmailAndPassword, onAuthStateChanged, sendEmailVerification, signInWithEmailAndPassword, signOut, updateProfile, type User as AuthUser } from 'firebase/auth'
 import { Timestamp, collection, doc, documentId, getDoc, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { callableSchemas, f01HelpRequestSchema, helpRequestSummarySchema, initializeStudentProfileOutputSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
+import { appointmentSchema, availabilitySlotSchema, callableSchemas, f01HelpRequestSchema, helpRequestSummarySchema, initializeStudentProfileOutputSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
 import { firebase } from './firebase'
 import { firebaseEnvironment, isEmulatorConnectionAllowed } from './firebaseConfig'
 import type { DashboardData, HelpiNUSServices, Session } from './contracts'
@@ -164,11 +164,62 @@ export const firebaseServices: HelpiNUSServices = {
     },
   },
   conversations: firebaseConversations,
+  scheduling: {
+    subscribeOpenSlots(range, onData, onError) {
+      const slots = query(
+        collection(configured().firestore, 'availabilitySlots'),
+        where('status', '==', 'OPEN'),
+        where('appointmentId', '==', null),
+        where('startsAt', '>=', Timestamp.fromDate(new Date(range.startsAt))),
+        where('startsAt', '<', Timestamp.fromDate(new Date(range.endsAt))),
+        orderBy('startsAt', 'asc'),
+        limit(100),
+      )
+      return onSnapshot(slots, (snapshot) => {
+        try { onData(snapshot.docs.map((item) => parseAvailabilitySlot(item.id, item.data()))) }
+        catch (error) { onError(error) }
+      }, onError)
+    },
+    subscribeMentorSlots(uid, range, onData, onError) {
+      const slots = query(
+        collection(configured().firestore, 'availabilitySlots'),
+        where('mentorId', '==', uid),
+        where('startsAt', '>=', Timestamp.fromDate(new Date(range.startsAt))),
+        where('startsAt', '<', Timestamp.fromDate(new Date(range.endsAt))),
+        orderBy('startsAt', 'asc'),
+        limit(100),
+      )
+      return onSnapshot(slots, (snapshot) => {
+        try { onData(snapshot.docs.map((item) => parseAvailabilitySlot(item.id, item.data()))) }
+        catch (error) { onError(error) }
+      }, onError)
+    },
+    subscribeAppointments(uid, role, onData, onError) {
+      const appointments = query(
+        collection(configured().firestore, 'appointments'),
+        where(role === 'STUDENT' ? 'studentId' : 'mentorId', '==', uid),
+        orderBy('startsAt', 'desc'),
+        limit(100),
+      )
+      return onSnapshot(appointments, (snapshot) => {
+        try { onData(snapshot.docs.map((item) => parseAppointment(item.id, item.data()))) }
+        catch (error) { onError(error) }
+      }, onError)
+    },
+  },
   callables: { invoke: invokeCallable },
 }
 
 function parseHelpRequest(id: string, data: Record<string, unknown>) {
   return f01HelpRequestSchema.parse({ ...data, id, createdAt: normalizeFirestoreTimestamp(data.createdAt), updatedAt: normalizeFirestoreTimestamp(data.updatedAt) })
+}
+
+function parseAvailabilitySlot(id: string, data: Record<string, unknown>) {
+  return availabilitySlotSchema.parse({ ...data, id, startsAt: normalizeFirestoreTimestamp(data.startsAt), endsAt: normalizeFirestoreTimestamp(data.endsAt), createdAt: normalizeFirestoreTimestamp(data.createdAt), updatedAt: normalizeFirestoreTimestamp(data.updatedAt) })
+}
+
+function parseAppointment(id: string, data: Record<string, unknown>) {
+  return appointmentSchema.parse({ ...data, id, startsAt: normalizeFirestoreTimestamp(data.startsAt), endsAt: normalizeFirestoreTimestamp(data.endsAt), createdAt: normalizeFirestoreTimestamp(data.createdAt), updatedAt: normalizeFirestoreTimestamp(data.updatedAt) })
 }
 
 function subscribeRequestPage(ownerField: 'studentId' | 'mentorId', uid: string, status: null | 'PENDING' | ['ACCEPTED', 'REJECTED'], direction: 'asc' | 'desc', cursor: { createdAt: string; id: string } | null, onData: Parameters<HelpiNUSServices['helpRequests']['subscribeStudentPage']>[2], onError: (error: unknown) => void) {
