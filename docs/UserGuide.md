@@ -194,18 +194,26 @@ attention: a modified client can acknowledge early or withhold acknowledgement.
 1. Choose **Consultations**. The calendar and every time shown use Singapore
    time (GMT+8). Dates with open Mentor times are marked in the calendar.
    Use **Previous month**, **Next month**, or **Return to today**, then select
-   a date to see its available times.
+   a date to see its available times. Past dates are muted and unavailable.
 2. Choose **Choose** beside a suitable time. Enter a short topic in **What
    would you like help with?**, then choose **Confirm booking**. A successful
    booking is confirmed immediately and appears under **Upcoming
    consultations** with the Mentor's name and time.
 3. A time can be booked by only one Student. If somebody books it first, the
    app explains that the time is no longer available; choose another open
-   time. If there are no times on the selected date, choose another marked
-   date or check a later month.
+   time. You also cannot book a time that overlaps another one of your
+   consultations. Your topic is kept while you choose a replacement. If there
+   are no times on the selected date, choose another marked date or check a
+   later month.
 4. To cancel an upcoming booking, choose **Cancel**, then **Yes, cancel**.
    The booking moves to **History** and the time becomes available for another
    Student. Choose **Keep it** if you do not want to cancel.
+
+When a confirmed consultation starts, it moves to **In progress** and can no
+longer be cancelled. After its end time it appears in **History** as
+**Awaiting Mentor outcome** until the Mentor marks it completed. Completed and
+cancelled records remain in History; HelpiNUS does not automatically delete
+them when their date passes.
 
 The calendar lists open Mentor times. A booking is confirmed only while the
 Mentor's account and profile remain active. HelpiNUS does not
@@ -283,7 +291,9 @@ to both roles.
 2. Under the selected date, set **Starts** and **Ends**, then choose **Add
    availability**. Each opening must start and end on a half-hour boundary and
    last from 30 to 120 minutes. Overlapping availability is not allowed,
-   although back-to-back openings are allowed.
+   although back-to-back openings are allowed. Invalid fields explain whether
+   the end is not later than the start, the time is in the past, the boundary
+   is not `:00` or `:30`, or the duration is outside the allowed range.
 3. An unbooked opening is labelled **open**. Choose **Withdraw** to remove it
    before a Student books it. A withdrawn time is not offered to Students.
 4. When a Student books an opening, it is labelled **booked** and shows the
@@ -292,8 +302,13 @@ to both roles.
 5. To cancel a future booked consultation, choose **Cancel consultation**,
    then **Yes, cancel**. This cancels the consultation and withdraws that time
    so it cannot be booked again. Choose **Keep it** to leave it unchanged.
+6. A consultation moves to **In progress** at its start time. After its end
+   time it moves to **History** as **Awaiting Mentor outcome**. Choose **Mark
+   completed** to record the outcome. Students cannot complete appointments.
 
-Past times are retained as history rather than new availability. Use the
+Past times are retained as history rather than new availability. A no-show
+outcome is not currently available; do not use **Completed** to represent a
+no-show. Use the
 calendar controls to move between months. If availability or consultations
 cannot load, use the page's **Try again** button after your connection or
 account access is restored.

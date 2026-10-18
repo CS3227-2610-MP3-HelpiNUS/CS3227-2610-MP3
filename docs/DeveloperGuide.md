@@ -182,6 +182,7 @@ erDiagram
 | `appointments/{appointmentId}` | Slot, Student/Mentor IDs and historical display names, optional Help Request, topic, `CONFIRMED`/`CANCELLED`/`COMPLETED` status, cancellation actor, start/end and audit timestamps |
 | `appointmentOperations/{uid}/operations/{requestId}` | Private action, actor, payload fingerprint and result receipt for scheduling retries |
 | `availabilitySlotLocks/{lockHash}` | Private Mentor/half-hour occupancy lock used to reject overlapping availability |
+| `studentAppointmentLocks/{lockHash}` | Private Student/half-hour occupancy lock used to reject concurrent overlapping bookings |
 | `aiAuditEvents/{eventId}` | actor, role, feature, outcome, prompt hash, timestamp |
 
 Firestore stores native timestamps. The shared network/application contract
@@ -530,8 +531,11 @@ release-ready from the local suite alone.
 `/student/consultations` renders `StudentConsultationsPage` and
 `/mentor/consultations` renders `MentorConsultationsPage`, each inside the
 existing role guard and `AppShell`. Both use a Singapore-time monthly calendar,
-selected-day agenda, loading/error recovery, upcoming consultations and
-history. The Student chooses an `OPEN` time and supplies a 1–240 character
+selected-day agenda, loading/error recovery, and upcoming, in-progress and
+history views. These lifecycle sections are derived from the current Singapore
+time and refresh once per minute: a confirmed appointment is upcoming before
+its start, in progress until its end, then awaits a Mentor outcome in history.
+The Student chooses an `OPEN` time and supplies a 1–240 character
 topic; the Mentor creates availability, sees booked Student/topic details and
 can withdraw an open time. Both roles use inline cancellation confirmation.
 The Student and Mentor dashboards subscribe to the same persisted appointment
@@ -552,13 +556,16 @@ All scheduling writes cross callable Functions. Each handler authenticates the
 current Firebase identity, rereads the exact ACTIVE `users/{uid}` record and
 checks its role; Mentor slot creation also requires the current active Mentor
 profile. Slots must be in the future, begin and end on 30-minute boundaries,
-and last 30–120 minutes. `createAvailabilitySlot` transactionally acquires one
+start and end on the same Singapore date, and last 30–120 minutes.
+`createAvailabilitySlot` transactionally acquires one
 private SHA-256 `availabilitySlotLocks` document for every occupied half-hour,
 so adjacent slots remain legal while an overlap fails. Reservation rereads the
 Student, Mentor account/profile and slot, then atomically changes `OPEN` to
 `BOOKED` and creates one `CONFIRMED` appointment. A supplied `helpRequestId` is
 optional; when present, the handler validates the accepted request and exact
-Student/Mentor pair.
+Student/Mentor pair. Reservation also acquires private Student half-hour locks
+in the same transaction, preventing two concurrent bookings for the same
+Student from overlapping even when different Mentors own the slots.
 
 Every mutation stores a private per-actor operation receipt keyed by UUID
 `requestId`, including an action-specific payload fingerprint and result ID.
@@ -566,10 +573,11 @@ An identical retry returns the saved result; reuse with different content is
 rejected. Stored slots and appointments are parsed fail-closed, including
 native timestamps, document IDs, slot/appointment links and cancellation
 metadata. A Student cancellation keeps the Mentor's occupancy locks and
-reopens the slot; a Mentor cancellation withdraws the slot and removes those
+reopens the slot; a Mentor cancellation withdraws the slot and removes the
+Mentor occupancy locks. Either cancellation releases the Student occupancy
 locks. Direct withdrawal is limited to the owning Mentor's unbooked future
-slot. Only the owning Mentor can complete an appointment, and only after it
-starts.
+slot. Only the owning Mentor can complete an appointment, only after its end
+time; completion also releases the Student occupancy locks.
 
 Firestore clients cannot write slots, appointments, receipts or locks. Direct
 slot `get` can enforce that an open slot belongs to a currently active Mentor
@@ -579,6 +587,11 @@ collection query. The bounded list rule therefore exposes only the minimal
 `reserveAppointment` repeats the authoritative Mentor/profile check before any
 write. UI date ranges and callable validation exclude elapsed availability;
 the list rule alone is not a booking authorization decision.
+
+Appointments and slots are retained as auditable records when their times
+pass; the clock changes presentation and available actions, not persisted
+status. There is no automatic deletion or `NO_SHOW` state in this feature.
+Retention duration and no-show policy remain explicit product decisions.
 
 ### Mentor dashboard (S1-D2-F03)
 
