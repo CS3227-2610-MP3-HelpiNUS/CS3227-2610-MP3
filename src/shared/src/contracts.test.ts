@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   availabilitySlotSchema,
   closeHelpRequestInputSchema,
+  createAvailabilitySlotInputSchema,
   createHelpRequestInputSchema,
   respondToHelpRequestInputSchema,
   discoverMentorsInputSchema,
@@ -110,12 +111,26 @@ describe('shared contracts', () => {
       availabilitySlotSchema.parse({
         id: 'slot-1',
         mentorId: 'mentor-1',
+        mentorDisplayName: 'Mentor One',
         startsAt: '2026-10-13T11:00:00.000+08:00',
         endsAt: '2026-10-13T10:00:00.000+08:00',
-        withdrawn: false,
+        status: 'OPEN',
+        appointmentId: null,
         createdAt: '2026-10-13T09:00:00.000+08:00',
+        updatedAt: '2026-10-13T09:00:00.000+08:00',
       }),
     ).toThrow('endsAt must be after startsAt')
+  })
+
+  it('rejects contradictory scheduling links and forged callable fields', () => {
+    const slot = {
+      id: 'slot-1', mentorId: 'mentor-1', mentorDisplayName: 'Mentor One',
+      startsAt: '2026-10-20T01:00:00.000Z', endsAt: '2026-10-20T01:30:00.000Z',
+      status: 'OPEN', appointmentId: 'appointment-1',
+      createdAt: '2026-10-18T01:00:00.000Z', updatedAt: '2026-10-18T01:00:00.000Z',
+    }
+    expect(availabilitySlotSchema.safeParse(slot).success).toBe(false)
+    expect(createAvailabilitySlotInputSchema.safeParse({ requestId: crypto.randomUUID(), startsAt: slot.startsAt, endsAt: slot.endsAt, mentorId: 'forged' }).success).toBe(false)
   })
 
   it('requires idempotency keys for state-changing callables', () => {
