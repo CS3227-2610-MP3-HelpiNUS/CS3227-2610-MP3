@@ -12,7 +12,9 @@ role-based access, Mentor discovery, and Mentor profile management. Sprint 2
 F01 adds Student help-request submission and history, a persisted Student
 request summary, and a Mentor request inbox. The local F02 implementation adds
 atomic Mentor acceptance and private request-linked text conversations for
-the Student and addressed Mentor. Consultations and AI actions remain scaffolds.
+the Student and addressed Mentor. The consultation calendar lets Mentors publish
+availability and lets Students make and manage confirmed bookings. AI actions
+remain scaffolds.
 
 ## 2. Supported users and devices
 
@@ -71,11 +73,11 @@ the header.
 
 | Destination | Current behaviour |
 | --- | --- |
-| Dashboard | Shows persisted help-request counts and recent requests; other widgets use labelled sample data |
+| Dashboard | Shows persisted help-request counts, recent requests, and your next confirmed consultation when available |
 | Find a mentor | Browse available Mentors, search and filter loaded results, and inspect public details |
 | Help requests | Submit, review, and track your own requests |
 | Conversations | Open accepted request conversations, read saved history, send messages and see sender-side read status |
-| Consultations | Route and interface scaffold |
+| Consultations | Find open Mentor times, book a consultation, and manage your bookings |
 | Study assistant | Route and interface scaffold; no live LLM call |
 
 Use **Skip to content** when navigating by keyboard to bypass repeated
@@ -187,6 +189,39 @@ The official app acknowledges an incoming saved message when it enters the
 foreground conversation viewport. Read does not prove the recipient paid
 attention: a modified client can acknowledge early or withhold acknowledgement.
 
+### Book and manage a consultation
+
+1. Choose **Consultations**. The calendar and every time shown use Singapore
+   time (GMT+8). Dates with open Mentor times are marked in the calendar.
+   Use **Previous month**, **Next month**, or **Return to today**, then select
+   a date to see its available times. Past dates are muted and unavailable.
+2. Choose **Choose** beside a suitable time. Enter a short topic in **What
+   would you like help with?**, then choose **Confirm booking**. A successful
+   booking is confirmed immediately and appears under **Upcoming
+   consultations** with the Mentor's name and time.
+3. A time can be booked by only one Student. If somebody books it first, the
+   app explains that the time is no longer available; choose another open
+   time. You also cannot book a time that overlaps another one of your
+   consultations. Your topic is kept while you choose a replacement. If there
+   are no times on the selected date, choose another marked date or check a
+   later month.
+4. To cancel an upcoming booking, choose **Cancel**, then **Yes, cancel**.
+   The booking moves to **History** and the time becomes available for another
+   Student. Choose **Keep it** if you do not want to cancel.
+
+When a confirmed consultation starts, it moves to **In progress** and can no
+longer be cancelled. After its end time it appears in **History** as
+**Awaiting Mentor outcome** until the Mentor marks it completed. Completed and
+cancelled records remain in History; HelpiNUS does not automatically delete
+them when their date passes.
+
+The calendar lists open Mentor times. A booking is confirmed only while the
+Mentor's account and profile remain active. HelpiNUS does not
+create a video-call link, send calendar invitations or reminders, sync with an
+external calendar, offer recurring availability, or provide a reschedule
+button. Cancel a booking and make a new one instead when you need a different
+time.
+
 ## 6. Mentor access
 
 Mentors cannot register through the public form. An administrator provisions a
@@ -221,8 +256,10 @@ information**. If your own profile is missing, inactive, or invalid, follow
 the administrator or HelpiNUS support guidance shown on the page. If account
 access is denied during a read, the page clears the summary and checks the
 session again; use its explicit **Try again** only after access is resolved.
-The dashboard does not show request, booking, consultation, conversation, or
-other activity totals.
+The dashboard also shows a consultation schedule summary. It states whether
+your consultation list is loading or unavailable, shows the next confirmed
+consultation when there is one, and links to **Manage availability**. It does
+not show a full consultation history; use **Consultations** for that.
 
 ### Review help requests
 
@@ -245,6 +282,36 @@ The Mentor **Conversations** list and detail use the same request-linked chat
 as the Student view, with the Student's historical display name and question
 context. The message, history, retry and read-status behavior above applies
 to both roles.
+
+### Manage consultation availability
+
+1. Choose **Consultations** in Mentor navigation. The calendar, form, and
+   times are all in Singapore time (GMT+8). Select a future date; dates with
+   your existing availability are marked in the calendar.
+2. Under the selected date, set **Starts** and **Ends**, then choose **Add
+   availability**. Each opening must start and end on a half-hour boundary and
+   last from 30 to 120 minutes. Overlapping availability is not allowed,
+   although back-to-back openings are allowed. Invalid fields explain whether
+   the end is not later than the start, the time is in the past, the boundary
+   is not `:00` or `:30`, or the duration is outside the allowed range.
+3. An unbooked opening is labelled **open**. Choose **Withdraw** to remove it
+   before a Student books it. A withdrawn time is not offered to Students.
+4. When a Student books an opening, it is labelled **booked** and shows the
+   Student's name and booking topic. The booking is already confirmed; there
+   is no separate Mentor approval step.
+5. To cancel a future booked consultation, choose **Cancel consultation**,
+   then **Yes, cancel**. This cancels the consultation and withdraws that time
+   so it cannot be booked again. Choose **Keep it** to leave it unchanged.
+6. A consultation moves to **In progress** at its start time. After its end
+   time it moves to **History** as **Awaiting Mentor outcome**. Choose **Mark
+   completed** to record the outcome. Students cannot complete appointments.
+
+Past times are retained as history rather than new availability. A no-show
+outcome is not currently available; do not use **Completed** to represent a
+no-show. Use the
+calendar controls to move between months. If availability or consultations
+cannot load, use the page's **Try again** button after your connection or
+account access is restored.
 
 ### Manage your Mentor profile
 

@@ -15,6 +15,7 @@ const mentorLinks = [
   { to: '/mentor/dashboard', label: 'Dashboard', icon: 'home' },
   { to: '/mentor/requests', label: 'Help requests', icon: 'requests' },
   { to: '/mentor/conversations', label: 'Conversations', icon: 'messages' },
+  { to: '/mentor/consultations', label: 'Consultations', icon: 'calendar' },
   { to: '/mentor/profile', label: 'My profile', icon: 'mentors' },
 ] as const
 
@@ -59,7 +60,7 @@ export function AppShell() {
       {signOutError && <p className="signout-error" role="alert">{signOutError}</p>}
       <main id="main-content" className="main-content" tabIndex={-1}><Outlet context={{ signOut: () => void logOut(), signingOut } satisfies AppShellOutletContext} /></main>
       <nav className="mobile-nav" aria-label={isMentor ? 'Mentor navigation' : 'Student navigation'}>
-        {links.map(({ to, label, icon }) => <NavLink key={to} to={to} aria-label={label} title={label} className={(state: NavLinkRenderProps) => `mobile-nav-link${state.isActive ? ' active' : ''}`}><Icon name={icon}/><span>{label === 'Find a mentor' ? 'Mentors' : label === 'My profile' ? 'Profile' : label === 'Help requests' ? 'Requests' : label === 'Conversations' ? 'Messages' : label === 'Consultations' ? 'Bookings' : label === 'Study assistant' ? 'Study' : 'Home'}</span></NavLink>)}
+        {links.map(({ to, label, icon }) => <NavLink key={to} to={to} aria-label={label} title={label} className={(state: NavLinkRenderProps) => `mobile-nav-link${state.isActive ? ' active' : ''}`}><Icon name={icon}/><span>{label === 'Find a mentor' ? 'Mentors' : label === 'My profile' ? 'Profile' : label === 'Help requests' ? 'Requests' : label === 'Conversations' ? 'Messages' : label === 'Study assistant' ? 'Study' : label === 'Dashboard' ? 'Home' : label}</span></NavLink>)}
       </nav>
     </div>
   </div>
