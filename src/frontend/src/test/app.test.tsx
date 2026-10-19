@@ -10,7 +10,6 @@ import { MentorDiscoveryPage } from '../pages/MentorDiscoveryPage'
 import { MentorProfilePage } from '../pages/MentorProfilePage'
 import { MentorDashboard } from '../pages/MentorDashboard'
 import { ConversationDetailPage } from '../pages/ConversationPages'
-import { MentorConsultationsPage, StudentConsultationsPage } from '../pages/ConsultationPages'
 import { ProtectedRoute } from '../routes/ProtectedRoute'
 import { ServiceProvider } from '../services/ServiceProvider'
 import type { HelpiNUSServices } from '../services/contracts'
@@ -24,14 +23,13 @@ function renderStudentAt(path: string, services: HelpiNUSServices = mockServices
       { path: '/student/requests', element: <WorkspacePage /> },
       { path: '/student/conversations', element: <WorkspacePage /> },
       { path: '/student/conversations/:requestId', element: <ConversationDetailPage role="student" /> },
-      { path: '/student/consultations', element: <StudentConsultationsPage /> },
+      { path: '/student/consultations', element: <WorkspacePage /> },
       { path: '/student/study-assistant', element: <WorkspacePage /> },
     ] }] },
     { path: '/login', element: <LoginPage /> },
     { element: <ProtectedRoute role="MENTOR" />, children: [{ element: <AppShell />, children: [
       { path: '/mentor/dashboard', element: <MentorDashboard /> },
       { path: '/mentor/profile', element: <MentorProfilePage /> },
-      { path: '/mentor/consultations', element: <MentorConsultationsPage /> },
     ] }] },
   ], { initialEntries: [path] })
   return render(<ServiceProvider servicesOverride={services}><RouterProvider router={router} /></ServiceProvider>)
@@ -50,8 +48,8 @@ describe('Student application foundation', () => {
     expect(await screen.findByRole('heading', { name: 'Welcome back, Jamie' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Help requests' })).toBeInTheDocument()
     expect(screen.getByText('No requests yet.')).toBeInTheDocument()
-    expect(screen.getByText('Fri, 20 Nov, 3:00 pm')).toBeInTheDocument()
-    expect(screen.getByText('Conversation widgets show sample workspace data in preview mode.')).toBeInTheDocument()
+    expect(screen.getByText('Thu, 15 Oct, 3:00 pm')).toBeInTheDocument()
+    expect(screen.getByText('Consultation and conversation widgets show sample workspace data in preview mode.')).toBeInTheDocument()
   })
 
   it('provides named navigation and keyboard accessible primary actions', async () => {

@@ -73,15 +73,3 @@ export async function requireCurrentMentor(request: CallableRequest<unknown>): P
   }
   return user
 }
-
-export async function requireCurrentStudent(request: CallableRequest<unknown>): Promise<AuthorizedUser> {
-  const user = await requireRole(request, 'STUDENT')
-  let authUser
-  try { authUser = await getAuth().getUser(user.uid) }
-  catch { throw new HttpsError('permission-denied', 'Student account access has changed.') }
-  const synthetic = process.env.FUNCTIONS_EMULATOR === 'true' && user.email.endsWith('@example.test')
-  if (authUser.disabled || authUser.email !== user.email || (!authUser.emailVerified && !synthetic)) {
-    throw new HttpsError('permission-denied', 'Student account access has changed.')
-  }
-  return user
-}

@@ -12,9 +12,7 @@ role-based access, Mentor discovery, and Mentor profile management. Sprint 2
 F01 adds Student help-request submission and history, a persisted Student
 request summary, and a Mentor request inbox. The local F02 implementation adds
 atomic Mentor acceptance and private request-linked text conversations for
-the Student and addressed Mentor. The consultation calendar lets Mentors publish
-availability and lets Students make and manage confirmed bookings. AI actions
-remain scaffolds.
+the Student and addressed Mentor. Consultations and AI actions remain scaffolds.
 
 ## 2. Supported users and devices
 
@@ -30,16 +28,14 @@ sufficient contrast, and reduced-motion support.
 ## 3. Create a Student account
 
 1. Open HelpiNUS and choose **Create a Student account**.
-2. Enter your display name, email address, and password.
-3. Select **Create Student account**.
-4. Open the verification email from Firebase and verify the address.
-5. Return to HelpiNUS and select **I’ve verified my email**. If the original
-   message is unavailable, select **Send verification email** first.
-6. If prompted, enter your name and select **Retry Student profile setup**.
+2. Select **Create Student account with Google**.
+3. Choose any Google account in the Google sign-in window.
+4. If that account does not provide a display name, enter your name and select
+   **Finish Student profile setup**.
 
 Public registration always creates an `ACTIVE` Student profile. The form does
 not accept a role or account status, so it cannot create a Mentor account or
-elevate privileges.
+elevate privileges. HelpiNUS does not collect or store a password.
 
 Firebase creates the sign-in identity before HelpiNUS creates the authoritative
 profile. If the second step is interrupted, the account remains unable to open
@@ -48,22 +44,18 @@ existing role.
 
 ## 4. Sign in and restore a session
 
-1. Enter the registered email and password.
-2. Choose **Sign in**.
+1. Choose **Continue with Google**.
+2. Select the Google account connected to the HelpiNUS profile.
 3. HelpiNUS verifies the identity and authoritative profile.
 4. Students are sent to `/student/dashboard`; provisioned Mentors are sent to
    `/mentor/dashboard`.
 
 Reloading the page restores a valid session. A missing, malformed, suspended,
-disabled, email-mismatched, or unverified account fails closed and displays a
-recovery explanation. If a local Auth emulator is restarted, an identity left
-in browser storage is signed out automatically instead of becoming permanently
-stuck.
-
-If email verification is still required, use **Send verification email** (or
-**Resend verification email** after the first request), complete verification,
-then select **I’ve verified my email**. These controls remain available after a
-page reload.
+disabled, email-mismatched, or invalid account fails closed and displays a
+recovery explanation. Closing the Google window simply returns to the sign-in
+page. If pop-ups are blocked, allow them for HelpiNUS and try again. If a local
+Auth emulator is restarted, an identity left in browser storage is signed out
+automatically instead of becoming permanently stuck.
 
 ## 5. Student navigation
 
@@ -73,11 +65,11 @@ the header.
 
 | Destination | Current behaviour |
 | --- | --- |
-| Dashboard | Shows persisted help-request counts, recent requests, and your next confirmed consultation when available |
+| Dashboard | Shows persisted help-request counts and recent requests; other widgets use labelled sample data |
 | Find a mentor | Browse available Mentors, search and filter loaded results, and inspect public details |
 | Help requests | Submit, review, and track your own requests |
 | Conversations | Open accepted request conversations, read saved history, send messages and see sender-side read status |
-| Consultations | Find open Mentor times, book a consultation, and manage your bookings |
+| Consultations | Route and interface scaffold |
 | Study assistant | Route and interface scaffold; no live LLM call |
 
 Use **Skip to content** when navigating by keyboard to bypass repeated
@@ -189,45 +181,13 @@ The official app acknowledges an incoming saved message when it enters the
 foreground conversation viewport. Read does not prove the recipient paid
 attention: a modified client can acknowledge early or withhold acknowledgement.
 
-### Book and manage a consultation
-
-1. Choose **Consultations**. The calendar and every time shown use Singapore
-   time (GMT+8). Dates with open Mentor times are marked in the calendar.
-   Use **Previous month**, **Next month**, or **Return to today**, then select
-   a date to see its available times. Past dates are muted and unavailable.
-2. Choose **Choose** beside a suitable time. Enter a short topic in **What
-   would you like help with?**, then choose **Confirm booking**. A successful
-   booking is confirmed immediately and appears under **Upcoming
-   consultations** with the Mentor's name and time.
-3. A time can be booked by only one Student. If somebody books it first, the
-   app explains that the time is no longer available; choose another open
-   time. You also cannot book a time that overlaps another one of your
-   consultations. Your topic is kept while you choose a replacement. If there
-   are no times on the selected date, choose another marked date or check a
-   later month.
-4. To cancel an upcoming booking, choose **Cancel**, then **Yes, cancel**.
-   The booking moves to **History** and the time becomes available for another
-   Student. Choose **Keep it** if you do not want to cancel.
-
-When a confirmed consultation starts, it moves to **In progress** and can no
-longer be cancelled. After its end time it appears in **History** as
-**Awaiting Mentor outcome** until the Mentor marks it completed. Completed and
-cancelled records remain in History; HelpiNUS does not automatically delete
-them when their date passes.
-
-The calendar lists open Mentor times. A booking is confirmed only while the
-Mentor's account and profile remain active. HelpiNUS does not
-create a video-call link, send calendar invitations or reminders, sync with an
-external calendar, offer recurring availability, or provide a reschedule
-button. Cancel a booking and make a new one instead when you need a different
-time.
-
 ## 6. Mentor access
 
 Mentors cannot register through the public form. An administrator provisions a
-Mentor with a trusted backend script. After provisioning, the Mentor signs in
-with the supplied Firebase Authentication identity and is routed to the Mentor
-dashboard. Student URLs redirect back to the Mentor dashboard.
+Mentor with a trusted backend script after the Mentor has established a Google
+Firebase Authentication identity. After provisioning, the Mentor uses
+**Continue with Google** and is routed to the Mentor dashboard. Student URLs
+redirect back to the Mentor dashboard.
 
 ### Mentor dashboard
 
@@ -256,10 +216,8 @@ information**. If your own profile is missing, inactive, or invalid, follow
 the administrator or HelpiNUS support guidance shown on the page. If account
 access is denied during a read, the page clears the summary and checks the
 session again; use its explicit **Try again** only after access is resolved.
-The dashboard also shows a consultation schedule summary. It states whether
-your consultation list is loading or unavailable, shows the next confirmed
-consultation when there is one, and links to **Manage availability**. It does
-not show a full consultation history; use **Consultations** for that.
+The dashboard does not show request, booking, consultation, conversation, or
+other activity totals.
 
 ### Review help requests
 
@@ -282,36 +240,6 @@ The Mentor **Conversations** list and detail use the same request-linked chat
 as the Student view, with the Student's historical display name and question
 context. The message, history, retry and read-status behavior above applies
 to both roles.
-
-### Manage consultation availability
-
-1. Choose **Consultations** in Mentor navigation. The calendar, form, and
-   times are all in Singapore time (GMT+8). Select a future date; dates with
-   your existing availability are marked in the calendar.
-2. Under the selected date, set **Starts** and **Ends**, then choose **Add
-   availability**. Each opening must start and end on a half-hour boundary and
-   last from 30 to 120 minutes. Overlapping availability is not allowed,
-   although back-to-back openings are allowed. Invalid fields explain whether
-   the end is not later than the start, the time is in the past, the boundary
-   is not `:00` or `:30`, or the duration is outside the allowed range.
-3. An unbooked opening is labelled **open**. Choose **Withdraw** to remove it
-   before a Student books it. A withdrawn time is not offered to Students.
-4. When a Student books an opening, it is labelled **booked** and shows the
-   Student's name and booking topic. The booking is already confirmed; there
-   is no separate Mentor approval step.
-5. To cancel a future booked consultation, choose **Cancel consultation**,
-   then **Yes, cancel**. This cancels the consultation and withdraws that time
-   so it cannot be booked again. Choose **Keep it** to leave it unchanged.
-6. A consultation moves to **In progress** at its start time. After its end
-   time it moves to **History** as **Awaiting Mentor outcome**. Choose **Mark
-   completed** to record the outcome. Students cannot complete appointments.
-
-Past times are retained as history rather than new availability. A no-show
-outcome is not currently available; do not use **Completed** to represent a
-no-show. Use the
-calendar controls to move between months. If availability or consultations
-cannot load, use the page's **Try again** button after your connection or
-account access is restored.
 
 ### Manage your Mentor profile
 
@@ -432,16 +360,17 @@ npm run dev --workspace src/frontend
 
 ### Emulator-only accounts
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Student | `student@example.test` | `Student-demo-123!` |
-| Mentor | `mentor@example.test` | `Mentor-demo-123!` |
-| Jamie Tan (Student) | `jamie.tan@example.test` | `Jamie-demo-123!` |
-| Sample Aisha (Mentor) | `aisha@example.test` | `Aisha-demo-123!` |
+| Role | Google identity shown by the Auth Emulator |
+| --- | --- |
+| Student | `student@example.test` |
+| Mentor | `mentor@example.test` |
+| Jamie Tan (Student) | `jamie.tan@example.test` |
+| Sample Aisha (Mentor) | `aisha@example.test` |
 
-The seed marks all demo emails verified so Firestore Rules allow module reads.
-The accounts and synthetic emulator-only verification fallback must not be used
-in a real Firebase project.
+Select these identities in the Auth Emulator's mock Google sign-in window. No
+real Google account or password is used. The seed links each identity to the
+mock `google.com` provider and marks its email verified so Firestore Rules allow
+module reads. These accounts must not be used in a real Firebase project.
 
 The emulator seed has a Demo Mentor with no listed modules and Sample Aisha
 with `CS2103T` and `CS2040S`. Jamie Tan can request help from Sample Aisha for
@@ -452,11 +381,12 @@ the eligible Mentor records and module information available in that environment
 
 Use `npm run dev:emulators` from the repository root for this two-account
 conversation walkthrough. A plain frontend `npm run dev` without Firebase web
-configuration opens a mock preview: it initially shows Jamie Tan, does not
-authenticate entered credentials, and cannot accept a request.
+configuration opens a mock preview: it initially shows Jamie Tan, cannot
+perform Google authentication, and cannot accept a request.
 
-To try the conversation flow, sign in as Jamie Tan with the emulator credentials
-above, find **Sample Aisha**, and request help for `CS2103T` or `CS2040S`.
+To try the conversation flow, choose **Continue with Google** and select Jamie
+Tan in the emulator window, then find **Sample Aisha** and request help for
+`CS2103T` or `CS2040S`.
 Sign out, sign in as Sample Aisha, open **Help requests**, and accept Jamie's
 pending request. Choose **Open conversation** on the accepted request, or open
 it from **Conversations**. Sign back in as Jamie to see the same saved chat.
@@ -482,7 +412,8 @@ into the emulator.
 ### Emulator Student
 
 1. Start and seed the emulators using Section 9.
-2. Sign in as `student@example.test`.
+2. Choose **Continue with Google**, then select `student@example.test` in the
+   emulator window.
 3. Confirm the Student dashboard opens.
 4. Reload and confirm the session is restored.
 5. Enter `/mentor/dashboard` manually and confirm the app returns to the Student
@@ -491,7 +422,8 @@ into the emulator.
 
 ### Emulator Mentor
 
-1. Sign in as `mentor@example.test`.
+1. Choose **Continue with Google**, then select `mentor@example.test` in the
+   emulator window.
 2. Confirm the Mentor dashboard opens with the saved profile summary and a
    **My profile** link. The seeded Mentor initially has no listed modules.
 3. Open **My profile**, make and save a profile change, then return to the
@@ -502,15 +434,15 @@ into the emulator.
 
 ### Registration and recovery
 
-1. Register a new `@example.test` Student while using the emulator.
+1. Choose **Create Student account with Google** while using the emulator, then
+   add a new mock Google identity.
 2. Confirm no role selector is shown.
 3. Confirm the new account reaches the Student dashboard.
 4. Stop and restart the Auth emulator without clearing browser storage.
 5. Refresh HelpiNUS and confirm the stale local identity is safely returned to
    signed-out state.
-6. In a real development project, repeat registration with a non-synthetic
-   address and confirm protected access is denied until email verification and
-   profile retry succeed.
+6. Confirm a missing Google display name shows the bounded profile-recovery
+   form and that retry creates only a Student profile.
 
 ## 11. Troubleshooting
 
@@ -523,11 +455,11 @@ into the emulator.
 - A stale emulator identity should now be removed automatically; if an older
   build is still cached, use a private window or clear the site data once.
 
-### “Verify your email”
+### Google sign-in does not open
 
-Open the Firebase verification message, complete verification, return to
-HelpiNUS, and select **I’ve verified my email**. Use **Send verification email**
-or **Resend verification email** when needed.
+Allow pop-ups for the HelpiNUS origin and try again. If the page reports that
+Google sign-in is unavailable, an administrator must enable the Google provider
+and authorize the current domain in the selected Firebase project.
 
 ### “Your profile is not ready”
 
@@ -544,6 +476,5 @@ key into the frontend configuration.
 
 ### Forgot password
 
-The page is currently a Sprint 1 placeholder. Password-reset delivery has not
-yet been implemented; use the Firebase console only for authorized development
-accounts until that feature is adopted.
+HelpiNUS does not own Google passwords. Choose **Recover your Google account**
+on the recovery page to open Google's account-recovery service.

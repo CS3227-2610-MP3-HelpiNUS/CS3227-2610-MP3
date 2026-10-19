@@ -2,7 +2,6 @@ import { z } from 'zod'
 
 import {
   appointmentSchema,
-  availabilitySlotSchema,
   helpRequestSchema,
   f01HelpRequestSchema,
   userSchema,
@@ -99,29 +98,38 @@ export const createAvailabilitySlotInputSchema = nonEmptyInputSchema
     startsAt: z.string().datetime({ offset: true }),
     endsAt: z.string().datetime({ offset: true }),
   })
-  .strict()
-export const createAvailabilitySlotOutputSchema = z.object({ slot: availabilitySlotSchema }).strict()
+  .refine(({ startsAt, endsAt }) => Date.parse(endsAt) > Date.parse(startsAt), {
+    message: 'endsAt must be after startsAt',
+    path: ['endsAt'],
+  })
+export const createAvailabilitySlotOutputSchema = z.object({ slotId: identifierSchema })
 
 export const withdrawAvailabilitySlotInputSchema = nonEmptyInputSchema.extend({
   slotId: identifierSchema,
-}).strict()
-export const withdrawAvailabilitySlotOutputSchema = z.object({ slot: availabilitySlotSchema }).strict()
+})
+export const withdrawAvailabilitySlotOutputSchema = z.object({ slotId: identifierSchema })
 
 export const reserveAppointmentInputSchema = nonEmptyInputSchema.extend({
   slotId: identifierSchema,
   helpRequestId: identifierSchema.nullable().default(null),
   topic: z.string().trim().min(1).max(240),
-}).strict()
+})
 export const reserveAppointmentOutputSchema = z.object({ appointment: appointmentSchema })
+
+export const respondToAppointmentInputSchema = nonEmptyInputSchema.extend({
+  appointmentId: identifierSchema,
+  response: z.enum(['CONFIRMED', 'REJECTED']),
+})
+export const respondToAppointmentOutputSchema = z.object({ appointment: appointmentSchema })
 
 export const cancelAppointmentInputSchema = nonEmptyInputSchema.extend({
   appointmentId: identifierSchema,
-}).strict()
+})
 export const cancelAppointmentOutputSchema = z.object({ appointment: appointmentSchema })
 
 export const completeAppointmentInputSchema = nonEmptyInputSchema.extend({
   appointmentId: identifierSchema,
-}).strict()
+})
 export const completeAppointmentOutputSchema = z.object({ appointment: appointmentSchema })
 
 const aiPromptSchema = z.string().trim().min(1).max(4000)
@@ -180,6 +188,10 @@ export const callableSchemas = {
     input: reserveAppointmentInputSchema,
     output: reserveAppointmentOutputSchema,
   },
+  respondToAppointment: {
+    input: respondToAppointmentInputSchema,
+    output: respondToAppointmentOutputSchema,
+  },
   cancelAppointment: {
     input: cancelAppointmentInputSchema,
     output: cancelAppointmentOutputSchema,
@@ -228,7 +240,3 @@ export type RespondToHelpRequestInput = z.infer<
   typeof respondToHelpRequestInputSchema
 >
 export type ReserveAppointmentInput = z.infer<typeof reserveAppointmentInputSchema>
-export type CreateAvailabilitySlotInput = z.infer<typeof createAvailabilitySlotInputSchema>
-export type WithdrawAvailabilitySlotInput = z.infer<typeof withdrawAvailabilitySlotInputSchema>
-export type CancelAppointmentInput = z.infer<typeof cancelAppointmentInputSchema>
-export type CompleteAppointmentInput = z.infer<typeof completeAppointmentInputSchema>

@@ -23,12 +23,13 @@ The Mission Briefs and feature specifications under `docs/mission-brief/` and `d
 - Firebase `emulators:exec` runs its command from the configured project context. Avoid nested `npm --workspace` invocations there; use package-local commands with explicit paths and verify the documented command end to end.
 - In this monorepo, pass Impeccable targets relative to the repository root so context resolves the intended child app and source file.
 - Keep Firestore list authorization equivalent to direct-document authorization, and test stale denormalized flags plus multiline content explicitly.
-- Treat identity creation as partial until display-name recovery, email verification, and password onboarding are actionable; discard async session reads after the Auth identity changes.
+- Treat identity creation as partial until display-name recovery and provider-specific onboarding are actionable; discard async session reads after the Auth identity changes.
 - Pin every third-party GitHub Action to a reviewed full commit SHA, with the release version retained as a comment.
 - CI jobs that run Firebase emulators must explicitly install JDK 21 or newer; never rely on the hosted runner's changing Java default.
 - The macOS system Ruby may ship an older Psych API; use basic `YAML.load_file(path)` for a lightweight workflow syntax check instead of newer keyword arguments.
 - The Functions workspace `test` script already expands to all `src` tests; for one file, invoke Vitest directly through that workspace instead of appending `--run`, which does not narrow the existing positional path.
 - Node installed through NVM does not place npm under the Node binary's directory; child launchers must prefer npm's `npm_execpath` instead of constructing an npm CLI path from `process.execPath`.
 - In Playwright, scope repeated accessible names to the intended landmark or region; an unscoped strict locator fails when navigation and main content expose the same link label.
+- Before hard-coding role-specific UI copy in Playwright, inspect the rendered accessible tree; assert the current page contract rather than assuming Student and Mentor headings match.
 - Firestore may cancel and replace its own Listen-channel long polls with `net::ERR_ABORTED`; retain those requests in browser diagnostics but distinguish that exact expected cancellation from unrelated request failures.
 - Playwright resolves relative reporter paths from the config directory; anchor generated evidence to the repository root so discovery runs cannot place artifacts inside a segregated subsystem.

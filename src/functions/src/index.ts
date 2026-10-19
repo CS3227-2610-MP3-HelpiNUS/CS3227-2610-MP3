@@ -12,13 +12,6 @@ import { readOwnMentorProfileHandler, updateOwnMentorProfileHandler } from './me
 import { searchMentorModulesHandler } from './mentorModuleSearch.js'
 import { createHelpRequestHandler, respondToHelpRequestHandler } from './helpRequests.js'
 import { acknowledgeMessageHandler, provisionForAcceptedRequest, sendMessageHandler } from './conversations.js'
-import {
-  cancelAppointmentHandler,
-  completeAppointmentHandler,
-  createAvailabilitySlotHandler,
-  reserveAppointmentHandler,
-  withdrawAvailabilitySlotHandler,
-} from './appointments.js'
 
 initializeApp()
 const db = getFirestore()
@@ -59,11 +52,12 @@ export const respondToHelpRequest = callable(callableSchemas.respondToHelpReques
 export const sendMessage = callable(callableSchemas.sendMessage.input, (input, request) => sendMessageHandler(input, request, db))
 export const acknowledgeMessage = callable(callableSchemas.acknowledgeMessage.input, (input, request) => acknowledgeMessageHandler(input, request, db))
 export const closeHelpRequest = notImplemented('closeHelpRequest', 'STUDENT')
-export const createAvailabilitySlot = callable(callableSchemas.createAvailabilitySlot.input, (input, request) => createAvailabilitySlotHandler(input, request, db))
-export const withdrawAvailabilitySlot = callable(callableSchemas.withdrawAvailabilitySlot.input, (input, request) => withdrawAvailabilitySlotHandler(input, request, db))
-export const reserveAppointment = callable(callableSchemas.reserveAppointment.input, (input, request) => reserveAppointmentHandler(input, request, db))
-export const cancelAppointment = callable(callableSchemas.cancelAppointment.input, (input, request) => cancelAppointmentHandler(input, request, db))
-export const completeAppointment = callable(callableSchemas.completeAppointment.input, (input, request) => completeAppointmentHandler(input, request, db))
+export const createAvailabilitySlot = notImplemented('createAvailabilitySlot', 'MENTOR')
+export const withdrawAvailabilitySlot = notImplemented('withdrawAvailabilitySlot', 'MENTOR')
+export const reserveAppointment = notImplemented('reserveAppointment', 'STUDENT')
+export const respondToAppointment = notImplemented('respondToAppointment', 'MENTOR')
+export const cancelAppointment = notImplemented('cancelAppointment')
+export const completeAppointment = notImplemented('completeAppointment', 'MENTOR')
 export const studentStudyAssist = notImplemented('studentStudyAssist', 'STUDENT')
 export const mentorConsultationSummary = callable(
   callableSchemas.mentorConsultationSummary.input,

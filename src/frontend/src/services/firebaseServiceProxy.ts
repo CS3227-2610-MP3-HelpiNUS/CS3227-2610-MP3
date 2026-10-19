@@ -8,10 +8,9 @@ export const firebaseServiceProxy: HelpiNUSServices = {
   session: {
     async getCurrent() { return (await loadFirebaseServices()).session.getCurrent() },
     subscribe(listener, onError) { let unsubscribe = () => {}; let cancelled = false; void loadFirebaseServices().then((services) => { if (cancelled) return; unsubscribe = services.session.subscribe(listener, onError) }).catch(onError); return () => { cancelled = true; unsubscribe() } },
-    async registerStudent(input) { return (await loadFirebaseServices()).session.registerStudent(input) },
+    async signInWithGoogle() { return (await loadFirebaseServices()).session.signInWithGoogle() },
+    async registerStudentWithGoogle() { return (await loadFirebaseServices()).session.registerStudentWithGoogle() },
     async retryStudentProfile(displayName) { return (await loadFirebaseServices()).session.retryStudentProfile(displayName) },
-    async resendVerificationEmail() { return (await loadFirebaseServices()).session.resendVerificationEmail() },
-    async signIn(input) { return (await loadFirebaseServices()).session.signIn(input) },
     async signOut() { return (await loadFirebaseServices()).session.signOut() },
   },
   dashboard: {
@@ -33,12 +32,6 @@ export const firebaseServiceProxy: HelpiNUSServices = {
     subscribeDetail(id, onData, onError) { return proxySubscription((s) => s.conversations.subscribeDetail(id, onData, onError), onError) },
     subscribeMessages(id, cursor, onData, onError) { return proxySubscription((s) => s.conversations.subscribeMessages(id, cursor, onData, onError), onError) },
     async getMessageFromServer(id, messageId) { return (await loadFirebaseServices()).conversations.getMessageFromServer(id, messageId) },
-  },
-  scheduling: {
-    subscribeOpenSlots(range, onData, onError) { return proxySubscription((s) => s.scheduling.subscribeOpenSlots(range, onData, onError), onError) },
-    subscribeMentorSlots(uid, range, onData, onError) { return proxySubscription((s) => s.scheduling.subscribeMentorSlots(uid, range, onData, onError), onError) },
-    subscribeUpcomingAppointments(uid, role, onData, onError) { return proxySubscription((s) => s.scheduling.subscribeUpcomingAppointments(uid, role, onData, onError), onError) },
-    subscribeAppointmentHistory(uid, role, pageSize, onData, onError) { return proxySubscription((s) => s.scheduling.subscribeAppointmentHistory(uid, role, pageSize, onData, onError), onError) },
   },
   callables: {
     async invoke(name, input) { return (await loadFirebaseServices()).callables.invoke(name, input) },
