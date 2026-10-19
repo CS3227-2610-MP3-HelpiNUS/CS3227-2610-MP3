@@ -15,13 +15,18 @@ export const helpRequestStatusSchema = z.enum([
 export type HelpRequestStatus = z.infer<typeof helpRequestStatusSchema>
 
 export const appointmentStatusSchema = z.enum([
-  'PENDING',
   'CONFIRMED',
-  'REJECTED',
   'CANCELLED',
   'COMPLETED',
 ])
 export type AppointmentStatus = z.infer<typeof appointmentStatusSchema>
+
+export const availabilitySlotStatusSchema = z.enum([
+  'OPEN',
+  'BOOKED',
+  'WITHDRAWN',
+])
+export type AvailabilitySlotStatus = z.infer<typeof availabilitySlotStatusSchema>
 
 const identifierSchema = z.string().trim().min(1).max(128)
 const timestampSchema = z.string().datetime({ offset: true })
@@ -106,14 +111,22 @@ export const availabilitySlotSchema = z
   .object({
     id: identifierSchema,
     mentorId: identifierSchema,
+    mentorDisplayName: z.string().trim().min(1).max(100),
     startsAt: timestampSchema,
     endsAt: timestampSchema,
-    withdrawn: z.boolean(),
+    status: availabilitySlotStatusSchema,
+    appointmentId: identifierSchema.nullable(),
     createdAt: timestampSchema,
+    updatedAt: timestampSchema,
   })
+  .strict()
   .refine(({ startsAt, endsAt }) => Date.parse(endsAt) > Date.parse(startsAt), {
     message: 'endsAt must be after startsAt',
     path: ['endsAt'],
+  })
+  .refine(({ status, appointmentId }) => (status === 'OPEN' && appointmentId === null) || (status === 'BOOKED' && appointmentId !== null) || status === 'WITHDRAWN', {
+    message: 'slot status and appointmentId must agree',
+    path: ['appointmentId'],
   })
 export type AvailabilitySlot = z.infer<typeof availabilitySlotSchema>
 
@@ -121,12 +134,20 @@ export const appointmentSchema = z.object({
   id: identifierSchema,
   slotId: identifierSchema,
   studentId: identifierSchema,
+  studentDisplayName: z.string().trim().min(1).max(100),
   mentorId: identifierSchema,
+  mentorDisplayName: z.string().trim().min(1).max(100),
   helpRequestId: identifierSchema.nullable(),
   topic: z.string().trim().min(1).max(240),
   status: appointmentStatusSchema,
+  startsAt: timestampSchema,
+  endsAt: timestampSchema,
+  cancelledBy: userRoleSchema.nullable(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
+}).strict().refine(({ status, cancelledBy }) => status === 'CANCELLED' ? cancelledBy !== null : cancelledBy === null, {
+  message: 'cancelledBy is required only for cancelled appointments',
+  path: ['cancelledBy'],
 })
 export type Appointment = z.infer<typeof appointmentSchema>
 

@@ -1,7 +1,7 @@
 import { createUserWithEmailAndPassword, onAuthStateChanged, sendEmailVerification, signInWithEmailAndPassword, signOut, updateProfile, type User as AuthUser } from 'firebase/auth'
-import { Timestamp, collection, doc, documentId, getDoc, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore'
+import { Timestamp, collection, doc, documentId, getDoc, limit, onSnapshot, orderBy, query, startAfter, where, type DocumentData, type Query, type QueryDocumentSnapshot } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { callableSchemas, f01HelpRequestSchema, helpRequestSummarySchema, initializeStudentProfileOutputSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
+import { appointmentSchema, availabilitySlotSchema, callableSchemas, f01HelpRequestSchema, helpRequestSummarySchema, initializeStudentProfileOutputSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
 import { firebase } from './firebase'
 import { firebaseEnvironment, isEmulatorConnectionAllowed } from './firebaseConfig'
 import type { DashboardData, HelpiNUSServices, Session } from './contracts'
@@ -90,6 +90,58 @@ async function invokeCallable<Name extends CallableName>(
   return callableSchemas[name].output.parse(result.data) as CallableOutput<Name>
 }
 
+const schedulingPageSize = 100
+
+function subscribeAllSchedulingPages<T>(
+  createPage: (cursor: QueryDocumentSnapshot<DocumentData> | null) => Query<DocumentData>,
+  parse: (id: string, data: DocumentData) => T,
+  onData: (items: T[]) => void,
+  onError: (error: unknown) => void,
+) {
+  const pages: T[][] = []
+  const pageCursors: Array<string | null> = []
+  const unsubscribers: Array<(() => void) | undefined> = []
+  let stopped = false
+
+  const emit = () => {
+    const unique = new Map<string, T>()
+    for (const page of pages) for (const item of page) unique.set((item as { id: string }).id, item)
+    onData([...unique.values()])
+  }
+  const truncate = (from: number) => {
+    for (let index = from; index < unsubscribers.length; index += 1) unsubscribers[index]?.()
+    unsubscribers.length = from
+    pages.length = from
+    pageCursors.length = from
+  }
+  const listen = (index: number, cursor: QueryDocumentSnapshot<DocumentData> | null) => {
+    unsubscribers[index] = onSnapshot(createPage(cursor), (snapshot) => {
+      if (stopped) return
+      try {
+        pages[index] = snapshot.docs.map((item) => parse(item.id, item.data()))
+        const last = snapshot.docs.at(-1) ?? null
+        const nextCursor = snapshot.docs.length === schedulingPageSize ? last : null
+        const nextCursorId = nextCursor?.id ?? null
+        if (pageCursors[index + 1] !== nextCursorId) {
+          truncate(index + 1)
+          if (nextCursor) {
+            pageCursors[index + 1] = nextCursorId
+            listen(index + 1, nextCursor)
+          }
+        }
+        emit()
+      } catch (error) { onError(error) }
+    }, onError)
+  }
+
+  pageCursors[0] = null
+  listen(0, null)
+  return () => {
+    stopped = true
+    truncate(0)
+  }
+}
+
 export const firebaseServices: HelpiNUSServices = {
   session: {
     async getCurrent() { return currentSession() },
@@ -164,11 +216,71 @@ export const firebaseServices: HelpiNUSServices = {
     },
   },
   conversations: firebaseConversations,
+  scheduling: {
+    subscribeOpenSlots(range, onData, onError) {
+      const lowerBound = Math.max(Date.parse(range.startsAt), Date.now())
+      return subscribeAllSchedulingPages((cursor) => query(
+        collection(configured().firestore, 'availabilitySlots'),
+        where('status', '==', 'OPEN'),
+        where('appointmentId', '==', null),
+        where('startsAt', '>=', Timestamp.fromMillis(lowerBound)),
+        where('startsAt', '<', Timestamp.fromDate(new Date(range.endsAt))),
+        orderBy('startsAt', 'asc'),
+        orderBy(documentId(), 'asc'),
+        ...(cursor ? [startAfter(cursor)] : []),
+        limit(schedulingPageSize),
+      ), parseAvailabilitySlot, onData, onError)
+    },
+    subscribeMentorSlots(uid, range, onData, onError) {
+      return subscribeAllSchedulingPages((cursor) => query(
+        collection(configured().firestore, 'availabilitySlots'),
+        where('mentorId', '==', uid),
+        where('startsAt', '>=', Timestamp.fromDate(new Date(range.startsAt))),
+        where('startsAt', '<', Timestamp.fromDate(new Date(range.endsAt))),
+        orderBy('startsAt', 'asc'),
+        orderBy(documentId(), 'asc'),
+        ...(cursor ? [startAfter(cursor)] : []),
+        limit(schedulingPageSize),
+      ), parseAvailabilitySlot, onData, onError)
+    },
+    subscribeUpcomingAppointments(uid, role, onData, onError) {
+      const lowerBound = Timestamp.now()
+      return subscribeAllSchedulingPages((cursor) => query(
+        collection(configured().firestore, 'appointments'),
+        where(role === 'STUDENT' ? 'studentId' : 'mentorId', '==', uid),
+        where('startsAt', '>=', lowerBound),
+        orderBy('startsAt', 'asc'),
+        orderBy(documentId(), 'asc'),
+        ...(cursor ? [startAfter(cursor)] : []),
+        limit(schedulingPageSize),
+      ), parseAppointment, onData, onError)
+    },
+    subscribeAppointmentHistory(uid, role, pageSize, onData, onError) {
+      const upperBound = Timestamp.now()
+      return subscribeAllSchedulingPages((cursor) => query(
+        collection(configured().firestore, 'appointments'),
+        where(role === 'STUDENT' ? 'studentId' : 'mentorId', '==', uid),
+        where('startsAt', '<', upperBound),
+        orderBy('startsAt', 'desc'),
+        orderBy(documentId(), 'desc'),
+        ...(cursor ? [startAfter(cursor)] : []),
+        limit(schedulingPageSize),
+      ), parseAppointment, (items) => onData({ appointments: items.slice(0, pageSize), hasMore: items.length > pageSize }), onError)
+    },
+  },
   callables: { invoke: invokeCallable },
 }
 
 function parseHelpRequest(id: string, data: Record<string, unknown>) {
   return f01HelpRequestSchema.parse({ ...data, id, createdAt: normalizeFirestoreTimestamp(data.createdAt), updatedAt: normalizeFirestoreTimestamp(data.updatedAt) })
+}
+
+function parseAvailabilitySlot(id: string, data: Record<string, unknown>) {
+  return availabilitySlotSchema.parse({ ...data, id, startsAt: normalizeFirestoreTimestamp(data.startsAt), endsAt: normalizeFirestoreTimestamp(data.endsAt), createdAt: normalizeFirestoreTimestamp(data.createdAt), updatedAt: normalizeFirestoreTimestamp(data.updatedAt) })
+}
+
+function parseAppointment(id: string, data: Record<string, unknown>) {
+  return appointmentSchema.parse({ ...data, id, startsAt: normalizeFirestoreTimestamp(data.startsAt), endsAt: normalizeFirestoreTimestamp(data.endsAt), createdAt: normalizeFirestoreTimestamp(data.createdAt), updatedAt: normalizeFirestoreTimestamp(data.updatedAt) })
 }
 
 function subscribeRequestPage(ownerField: 'studentId' | 'mentorId', uid: string, status: null | 'PENDING' | ['ACCEPTED', 'REJECTED'], direction: 'asc' | 'desc', cursor: { createdAt: string; id: string } | null, onData: Parameters<HelpiNUSServices['helpRequests']['subscribeStudentPage']>[2], onError: (error: unknown) => void) {
