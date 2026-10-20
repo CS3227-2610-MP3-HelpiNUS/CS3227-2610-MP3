@@ -28,9 +28,12 @@ let createdId = ''
 
 beforeAll(async () => {
   const auth = getAuth(app)
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
-  connectFirestoreEmulator(getClientFirestore(app), '127.0.0.1', 8080)
-  connectFunctionsEmulator(getFunctions(app, 'asia-southeast1'), '127.0.0.1', 5001)
+  const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099'
+  const firestoreHost = new URL(`http://${process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080'}`)
+  const functionsHost = new URL(`http://${process.env.TEST_FUNCTIONS_EMULATOR_HOST ?? '127.0.0.1:5001'}`)
+  connectAuthEmulator(auth, `http://${authHost}`, { disableWarnings: true })
+  connectFirestoreEmulator(getClientFirestore(app), firestoreHost.hostname, Number(firestoreHost.port))
+  connectFunctionsEmulator(getFunctions(app, 'asia-southeast1'), functionsHost.hostname, Number(functionsHost.port))
   const student = (await createUserWithEmailAndPassword(auth, studentEmail, 'Synthetic-123!')).user
   ids.student = student.uid
   await getAdminAuth(admin).updateUser(student.uid, { emailVerified: true })
@@ -64,6 +67,20 @@ afterAll(async () => {
 }, 30000)
 
 describe('F01 successful persisted creation (TC-006)', () => {
+  it('rejects a request to the same account acting as Mentor', async () => {
+    const selfOperationId = crypto.randomUUID()
+    await db.collection('mentors').doc(ids.student).set({ id: ids.student, email: studentEmail, displayName: 'Self Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
+    await db.collection('mentorProfiles').doc(ids.student).set({ userId: ids.student, biography: '', moduleIds: [moduleId], active: true })
+    try {
+      await expect(create({ ...input, operationId: selfOperationId, mentorId: ids.student })).rejects.toMatchObject({ code: 'functions/invalid-argument' })
+      expect((await db.collection('helpRequestOperations').doc(ids.student).collection('operations').doc(selfOperationId).get()).exists).toBe(false)
+      expect((await db.collection('helpRequests').where('studentId', '==', ids.student).get()).empty).toBe(true)
+    } finally {
+      await db.collection('mentorProfiles').doc(ids.student).delete()
+      await db.collection('mentors').doc(ids.student).delete()
+    }
+  })
+
   it('fresh-reads the sole pending request and exact server coordination state', async () => {
     const requestQuery = () => db.collection('helpRequests').where('studentId', '==', ids.student).get()
     const requestCountBefore = (await requestQuery()).size

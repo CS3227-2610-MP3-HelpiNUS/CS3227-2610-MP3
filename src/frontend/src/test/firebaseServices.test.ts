@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => {
     httpsCallable: vi.fn(),
     onAuthStateChanged: vi.fn(),
     signInWithPopup: vi.fn(),
+    setCustomParameters: vi.fn(),
     signOut: vi.fn(),
     updateProfile: vi.fn(),
   }
@@ -50,7 +51,7 @@ vi.mock('../services/firebaseConfig', () => ({
   isEmulatorConnectionAllowed: () => true,
 }))
 vi.mock('firebase/auth', () => ({
-  GoogleAuthProvider: class GoogleAuthProvider {},
+  GoogleAuthProvider: class GoogleAuthProvider { setCustomParameters = mocks.setCustomParameters },
   onAuthStateChanged: mocks.onAuthStateChanged,
   signInWithPopup: mocks.signInWithPopup,
   signOut: mocks.signOut,
@@ -108,6 +109,7 @@ describe('Firebase session recovery', () => {
       user: { id: mocks.identity.uid, role: 'STUDENT' },
     })
     expect(mocks.signInWithPopup).toHaveBeenCalledOnce()
+    expect(mocks.setCustomParameters).toHaveBeenCalledWith({ prompt: 'select_account' })
     expect(mocks.doc).toHaveBeenCalledWith(expect.anything(), 'users', mocks.identity.uid)
   })
 

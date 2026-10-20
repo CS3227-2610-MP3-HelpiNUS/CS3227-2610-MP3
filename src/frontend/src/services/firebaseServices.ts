@@ -95,7 +95,11 @@ async function authenticateWithGoogle(role: UserRole, createProfile: boolean): P
   try {
     const client = configured()
     setSelectedRole(role)
-    if (!createProfile || !client.auth.currentUser) await signInWithPopup(client.auth, new GoogleAuthProvider())
+    if (!createProfile || !client.auth.currentUser) {
+      const provider = new GoogleAuthProvider()
+      provider.setCustomParameters({ prompt: 'select_account' })
+      await signInWithPopup(client.auth, provider)
+    }
     const session = await currentSession()
     if (createProfile && session.issue === 'PROFILE_MISSING') return initializeProfile(role)
     return session

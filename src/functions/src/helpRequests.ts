@@ -61,6 +61,7 @@ async function requireCurrentStudent(request: CallableRequest<unknown>): Promise
 
 export async function createHelpRequestHandler(input: CreateHelpRequestInput, request: CallableRequest<unknown>, db: Firestore): Promise<CreateResult> {
   const actor = await requireCurrentStudent(request)
+  if (input.mentorId === actor.uid) throw new HttpsError('invalid-argument', 'Choose a different Mentor for your request.')
   const fingerprint = digest([input.mentorId, input.moduleId, input.title, input.description])
   const tupleHash = tupleDigest(actor.uid, input.mentorId, input.moduleId)
   const receiptRef = db.collection('helpRequestOperations').doc(actor.uid).collection('operations').doc(input.operationId)
