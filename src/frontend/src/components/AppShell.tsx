@@ -25,9 +25,26 @@ export function AppShell() {
   const navigate = useNavigate()
   const [signOutError, setSignOutError] = useState('')
   const [signingOut, setSigningOut] = useState(false)
+  const [switchingRole, setSwitchingRole] = useState(false)
   const isMentor = session?.user?.role === 'MENTOR'
   const links = isMentor ? mentorLinks : studentLinks
   const home = isMentor ? '/mentor/dashboard' : '/student/dashboard'
+  const otherRole = isMentor ? 'STUDENT' : 'MENTOR'
+  async function switchRole() {
+    setSwitchingRole(true)
+    setSignOutError('')
+    try {
+      const next = await services.session.selectRole(otherRole)
+      await refreshSession()
+      if (next.user?.role === otherRole) navigate(isMentor ? '/student/dashboard' : '/mentor/dashboard')
+      else if (next.issue === 'PROFILE_MISSING') navigate(`/register?role=${otherRole}`)
+      else navigate('/account-access')
+    } catch {
+      setSignOutError('We could not switch roles. Check your connection and try again.')
+    } finally {
+      setSwitchingRole(false)
+    }
+  }
   async function logOut() {
     setSigningOut(true)
     setSignOutError('')
@@ -51,11 +68,12 @@ export function AppShell() {
       </nav>
       <div className="sidebar-bottom">
         <div className="profile-chip"><span className="avatar">{session?.user?.displayName.slice(0, 1) ?? 'S'}</span><span><strong>{session?.user?.displayName ?? 'Student'}</strong><small>{isMentor ? 'Mentor account' : 'Student account'}</small></span></div>
+        <button className="logout-button" onClick={() => void switchRole()} disabled={signingOut || switchingRole}>{switchingRole ? 'Switching role…' : `Switch to ${isMentor ? 'Student' : 'Mentor'}`}</button>
         <button className="logout-button" onClick={() => void logOut()} disabled={signingOut}><Icon name="logout"/>{signingOut ? 'Signing out…' : 'Sign out'}</button>
       </div>
     </aside>
     <div className="main-column">
-      <header className="topbar"><NavLink className="topbar-mobile-brand" to={home} aria-label="HelpiNUS home"><span className="brand-mark">H</span> HelpiNUS</NavLink><span className="topbar-caption">Your NUS learning community</span><span className="topbar-account"><span className="topbar-avatar" aria-label={`Signed in as ${session?.user?.displayName ?? 'Student'}`}>{session?.user?.displayName.slice(0, 1) ?? 'S'}</span><button className="mobile-signout" onClick={() => void logOut()} disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign out'}</button></span></header>
+      <header className="topbar"><NavLink className="topbar-mobile-brand" to={home} aria-label="HelpiNUS home"><span className="brand-mark">H</span> HelpiNUS</NavLink><span className="topbar-caption">Your NUS learning community</span><span className="topbar-account"><span className="topbar-avatar" aria-label={`Signed in as ${session?.user?.displayName ?? 'Student'}`}>{session?.user?.displayName.slice(0, 1) ?? 'S'}</span><button className="mobile-signout mobile-switch-role" onClick={() => void switchRole()} disabled={signingOut || switchingRole} aria-label={`Switch to ${isMentor ? 'Student' : 'Mentor'}`}>{switchingRole ? 'Switching…' : `Switch to ${isMentor ? 'Student' : 'Mentor'}`}</button><button className="mobile-signout" onClick={() => void logOut()} disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign out'}</button></span></header>
       {signOutError && <p className="signout-error" role="alert">{signOutError}</p>}
       <main id="main-content" className="main-content" tabIndex={-1}><Outlet context={{ signOut: () => void logOut(), signingOut } satisfies AppShellOutletContext} /></main>
       <nav className="mobile-nav" aria-label={isMentor ? 'Mentor navigation' : 'Student navigation'}>

@@ -6,6 +6,7 @@ import type {
   MentorProfile,
   Module,
   User,
+  UserRole,
   CallableInput,
   CallableName,
   CallableOutput,
@@ -29,6 +30,7 @@ export interface DashboardData {
 
 export interface Session {
   user: User | null
+  selectedRole?: UserRole | null
   issue?: 'PROFILE_MISSING' | 'PROFILE_INVALID' | 'ACCOUNT_INACTIVE' | 'EMAIL_UNVERIFIED'
 }
 
@@ -43,9 +45,12 @@ export interface HelpiNUSServices {
   session: {
     getCurrent(): Promise<Session>
     subscribe(listener: (session: Session) => void, onError: () => void): () => void
-    signInWithGoogle(): Promise<Session>
+    selectRole(role: UserRole): Promise<Session>
+    signInWithGoogle(role: UserRole): Promise<Session>
     registerStudentWithGoogle(): Promise<Session>
+    registerMentorWithGoogle(): Promise<Session>
     retryStudentProfile(displayName?: string): Promise<Session>
+    retryMentorProfile(displayName?: string): Promise<Session>
     signOut(): Promise<void>
   }
   dashboard: {

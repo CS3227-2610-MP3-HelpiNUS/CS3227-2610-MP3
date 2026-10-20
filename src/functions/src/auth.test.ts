@@ -3,19 +3,21 @@ import { HttpsError } from 'firebase-functions/v2/https'
 
 const get = vi.fn()
 const getUser = vi.fn()
-vi.mock('firebase-admin/firestore', () => ({ getFirestore: () => ({ collection: () => ({ doc: () => ({ get }) }) }) }))
+const collection = vi.fn((name: string) => ({ doc: () => ({ get, path: name }) }))
+vi.mock('firebase-admin/firestore', () => ({ getFirestore: () => ({ collection }) }))
 vi.mock('firebase-admin/auth', () => ({ getAuth: () => ({ getUser }) }))
 import { assertCurrentMentorRecord, requireActiveUser, requireAuthenticated, requireCurrentMentor, requireRole } from './auth.js'
 
 const request = { auth: { uid: 'u1', token: { email: 'u1@example.test', email_verified: true } } } as never
 const validProfile = { id: 'u1', displayName: 'Student', email: 'u1@example.test', role: 'STUDENT', status: 'ACTIVE', createdAt: '2026-10-13T02:00:00.000Z' }
 describe('profile authorization', () => {
-  beforeEach(() => { get.mockReset(); getUser.mockReset() })
+  beforeEach(() => { get.mockReset(); getUser.mockReset(); collection.mockClear() })
   it('checks current Auth state and transaction user eligibility for Mentor operations', async () => {
     const mentor = { ...validProfile, role: 'MENTOR' }
     get.mockResolvedValue({ exists: true, data: () => mentor })
     getUser.mockResolvedValue({ email: mentor.email, emailVerified: true, disabled: false })
     await expect(requireCurrentMentor(request)).resolves.toMatchObject({ uid: 'u1', role: 'MENTOR' })
+    expect(collection).toHaveBeenCalledWith('mentors')
     getUser.mockResolvedValue({ email: mentor.email, emailVerified: true, disabled: true })
     await expect(requireCurrentMentor(request)).rejects.toMatchObject({ code: 'permission-denied' })
     expect(() => assertCurrentMentorRecord(mentor, 'u1', mentor.email)).not.toThrow()
@@ -37,6 +39,12 @@ describe('profile authorization', () => {
   it('uses profile role and denies the wrong role', async () => {
     get.mockResolvedValue({ exists: true, data: () => validProfile })
     await expect(requireRole(request, 'MENTOR')).rejects.toBeInstanceOf(HttpsError)
+    expect(collection).toHaveBeenCalledWith('mentors')
+  })
+  it('checks the Student collection even if the same UID also has a Mentor identity', async () => {
+    get.mockResolvedValue({ exists: true, data: () => validProfile })
+    await expect(requireRole(request, 'STUDENT')).resolves.toMatchObject({ uid: 'u1', role: 'STUDENT' })
+    expect(collection).toHaveBeenCalledWith('users')
   })
   it('rejects profiles missing trusted fields or carrying another uid', async () => {
     get.mockResolvedValue({ exists: true, data: () => ({ ...validProfile, displayName: '   ' }) })

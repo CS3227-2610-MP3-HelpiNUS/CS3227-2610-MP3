@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     identity,
     authStateCallback: null as null | ((identity: unknown) => void),
     getDoc: vi.fn(),
+    doc: vi.fn(),
     httpsCallable: vi.fn(),
     onAuthStateChanged: vi.fn(),
     signInWithPopup: vi.fn(),
@@ -22,7 +23,7 @@ const mocks = vi.hoisted(() => {
   }
 })
 
-function userSnapshot(uid: string, email: string, displayName = 'Jamie Tan') {
+function userSnapshot(uid: string, email: string, displayName = 'Jamie Tan', role: 'STUDENT' | 'MENTOR' = 'STUDENT') {
   return {
     id: uid,
     exists: () => true,
@@ -30,7 +31,7 @@ function userSnapshot(uid: string, email: string, displayName = 'Jamie Tan') {
       id: uid,
       displayName,
       email,
-      role: 'STUDENT',
+      role,
       status: 'ACTIVE',
       createdAt: '2026-01-12T09:00:00.000Z',
     }),
@@ -56,16 +57,19 @@ vi.mock('firebase/auth', () => ({
   updateProfile: mocks.updateProfile,
 }))
 vi.mock('firebase/firestore', () => ({
-  doc: (_firestore: unknown, _collection: string, uid: string) => uid,
+  doc: mocks.doc,
   getDoc: mocks.getDoc,
 }))
 vi.mock('firebase/functions', () => ({ httpsCallable: mocks.httpsCallable }))
 
 import { firebaseServices } from '../services/firebaseServices'
+import { setSelectedRole } from '../services/selectedRole'
 
 describe('Firebase session recovery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    setSelectedRole('STUDENT')
+    mocks.doc.mockImplementation((_firestore: unknown, _collection: string, uid: string) => uid)
     mocks.identity.uid = 'stale-emulator-user'
     mocks.identity.displayName = null
     mocks.identity.email = 'student@example.test'
@@ -87,7 +91,7 @@ describe('Firebase session recovery', () => {
 
   it('signs out and returns a clean signed-out session for a stale identity', async () => {
     mocks.identity.reload.mockRejectedValue({ code: 'auth/user-token-expired' })
-    await expect(firebaseServices.session.getCurrent()).resolves.toEqual({ user: null })
+    await expect(firebaseServices.session.getCurrent()).resolves.toEqual({ user: null, selectedRole: null })
     expect(mocks.signOut).toHaveBeenCalledOnce()
     expect(mocks.signOut).toHaveBeenCalledWith(mocks.auth)
   })
@@ -100,18 +104,53 @@ describe('Firebase session recovery', () => {
   })
 
   it('signs in with Google and resolves the trusted profile', async () => {
-    await expect(firebaseServices.session.signInWithGoogle()).resolves.toMatchObject({
+    await expect(firebaseServices.session.signInWithGoogle('STUDENT')).resolves.toMatchObject({
       user: { id: mocks.identity.uid, role: 'STUDENT' },
     })
     expect(mocks.signInWithPopup).toHaveBeenCalledOnce()
+    expect(mocks.doc).toHaveBeenCalledWith(expect.anything(), 'users', mocks.identity.uid)
+  })
+
+  it('reads only the selected Mentor collection and rejects a mismatched role', async () => {
+    mocks.getDoc.mockResolvedValue(userSnapshot(mocks.identity.uid, mocks.identity.email, 'Google Mentor', 'MENTOR'))
+    await expect(firebaseServices.session.signInWithGoogle('MENTOR')).resolves.toMatchObject({
+      user: { id: mocks.identity.uid, role: 'MENTOR' }, selectedRole: 'MENTOR',
+    })
+    expect(mocks.doc).toHaveBeenCalledWith(expect.anything(), 'mentors', mocks.identity.uid)
+    expect(mocks.doc).not.toHaveBeenCalledWith(expect.anything(), 'users', mocks.identity.uid)
+
+    mocks.getDoc.mockResolvedValue(userSnapshot(mocks.identity.uid, mocks.identity.email))
+    await expect(firebaseServices.session.getCurrent()).resolves.toEqual({ user: null, selectedRole: 'MENTOR', issue: 'PROFILE_INVALID' })
+  })
+
+  it('does not query a profile until the user selects a role', async () => {
+    setSelectedRole(null)
+    await expect(firebaseServices.session.getCurrent()).resolves.toEqual({ user: null, selectedRole: null })
+    expect(mocks.getDoc).not.toHaveBeenCalled()
+  })
+
+  it('registers the Mentor profile alongside the same authenticated UID', async () => {
+    mocks.identity.displayName = 'Google Mentor'
+    mocks.getDoc.mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce(userSnapshot(mocks.identity.uid, mocks.identity.email, 'Google Mentor', 'MENTOR'))
+    mocks.httpsCallable.mockReturnValue(vi.fn().mockResolvedValue({
+      data: { user: userSnapshot(mocks.identity.uid, mocks.identity.email, 'Google Mentor', 'MENTOR').data() },
+    }))
+
+    await expect(firebaseServices.session.registerMentorWithGoogle()).resolves.toMatchObject({
+      user: { id: mocks.identity.uid, role: 'MENTOR' },
+    })
+    expect(mocks.signInWithPopup).not.toHaveBeenCalled()
+    expect(mocks.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'initializeMentorProfile')
+    expect(mocks.doc.mock.calls.map((call) => call[1])).toEqual(['mentors', 'mentors'])
   })
 
   it('rejects a duplicate Google popup while authentication is pending', async () => {
     const popup = deferred<{ user: typeof mocks.identity }>()
     mocks.signInWithPopup.mockReturnValueOnce(popup.promise)
-    const first = firebaseServices.session.signInWithGoogle()
+    const first = firebaseServices.session.signInWithGoogle('STUDENT')
 
-    await expect(firebaseServices.session.signInWithGoogle()).rejects.toMatchObject({
+    await expect(firebaseServices.session.signInWithGoogle('STUDENT')).rejects.toMatchObject({
       code: 'auth/cancelled-popup-request',
     })
     popup.resolve({ user: mocks.identity })
@@ -135,6 +174,7 @@ describe('Firebase session recovery', () => {
 
     await expect(firebaseServices.session.registerStudentWithGoogle()).resolves.toEqual({
       user: null,
+      selectedRole: 'STUDENT',
       issue: 'PROFILE_MISSING',
     })
     expect(mocks.httpsCallable).not.toHaveBeenCalled()

@@ -1,13 +1,14 @@
 import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, updateProfile, type User as AuthUser } from 'firebase/auth'
 import { Timestamp, collection, doc, documentId, getDoc, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { callableSchemas, f01HelpRequestSchema, helpRequestSummarySchema, initializeStudentProfileOutputSchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type InitializeStudentProfileInput, type InitializeStudentProfileOutput } from '@helpinus/shared'
+import { callableSchemas, f01HelpRequestSchema, helpRequestSummarySchema, moduleSchema, userSchema, type CallableInput, type CallableName, type CallableOutput, type UserRole } from '@helpinus/shared'
 import { firebase } from './firebase'
 import { firebaseEnvironment, isEmulatorConnectionAllowed } from './firebaseConfig'
 import type { DashboardData, HelpiNUSServices, Session } from './contracts'
 import { mockDashboard } from './mockServices'
 import { isStaleAuthIdentityError, normalizeFirestoreTimestamp } from './firestoreData'
 import { firebaseConversations } from './firebaseConversations'
+import { getSelectedRole, setSelectedRole } from './selectedRole'
 
 function configured() {
   if (!firebase) throw new Error('Firebase is not configured. Add the development Firebase settings to continue.')
@@ -32,28 +33,31 @@ function identityIsCurrent(identity: AuthUser | null) {
 
 async function sessionForIdentity(identity: AuthUser | null): Promise<Session | typeof staleSessionRead> {
   const client = configured()
-  if (!identity) return identityIsCurrent(identity) ? { user: null } : staleSessionRead
+  const role = getSelectedRole()
+  if (!identity) return identityIsCurrent(identity) ? { user: null, selectedRole: role } : staleSessionRead
+  if (!role) return { user: null, selectedRole: null }
   try {
     await identity.reload()
   } catch (error) {
     if (isStaleAuthIdentityError(error)) {
       if (!identityIsCurrent(identity)) return staleSessionRead
       await signOut(client.auth)
-      return { user: null }
+      setSelectedRole(null)
+      return { user: null, selectedRole: null }
     }
     throw error
   }
-  if (!identityIsCurrent(identity)) return staleSessionRead
+  if (!identityIsCurrent(identity) || getSelectedRole() !== role) return staleSessionRead
   const email = identity.email ?? ''
-  if (!identity.emailVerified && !syntheticEmulatorUser(identity)) return { user: null, issue: 'EMAIL_UNVERIFIED' }
-  const snapshot = await getDoc(doc(client.firestore, 'users', identity.uid))
-  if (!identityIsCurrent(identity)) return staleSessionRead
-  if (!snapshot.exists()) return { user: null, issue: 'PROFILE_MISSING' }
+  if (!identity.emailVerified && !syntheticEmulatorUser(identity)) return { user: null, selectedRole: role, issue: 'EMAIL_UNVERIFIED' }
+  const snapshot = await getDoc(doc(client.firestore, role === 'STUDENT' ? 'users' : 'mentors', identity.uid))
+  if (!identityIsCurrent(identity) || getSelectedRole() !== role) return staleSessionRead
+  if (!snapshot.exists()) return { user: null, selectedRole: role, issue: 'PROFILE_MISSING' }
   const data = snapshot.data()
   const parsed = userSchema.safeParse({ ...data, createdAt: normalizeFirestoreTimestamp(data.createdAt), id: snapshot.id })
-  if (!parsed.success || data.id !== snapshot.id || snapshot.id !== identity.uid || parsed.data.email !== email) return { user: null, issue: 'PROFILE_INVALID' }
-  if (parsed.data.status !== 'ACTIVE') return { user: null, issue: 'ACCOUNT_INACTIVE' }
-  return { user: parsed.data }
+  if (!parsed.success || data.id !== snapshot.id || snapshot.id !== identity.uid || parsed.data.email !== email || parsed.data.role !== role || !parsed.data.displayName.trim()) return { user: null, selectedRole: role, issue: 'PROFILE_INVALID' }
+  if (parsed.data.status !== 'ACTIVE') return { user: null, selectedRole: role, issue: 'ACCOUNT_INACTIVE' }
+  return { user: parsed.data, selectedRole: role }
 }
 
 async function currentSession(): Promise<Session> {
@@ -61,10 +65,10 @@ async function currentSession(): Promise<Session> {
   return result === staleSessionRead ? currentSession() : result
 }
 
-async function initializeProfile(displayName?: string): Promise<Session> {
+async function initializeProfile(role: UserRole, displayName?: string): Promise<Session> {
   const client = configured()
   const identity = client.auth.currentUser
-  if (!identity) throw new Error('Sign in again to finish setting up your Student profile.')
+  if (!identity) throw new Error(`Sign in again to finish setting up your ${role === 'STUDENT' ? 'Student' : 'Mentor'} profile.`)
   await identity.reload()
   if (!identity.email) {
     throw Object.assign(new Error('The Google identity did not provide an email address.'), { code: 'auth/missing-email' })
@@ -72,28 +76,28 @@ async function initializeProfile(displayName?: string): Promise<Session> {
   await identity.getIdToken(true)
   const suppliedName = displayName?.trim()
   const profileName = suppliedName || identity.displayName?.trim()
-  if (!profileName) return { user: null, issue: 'PROFILE_MISSING' }
+  if (!profileName) return { user: null, selectedRole: role, issue: 'PROFILE_MISSING' }
   if (suppliedName && identity.displayName !== suppliedName) {
     await updateProfile(identity, { displayName: suppliedName })
   }
-  const invoke = httpsCallable<InitializeStudentProfileInput, InitializeStudentProfileOutput>(client.functions, 'initializeStudentProfile')
-  const result = await invoke({ displayName: profileName })
-  initializeStudentProfileOutputSchema.parse(result.data)
+  if (!identityIsCurrent(identity) || getSelectedRole() !== role) return currentSession()
+  await invokeCallable(role === 'STUDENT' ? 'initializeStudentProfile' : 'initializeMentorProfile', { displayName: profileName })
   return currentSession()
 }
 
 let googleAuthenticationPending = false
 
-async function authenticateWithGoogle(createStudentProfile: boolean): Promise<Session> {
+async function authenticateWithGoogle(role: UserRole, createProfile: boolean): Promise<Session> {
   if (googleAuthenticationPending) {
     throw Object.assign(new Error('A Google sign-in request is already in progress.'), { code: 'auth/cancelled-popup-request' })
   }
   googleAuthenticationPending = true
   try {
     const client = configured()
-    await signInWithPopup(client.auth, new GoogleAuthProvider())
+    setSelectedRole(role)
+    if (!createProfile || !client.auth.currentUser) await signInWithPopup(client.auth, new GoogleAuthProvider())
     const session = await currentSession()
-    if (createStudentProfile && session.issue === 'PROFILE_MISSING') return initializeProfile()
+    if (createProfile && session.issue === 'PROFILE_MISSING') return initializeProfile(role)
     return session
   } finally {
     googleAuthenticationPending = false
@@ -114,6 +118,7 @@ async function invokeCallable<Name extends CallableName>(
 export const firebaseServices: HelpiNUSServices = {
   session: {
     async getCurrent() { return currentSession() },
+    async selectRole(role) { setSelectedRole(role); return currentSession() },
     subscribe(listener, onError) {
       const client = configured()
       let requestId = 0
@@ -126,10 +131,12 @@ export const firebaseServices: HelpiNUSServices = {
         })
       }, onError)
     },
-    async signInWithGoogle() { return authenticateWithGoogle(false) },
-    async registerStudentWithGoogle() { return authenticateWithGoogle(true) },
-    async retryStudentProfile(displayName) { return initializeProfile(displayName) },
-    async signOut() { await signOut(configured().auth) },
+    async signInWithGoogle(role) { return authenticateWithGoogle(role, false) },
+    async registerStudentWithGoogle() { return authenticateWithGoogle('STUDENT', true) },
+    async registerMentorWithGoogle() { return authenticateWithGoogle('MENTOR', true) },
+    async retryStudentProfile(displayName) { setSelectedRole('STUDENT'); return initializeProfile('STUDENT', displayName) },
+    async retryMentorProfile(displayName) { setSelectedRole('MENTOR'); return initializeProfile('MENTOR', displayName) },
+    async signOut() { await signOut(configured().auth); setSelectedRole(null) },
   },
   dashboard: {
     async getStudentDashboard(): Promise<DashboardData> { return mockDashboard },

@@ -48,7 +48,7 @@ beforeAll(async () => {
   await Promise.all([getAdminAuth(admin).updateUser(student.uid, { emailVerified: true }), getAdminAuth(admin).updateUser(mentor.uid, { emailVerified: true })])
   await Promise.all([student.reload(), mentor.reload()]); await Promise.all([getIdToken(student, true), getIdToken(mentor, true)])
   await db.collection('users').doc(ids.student).set({ id: ids.student, email: studentEmail, displayName: 'Selection Student', role: 'STUDENT', status: 'ACTIVE', createdAt: Timestamp.now() })
-  await db.collection('users').doc(ids.mentor).set({ id: ids.mentor, email: mentorEmail, displayName: 'Current Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
+  await db.collection('mentors').doc(ids.mentor).set({ id: ids.mentor, email: mentorEmail, displayName: 'Current Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
   await db.collection('mentorProfiles').doc(ids.mentor).set({ userId: ids.mentor, biography: 'Private biography', moduleIds: ['cs2103t'], active: true })
 }, 30000)
 
@@ -59,7 +59,7 @@ afterAll(async () => {
   }
   if (ids.mentor) {
     await db.collection('mentorProfiles').doc(ids.mentor).delete()
-    await db.collection('users').doc(ids.mentor).delete()
+    await db.collection('mentors').doc(ids.mentor).delete()
     await getAdminAuth(admin).deleteUser(ids.mentor)
   }
   await Promise.all([signOut(getAuth(studentApp)), signOut(getAuth(mentorApp))])
@@ -69,7 +69,7 @@ afterAll(async () => {
 describe('F01 TC-001 targeted selection callable', () => {
   it('reads the current Mentor name and denies stale-email or unverified Student with no writes', async () => {
     const before = await effects()
-    const mentorRef = db.collection('users').doc(ids.mentor)
+    const mentorRef = db.collection('mentors').doc(ids.mentor)
     const studentRef = db.collection('users').doc(ids.student)
     const originalMentor = (await mentorRef.get()).data()!
     try {
@@ -103,7 +103,7 @@ describe('F01 TC-001 targeted selection callable', () => {
     expect(JSON.stringify(ready)).not.toMatch(/Private biography|studentEmail|mentorEmail|status|role/u)
     expect(await effects()).toEqual(before)
     await expectUnavailable({ mentorId: `missing-${crypto.randomUUID()}` }, 'missing account and profile')
-    const accountRef = db.collection('users').doc(ids.mentor)
+    const accountRef = db.collection('mentors').doc(ids.mentor)
     const profileRef = db.collection('mentorProfiles').doc(ids.mentor)
     for (const [label, change] of [
       ['inactive account', { status: 'SUSPENDED' }], ['wrong role', { role: 'STUDENT' }],
@@ -141,9 +141,9 @@ describe('F01 TC-001 targeted selection callable', () => {
       expect(error?.message).not.toContain(mentorEmail)
       expect(await effects()).toEqual(before)
     }
-    for (const invoke of [guestCall, mentorCall]) {
+    for (const [invoke, expectedCode] of [[guestCall, 'functions/unauthenticated'], [mentorCall, 'functions/failed-precondition']] as const) {
       const error = await invoke({ mentorId: ids.mentor }).then(() => null, (reason: unknown) => reason) as { code?: string; message?: string } | null
-      expect(error?.code).toMatch(/functions\/(?:unauthenticated|permission-denied)/u)
+      expect(error?.code).toBe(expectedCode)
       expect(error?.message).not.toContain(mentorEmail)
       expect(await effects()).toEqual(before)
     }

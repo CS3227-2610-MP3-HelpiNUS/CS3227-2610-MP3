@@ -16,9 +16,9 @@ export async function requireAuthenticated(request: CallableRequest<unknown>): P
   return { uid: request.auth.uid, token: request.auth.token as Record<string, unknown> }
 }
 
-export async function requireActiveUser(request: CallableRequest<unknown>): Promise<AuthorizedUser> {
+export async function requireActiveUser(request: CallableRequest<unknown>, role: UserRole = 'STUDENT'): Promise<AuthorizedUser> {
   const auth = await requireAuthenticated(request)
-  const snapshot = await getFirestore().collection('users').doc(auth.uid).get()
+  const snapshot = await getFirestore().collection(role === 'MENTOR' ? 'mentors' : 'users').doc(auth.uid).get()
   if (!snapshot.exists) throw new HttpsError('failed-precondition', 'Your profile is not ready yet.')
   const profile = snapshot.data()
   if (profile?.status !== 'ACTIVE') throw new HttpsError('permission-denied', 'Your account is not active.')
@@ -28,7 +28,7 @@ export async function requireActiveUser(request: CallableRequest<unknown>): Prom
       ? profile.createdAt.toDate().toISOString()
       : profile.createdAt
   const parsed = userSchema.safeParse({ ...profile, createdAt })
-  if (!parsed.success || parsed.data.id !== auth.uid) {
+  if (!parsed.success || parsed.data.id !== auth.uid || parsed.data.role !== role) {
     throw new HttpsError('permission-denied', 'Your account profile is invalid. Contact HelpiNUS support.')
   }
   const email = parsed.data.email
@@ -48,9 +48,7 @@ export async function requireActiveUser(request: CallableRequest<unknown>): Prom
 }
 
 export async function requireRole(request: CallableRequest<unknown>, role: UserRole): Promise<AuthorizedUser> {
-  const user = await requireActiveUser(request)
-  if (user.role !== role) throw new HttpsError('permission-denied', `This operation requires ${role}.`)
-  return user
+  return requireActiveUser(request, role)
 }
 
 export function assertCurrentMentorRecord(data: unknown, uid: string, email: string): void {

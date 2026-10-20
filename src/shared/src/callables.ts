@@ -15,6 +15,10 @@ export const initializeStudentProfileInputSchema = z.object({
   displayName: z.string().trim().min(1).max(100),
 })
 export const initializeStudentProfileOutputSchema = z.object({ user: userSchema })
+export const initializeMentorProfileInputSchema = z.object({
+  displayName: z.string().trim().min(1).max(100),
+}).strict()
+export const initializeMentorProfileOutputSchema = z.object({ user: userSchema })
 
 export const discoverMentorsInputSchema = z.object({
   cursor: identifierSchema.optional(),
@@ -151,6 +155,10 @@ export const callableSchemas = {
     input: initializeStudentProfileInputSchema,
     output: initializeStudentProfileOutputSchema,
   },
+  initializeMentorProfile: {
+    input: initializeMentorProfileInputSchema,
+    output: initializeMentorProfileOutputSchema,
+  },
   discoverMentors: {
     input: discoverMentorsInputSchema,
     output: discoverMentorsOutputSchema,
@@ -226,6 +234,8 @@ export type InitializeStudentProfileInput = z.infer<
 export type InitializeStudentProfileOutput = z.infer<
   typeof initializeStudentProfileOutputSchema
 >
+export type InitializeMentorProfileInput = z.infer<typeof initializeMentorProfileInputSchema>
+export type InitializeMentorProfileOutput = z.infer<typeof initializeMentorProfileOutputSchema>
 export type DiscoverMentorsInput = z.input<typeof discoverMentorsInputSchema>
 export type DiscoverMentorsParsedInput = z.output<typeof discoverMentorsInputSchema>
 export type DiscoverMentorsOutput = z.infer<typeof discoverMentorsOutputSchema>

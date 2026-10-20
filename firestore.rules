@@ -2,25 +2,36 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function userExists() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
-    function activeUser() {
-      return userExists()
+    function activeStudent() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.id == request.auth.uid
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'ACTIVE'
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['STUDENT', 'MENTOR']
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STUDENT'
         && request.auth.token.email_verified == true
         && request.auth.token.email == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email;
     }
+    function activeMentor(mentorId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/mentors/$(mentorId))
+        && get(/databases/$(database)/documents/mentors/$(mentorId)).data.id == mentorId
+        && get(/databases/$(database)/documents/mentors/$(mentorId)).data.role == 'MENTOR'
+        && get(/databases/$(database)/documents/mentors/$(mentorId)).data.status == 'ACTIVE'
+        && (mentorId != request.auth.uid || (request.auth.token.email_verified == true
+          && request.auth.token.email == get(/databases/$(database)/documents/mentors/$(mentorId)).data.email));
+    }
+    function activeAccount() { return activeStudent() || activeMentor(request.auth.uid); }
     function acceptedConversation(data, id) {
-      return activeUser()
+      return activeAccount()
         && data.keys().hasAll(['id', 'helpRequestId', 'studentId', 'mentorId', 'participantIds', 'createdAt', 'updatedAt'])
         && data.keys().hasOnly(['id', 'helpRequestId', 'studentId', 'mentorId', 'participantIds', 'createdAt', 'updatedAt'])
         && data.id == id
         && data.helpRequestId == id
         && data.studentId is string
         && data.mentorId is string
+        && data.studentId != data.mentorId
         && data.participantIds == [data.studentId, data.mentorId]
-        && ((role() == 'STUDENT' && request.auth.uid == data.studentId) || (role() == 'MENTOR' && request.auth.uid == data.mentorId))
+        && ((activeStudent() && request.auth.uid == data.studentId) || (activeMentor(request.auth.uid) && request.auth.uid == data.mentorId))
         && exists(/databases/$(database)/documents/helpRequests/$(id))
         && get(/databases/$(database)/documents/helpRequests/$(id)).data.id == id
         && get(/databases/$(database)/documents/helpRequests/$(id)).data.status == 'ACCEPTED'
@@ -31,30 +42,24 @@ service cloud.firestore {
         && data.createdAt == get(/databases/$(database)/documents/helpRequests/$(id)).data.updatedAt
         && data.updatedAt == get(/databases/$(database)/documents/helpRequests/$(id)).data.updatedAt;
     }
-    function role() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; }
-    function activeMentor(mentorId) {
-      return exists(/databases/$(database)/documents/users/$(mentorId))
-        && get(/databases/$(database)/documents/users/$(mentorId)).data.role == 'MENTOR'
-        && get(/databases/$(database)/documents/users/$(mentorId)).data.status == 'ACTIVE';
-    }
-
     match /users/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
+    match /mentors/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
     match /mentorProfiles/{uid} {
-      allow get: if activeUser() && resource.data.active == true && activeMentor(uid);
+      allow get: if activeAccount() && resource.data.active == true && activeMentor(uid);
       // Collection discovery is served by discoverMentors so every profile can
-      // be joined to its authoritative users/{uid} role and status record.
+      // be joined to its authoritative mentors/{uid} role and status record.
       allow list: if false;
       allow write: if false;
     }
-    match /modules/{id} { allow read: if activeUser(); allow write: if false; }
+    match /modules/{id} { allow read: if activeAccount(); allow write: if false; }
     match /helpRequests/{id} {
-      allow get: if activeUser() && ((role() == 'STUDENT' && resource.data.studentId == request.auth.uid) || (role() == 'MENTOR' && resource.data.mentorId == request.auth.uid));
-      allow list: if activeUser() && request.query.limit != null && request.query.limit <= 20
-        && ((role() == 'STUDENT' && resource.data.studentId == request.auth.uid) || (role() == 'MENTOR' && resource.data.mentorId == request.auth.uid));
+      allow get: if (activeStudent() && resource.data.studentId == request.auth.uid) || (activeMentor(request.auth.uid) && resource.data.mentorId == request.auth.uid);
+      allow list: if request.query.limit != null && request.query.limit <= 20
+        && ((activeStudent() && resource.data.studentId == request.auth.uid) || (activeMentor(request.auth.uid) && resource.data.mentorId == request.auth.uid));
       allow write: if false;
     }
     match /helpRequestSummaries/{uid} {
-      allow get: if activeUser() && role() == 'STUDENT' && request.auth.uid == uid;
+      allow get: if activeStudent() && request.auth.uid == uid;
       allow list, write: if false;
     }
     match /helpRequestOperations/{uid}/operations/{operationId} { allow read, write: if false; }
@@ -72,8 +77,8 @@ service cloud.firestore {
         allow write: if false;
       }
     }
-    match /availabilitySlots/{id} { allow read: if activeUser() && resource.data.withdrawn == false && resource.data.startsAt > request.time && activeMentor(resource.data.mentorId); allow write: if false; }
-    match /appointments/{id} { allow read: if activeUser() && (resource.data.studentId == request.auth.uid || resource.data.mentorId == request.auth.uid); allow write: if false; }
+    match /availabilitySlots/{id} { allow read: if activeAccount() && resource.data.withdrawn == false && resource.data.startsAt > request.time && activeMentor(resource.data.mentorId); allow write: if false; }
+    match /appointments/{id} { allow read: if (activeStudent() && resource.data.studentId == request.auth.uid) || (activeMentor(request.auth.uid) && resource.data.mentorId == request.auth.uid); allow write: if false; }
     match /aiAuditEvents/{id} { allow read, write: if false; }
   }
 }

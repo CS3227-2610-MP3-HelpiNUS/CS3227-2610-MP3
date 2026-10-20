@@ -33,7 +33,7 @@ for (const demo of demoUsers) {
       },
     })
   }
-  const userRef = db.collection('users').doc(user.uid)
+  const userRef = db.collection(demo.role === 'MENTOR' ? 'mentors' : 'users').doc(user.uid)
   if (!(await userRef.get()).exists) {
     await userRef.create({
       id: user.uid, displayName: demo.displayName, email: demo.email, role: demo.role, status: 'ACTIVE', createdAt: FieldValue.serverTimestamp(),

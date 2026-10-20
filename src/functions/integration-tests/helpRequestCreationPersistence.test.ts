@@ -39,7 +39,7 @@ beforeAll(async () => {
   ids.mentor = `f01-created-mentor-${crypto.randomUUID()}`
   input.mentorId = ids.mentor
   await db.collection('users').doc(ids.student).set({ id: ids.student, email: studentEmail, displayName: 'Creation Student', role: 'STUDENT', status: 'ACTIVE', createdAt: Timestamp.now() })
-  await db.collection('users').doc(ids.mentor).set({ id: ids.mentor, email: mentorEmail, displayName: 'Creation Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
+  await db.collection('mentors').doc(ids.mentor).set({ id: ids.mentor, email: mentorEmail, displayName: 'Creation Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
   await db.collection('mentorProfiles').doc(ids.mentor).set({ userId: ids.mentor, biography: '', moduleIds: [moduleId], active: true })
   await db.collection('modules').doc(moduleId).set({ id: moduleId, code: 'TC006', title: 'Creation module', active: true })
 }, 30000)
@@ -57,7 +57,7 @@ afterAll(async () => {
   await db.collection('modules').doc(moduleId).delete()
   if (ids.mentor) {
     await db.collection('mentorProfiles').doc(ids.mentor).delete()
-    await db.collection('users').doc(ids.mentor).delete()
+    await db.collection('mentors').doc(ids.mentor).delete()
   }
   await deleteApp(app)
   await deleteAdminApp(admin)

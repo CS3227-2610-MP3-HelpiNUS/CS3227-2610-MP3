@@ -63,7 +63,7 @@ beforeAll(async () => {
     ids[role] = user.uid
     await getAdminAuth(admin).updateUser(user.uid, { emailVerified: true })
     await user.reload(); await getIdToken(user, true)
-    await db.collection('users').doc(user.uid).set({ id: user.uid, email, displayName: role, role: role === 'mentor' || role === 'foreignMentor' ? 'MENTOR' : 'STUDENT', status: 'ACTIVE', createdAt: Timestamp.now() })
+    await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(user.uid).set({ id: user.uid, email, displayName: role, role: role === 'mentor' || role === 'foreignMentor' ? 'MENTOR' : 'STUDENT', status: 'ACTIVE', createdAt: Timestamp.now() })
   }
   const batch = db.batch()
   batch.set(db.collection('helpRequests').doc(requestIds.pendingA), request(requestIds.pendingA, moduleIds.pendingA, ids.student, 'PENDING', createdAt))
@@ -90,7 +90,7 @@ afterAll(async () => {
   for (const role of ['student', 'foreignStudent'] as const) if (ids[role]) batch.delete(db.collection('helpRequestSummaries').doc(ids[role]))
   await batch.commit()
   for (const role of roles) {
-    if (ids[role]) { await db.collection('users').doc(ids[role]).delete(); await getAdminAuth(admin).deleteUser(ids[role]) }
+    if (ids[role]) { await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).delete(); await getAdminAuth(admin).deleteUser(ids[role]) }
     await signOut(getAuth(apps[role])); await deleteApp(apps[role])
   }
   await deleteAdminApp(admin)
