@@ -61,6 +61,42 @@ describe('callable emulator integration', () => {
     const retry = await initializeProfile({ displayName: 'Changed Name' })
     expect(retry.data.user.displayName).toBe('Integration Student')
     await expect(testAuthenticated({ displayName: 'Student' })).resolves.toMatchObject({ data: { uid: user.uid, ok: true } })
+
+    const beforeLogin = await adminDb.collection('users').doc(user.uid).get()
+    expect(beforeLogin.exists).toBe(true)
+    await signOut(auth)
+    await signInWithEmailAndPassword(auth, email, password)
+    await expect(testAuthenticated({ displayName: 'Student' })).resolves.toMatchObject({ data: { uid: user.uid, ok: true } })
+    const afterLogin = await adminDb.collection('users').doc(user.uid).get()
+    expect(afterLogin.data()).toEqual(beforeLogin.data())
+    expect(afterLogin.updateTime?.isEqual(beforeLogin.updateTime!)).toBe(true)
+  }, 30000)
+
+  it('preserves an existing Mentor profile during public Student initialization', async () => {
+    const studentEmail = email
+    const mentorEmail = `mentor-${crypto.randomUUID()}@example.test`
+    const mentor = await adminAuth.createUser({ email: mentorEmail, password, emailVerified: true })
+    const mentorRecord = {
+      id: mentor.uid,
+      displayName: 'Integration Mentor',
+      email: mentorEmail,
+      role: 'MENTOR',
+      status: 'ACTIVE',
+      createdAt: new Date(),
+    }
+    await adminDb.collection('users').doc(mentor.uid).create(mentorRecord)
+    try {
+      await signOut(auth)
+      await signInWithEmailAndPassword(auth, mentorEmail, password)
+      await expect(initializeProfile({ displayName: 'Forged Student' }))
+        .rejects.toMatchObject({ code: 'functions/permission-denied' })
+      const stored = await adminDb.collection('users').doc(mentor.uid).get()
+      expect(stored.data()).toEqual({ ...mentorRecord, createdAt: expect.anything() })
+      expect(stored.data()?.role).toBe('MENTOR')
+    } finally {
+      await signOut(auth)
+      await signInWithEmailAndPassword(auth, studentEmail, password)
+    }
   })
 
   it('returns paginated public Mentor fields after scanning past ineligible owners', async () => {
