@@ -18,8 +18,20 @@ const identity = await auth.getUserByEmail(email).catch((error: { code?: string 
   throw error
 })
 assertGoogleMentorIdentity(identity, email)
-await db.collection('users').doc(identity.uid).set({
-  id: identity.uid, displayName, email, role: 'MENTOR', status: 'ACTIVE', createdAt: FieldValue.serverTimestamp(),
-}, { merge: false })
-await db.collection('mentorProfiles').doc(identity.uid).set({ userId: identity.uid, biography: '', moduleIds: [], active: true })
+const mentorRef = db.collection('mentors').doc(identity.uid)
+const domainRef = db.collection('mentorProfiles').doc(identity.uid)
+await db.runTransaction(async (tx) => {
+  const [mentor, domain] = await Promise.all([tx.get(mentorRef), tx.get(domainRef)])
+  if (mentor.exists) {
+    const record = mentor.data()
+    if (record?.id !== identity.uid || record.email !== email || record.role !== 'MENTOR') {
+      throw new Error('Existing Mentor record differs; refusing to overwrite it.')
+    }
+  } else {
+    tx.create(mentorRef, {
+      id: identity.uid, displayName, email, role: 'MENTOR', status: 'ACTIVE', createdAt: FieldValue.serverTimestamp(),
+    })
+  }
+  if (!domain.exists) tx.create(domainRef, { userId: identity.uid, biography: '', moduleIds: [], active: true })
+})
 console.info(`Provisioned mentor profile for ${email} (${identity.uid}) in ${projectId}.`)

@@ -17,8 +17,8 @@ beforeEach(async () => {
     const db = context.firestore()
     const acceptedAt = new Date()
     await setDoc(doc(db, 'users/student'), { id: 'student', role: 'STUDENT', status: 'ACTIVE', email: 'student@example.test' })
-    await setDoc(doc(db, 'users/mentor'), { id: 'mentor', role: 'MENTOR', status: 'ACTIVE', email: 'mentor@example.test' })
-    await setDoc(doc(db, 'users/otherMentor'), { id: 'otherMentor', role: 'MENTOR', status: 'ACTIVE', email: 'other@example.test' })
+    await setDoc(doc(db, 'mentors/mentor'), { id: 'mentor', role: 'MENTOR', status: 'ACTIVE', email: 'mentor@example.test' })
+    await setDoc(doc(db, 'mentors/otherMentor'), { id: 'otherMentor', role: 'MENTOR', status: 'ACTIVE', email: 'other@example.test' })
     await setDoc(doc(db, 'users/suspended'), { id: 'suspended', role: 'STUDENT', status: 'SUSPENDED', email: 'suspended@example.test' })
     await setDoc(doc(db, 'mentorProfiles/mentor'), { userId: 'mentor', active: true })
     await setDoc(doc(db, 'mentorProfiles/mentor/private/profileState'), { revision: 1 })
@@ -36,6 +36,47 @@ beforeEach(async () => {
 })
 
 describe('approved direct access matrix', () => {
+  it('keeps Student and Mentor authorization independent for one Firebase UID', async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(doc(db, 'mentors/student'), { id: 'student', role: 'MENTOR', status: 'ACTIVE', email: 'student@example.test' })
+      await setDoc(doc(db, 'users/mentor'), { id: 'mentor', role: 'STUDENT', status: 'ACTIVE', email: 'mentor@example.test' })
+    })
+    const dualStudent = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
+    const dualMentor = env.authenticatedContext('mentor', { email: 'mentor@example.test', email_verified: true }).firestore()
+    await assertSucceeds(getDoc(doc(dualStudent, 'users/student')))
+    await assertSucceeds(getDoc(doc(dualStudent, 'mentors/student')))
+    await assertSucceeds(getDoc(doc(dualMentor, 'users/mentor')))
+    await assertSucceeds(getDoc(doc(dualMentor, 'mentors/mentor')))
+    await assertFails(getDoc(doc(dualStudent, 'mentors/mentor')))
+    await assertFails(getDoc(doc(dualMentor, 'users/student')))
+    await assertFails(setDoc(doc(dualStudent, 'mentors/student'), { id: 'student', role: 'MENTOR', status: 'ACTIVE' }))
+    await assertFails(setDoc(doc(dualMentor, 'users/mentor'), { id: 'mentor', role: 'STUDENT', status: 'ACTIVE' }))
+    await assertSucceeds(getDoc(doc(dualStudent, 'helpRequests/request')))
+    await assertSucceeds(getDoc(doc(dualMentor, 'helpRequests/request')))
+    await env.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      const acceptedAt = new Date()
+      await setDoc(doc(db, 'helpRequests/self'), { id: 'self', studentId: 'student', mentorId: 'student', status: 'ACCEPTED', updatedAt: acceptedAt })
+      await setDoc(doc(db, 'conversations/self'), { id: 'self', helpRequestId: 'self', studentId: 'student', mentorId: 'student', participantIds: ['student', 'student'], createdAt: acceptedAt, updatedAt: acceptedAt })
+    })
+    await assertFails(getDoc(doc(dualStudent, 'conversations/self')))
+    await env.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), 'mentors/mentor'), { status: 'SUSPENDED' })
+    })
+    await assertFails(getDoc(doc(dualMentor, 'helpRequests/request')))
+    await assertSucceeds(getDoc(doc(dualMentor, 'modules/module')))
+  })
+  it('does not treat a legacy Mentor record in users as current Mentor authorization', async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users/legacy'), { id: 'legacy', role: 'MENTOR', status: 'ACTIVE', email: 'legacy@example.test' })
+    })
+    const legacy = env.authenticatedContext('legacy', { email: 'legacy@example.test', email_verified: true }).firestore()
+    await assertSucceeds(getDoc(doc(legacy, 'users/legacy')))
+    await assertFails(getDoc(doc(legacy, 'mentors/mentor')))
+    await assertFails(getDoc(doc(legacy, 'modules/module')))
+    await assertFails(getDoc(doc(legacy, 'helpRequests/request')))
+  })
   it('allows an active user to read own profile, active mentor, assigned request and conversation', async () => {
     const db = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
     await assertSucceeds(getDoc(doc(db, 'users/student')))
@@ -53,7 +94,7 @@ describe('approved direct access matrix', () => {
   it('denies cross-user, unauthenticated, inactive, and privileged profile access', async () => {
     await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'users/student')))
     const studentDb = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
-    await assertFails(getDoc(doc(studentDb, 'users/mentor')))
+    await assertFails(getDoc(doc(studentDb, 'mentors/mentor')))
     await assertFails(getDoc(doc(studentDb, 'mentorProfiles/mentor/saveRequests/request')))
     await assertFails(setDoc(doc(studentDb, 'mentorProfiles/mentor/saveRequests/request'), { outcome: 'accepted' }))
     await assertFails(getDoc(doc(studentDb, 'mentorProfiles/mentor/private/profileState')))
@@ -73,7 +114,7 @@ describe('approved direct access matrix', () => {
     await assertSucceeds(getDoc(doc(suspendedDb, 'users/suspended')))
     await assertFails(getDoc(doc(suspendedDb, 'helpRequests/request')))
     await env.withSecurityRulesDisabled(async (context) => {
-      await updateDoc(doc(context.firestore(), 'users/mentor'), { status: 'SUSPENDED' })
+      await updateDoc(doc(context.firestore(), 'mentors/mentor'), { status: 'SUSPENDED' })
     })
     await assertFails(getDoc(doc(studentDb, 'mentorProfiles/mentor')))
     await assertFails(getDoc(doc(studentDb, 'availabilitySlots/slot')))

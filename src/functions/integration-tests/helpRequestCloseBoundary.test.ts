@@ -66,7 +66,7 @@ beforeAll(async () => {
     await getAdminAuth(admin).updateUser(user.uid, { emailVerified: true })
     await user.reload()
     await getIdToken(user, true)
-    await db.collection('users').doc(user.uid).set({ id: user.uid, email, displayName: role, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
+    await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(user.uid).set({ id: user.uid, email, displayName: role, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
   }
   connectFunctionsEmulator(getFunctions(apps.guest, 'asia-southeast1'), '127.0.0.1', 5001)
   await db.collection('mentorProfiles').doc(ids.mentor).set({ userId: ids.mentor, biography: '', moduleIds: [moduleId], active: true })
@@ -88,7 +88,7 @@ afterAll(async () => {
   if (ids.mentor) await db.collection('mentorProfiles').doc(ids.mentor).delete()
   for (const role of ['student', 'mentor'] as const) {
     if (ids[role]) {
-      await db.collection('users').doc(ids[role]).delete()
+      await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).delete()
       await getAdminAuth(admin).deleteUser(ids[role])
     }
     await signOut(getAuth(apps[role]))
@@ -113,7 +113,7 @@ describe('F01 dormant close boundary (TC-026, TC-007 compatibility)', () => {
     for (const id of [pendingId, rejectedId, acceptedId, `guessed-${crypto.randomUUID()}`]) {
       const input = { requestId: crypto.randomUUID(), helpRequestId: id }
       await expect(callable<typeof input>('student', 'closeHelpRequest')(input)).rejects.toMatchObject({ code: 'functions/unavailable' })
-      await expect(callable<typeof input>('mentor', 'closeHelpRequest')(input)).rejects.toMatchObject({ code: 'functions/permission-denied' })
+      await expect(callable<typeof input>('mentor', 'closeHelpRequest')(input)).rejects.toMatchObject({ code: 'functions/failed-precondition' })
       await expect(callable<typeof input>('guest', 'closeHelpRequest')(input)).rejects.toMatchObject({ code: 'functions/unauthenticated' })
     }
     const after = await snapshotState()

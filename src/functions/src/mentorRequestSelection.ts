@@ -31,7 +31,7 @@ export async function getMentorRequestSelectionHandler(
   let account, profile
   try {
     [account, profile] = await db.getAll(
-      db.collection('users').doc(input.mentorId),
+      db.collection('mentors').doc(input.mentorId),
       db.collection('mentorProfiles').doc(input.mentorId),
     )
   } catch {

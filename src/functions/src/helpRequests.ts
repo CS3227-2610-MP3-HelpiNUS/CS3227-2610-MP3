@@ -61,12 +61,13 @@ async function requireCurrentStudent(request: CallableRequest<unknown>): Promise
 
 export async function createHelpRequestHandler(input: CreateHelpRequestInput, request: CallableRequest<unknown>, db: Firestore): Promise<CreateResult> {
   const actor = await requireCurrentStudent(request)
+  if (input.mentorId === actor.uid) throw new HttpsError('invalid-argument', 'Choose a different Mentor for your request.')
   const fingerprint = digest([input.mentorId, input.moduleId, input.title, input.description])
   const tupleHash = tupleDigest(actor.uid, input.mentorId, input.moduleId)
   const receiptRef = db.collection('helpRequestOperations').doc(actor.uid).collection('operations').doc(input.operationId)
   const keyRef = db.collection('pendingHelpRequestKeys').doc(tupleHash)
   const studentRef = db.collection('users').doc(actor.uid)
-  const mentorRef = db.collection('users').doc(input.mentorId)
+  const mentorRef = db.collection('mentors').doc(input.mentorId)
   const profileRef = db.collection('mentorProfiles').doc(input.mentorId)
   const moduleRef = db.collection('modules').doc(input.moduleId)
   const summaryRef = db.collection('helpRequestSummaries').doc(actor.uid)
@@ -117,7 +118,7 @@ export async function respondToHelpRequestHandler(input: RespondToHelpRequestInp
   const actor = await requireCurrentMentor(request)
   const requestRef = db.collection('helpRequests').doc(input.helpRequestId)
   const conversationRef = db.collection('conversations').doc(input.helpRequestId)
-  const mentorRef = db.collection('users').doc(actor.uid)
+  const mentorRef = db.collection('mentors').doc(actor.uid)
   return db.runTransaction(async (tx) => {
     const [requestSnapshot, conversation, mentor] = await Promise.all([tx.get(requestRef), tx.get(conversationRef), tx.get(mentorRef)])
     parseUser(mentor, actor.uid, 'MENTOR', actor.email)

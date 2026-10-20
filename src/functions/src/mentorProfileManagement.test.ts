@@ -83,7 +83,7 @@ function updateDatabase(options: {
   const writes = { update: vi.fn(), set: vi.fn(), create: vi.fn() }
   const committed: Array<{ kind: string; value: unknown }> = []
   const profileRef = { id: 'mentor', collection: (name: string) => ({ doc: (id: string) => ({ id, name }) }) }
-  const userRef = { id: 'mentor', name: 'users' }
+  const userRef = { id: 'mentor', name: 'mentors' }
   const stateRef = profileRef.collection('private').doc('profileState')
   const recordRef = profileRef.collection('saveRequests').doc('request')
   const moduleRefs = new Map<string, { id: string; name: string }>()
@@ -91,7 +91,7 @@ function updateDatabase(options: {
   const db = {
     collection: (name: string) => ({ doc: (id: string) => {
       if (name === 'mentorProfiles') return profileRef
-      if (name === 'users') return userRef
+      if (name === 'mentors') return userRef
       const existing = moduleRefs.get(id)
       if (existing) return existing
       const ref = { id, name }
@@ -104,7 +104,7 @@ function updateDatabase(options: {
       const transaction = {
         get: vi.fn(async (ref: unknown) => {
           if (ref === userRef) {
-            events.push('transaction user read')
+            events.push('transaction Mentor read')
             return { exists: true, data: () => options.user ?? currentUser }
           }
           if (ref === profileRef) return { exists: true, updateTime: timestamp, data: () => ({ ...valid, moduleIds: [] }) }
@@ -140,7 +140,7 @@ describe('own Mentor profile save transaction boundaries', () => {
     })
     const test = updateDatabase({ user: { ...currentUser, ...changed }, events })
     await expect(updateOwnMentorProfileHandler(input, request, test.db)).rejects.toMatchObject({ code: 'permission-denied' })
-    expect(events).toEqual(['auth preflight', 'transaction', 'transaction user read'])
+    expect(events).toEqual(['auth preflight', 'transaction', 'transaction Mentor read'])
     expect(test.writes.update).not.toHaveBeenCalled()
     expect(test.writes.set).not.toHaveBeenCalled()
     expect(test.writes.create).not.toHaveBeenCalled()

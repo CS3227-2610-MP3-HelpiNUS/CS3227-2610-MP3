@@ -63,7 +63,7 @@ beforeAll(async () => {
   await getIdToken(student, true)
   ids.mentor = `f01-selection-mentor-${crypto.randomUUID()}`
   await db.collection('users').doc(ids.student).set({ id: ids.student, email: studentEmail, displayName: 'Selection Student', role: 'STUDENT', status: 'ACTIVE', createdAt: Timestamp.now() })
-  await db.collection('users').doc(ids.mentor).set({ id: ids.mentor, email: mentorEmail, displayName: 'Selection Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
+  await db.collection('mentors').doc(ids.mentor).set({ id: ids.mentor, email: mentorEmail, displayName: 'Selection Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
   await db.collection('mentorProfiles').doc(ids.mentor).set({ userId: ids.mentor, biography: '', moduleIds: [moduleId], active: true })
   await db.collection('modules').doc(moduleId).set({ id: moduleId, code: moduleCode, title: moduleLabel, active: true })
   await db.collection('modules').doc(moduleB).set({ id: moduleB, code: 'TC004B', title: 'Unsupported module', active: true })
@@ -86,7 +86,7 @@ afterAll(async () => {
   await db.collection('modules').doc(moduleB).delete()
   if (ids.mentor) {
     await db.collection('mentorProfiles').doc(ids.mentor).delete()
-    await db.collection('users').doc(ids.mentor).delete()
+    await db.collection('mentors').doc(ids.mentor).delete()
   }
   await deleteApp(app)
   await deleteAdminApp(admin)
@@ -94,7 +94,7 @@ afterAll(async () => {
 
 describe('F01 current Mentor/module eligibility (TC-004)', () => {
   it('rejects missing and inactive account, profile, module, and unsupported module without writes', async () => {
-    const userRef = db.collection('users').doc(ids.mentor)
+    const userRef = db.collection('mentors').doc(ids.mentor)
     const profileRef = db.collection('mentorProfiles').doc(ids.mentor)
     const moduleRef = db.collection('modules').doc(moduleId)
     const account = (await userRef.get()).data()!

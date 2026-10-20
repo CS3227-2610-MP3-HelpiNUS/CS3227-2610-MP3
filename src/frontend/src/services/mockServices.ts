@@ -141,10 +141,13 @@ function mockSubscribe(read: () => F01HelpRequest[], onData: (items: F01HelpRequ
 export const mockServices: HelpiNUSServices = {
   session: {
     getCurrent: async () => ({ user: signedInUser }),
+    selectRole: async (role) => ({ user: signedInUser?.role === role ? signedInUser : null, selectedRole: role, issue: signedInUser?.role === role ? undefined : 'PROFILE_MISSING' }),
     subscribe: (listener) => { listener({ user: signedInUser }); return () => {} },
     signInWithGoogle: async () => { throw Object.assign(new Error('Mock preview does not authenticate. Start npm run dev:emulators to sign in with Google.'), { code: 'mock/preview-only' }) },
     registerStudentWithGoogle: async () => { throw Object.assign(new Error('Mock preview does not authenticate. Start npm run dev:emulators to register with Google.'), { code: 'mock/preview-only' }) },
+    registerMentorWithGoogle: async () => { throw Object.assign(new Error('Mock preview does not authenticate. Start npm run dev:emulators to register with Google.'), { code: 'mock/preview-only' }) },
     retryStudentProfile: async () => ({ user: signedInUser }),
+    retryMentorProfile: async () => ({ user: signedInUser }),
     signOut: async () => { signedInUser = null },
   },
   dashboard: { getStudentDashboard: async () => mockDashboard },

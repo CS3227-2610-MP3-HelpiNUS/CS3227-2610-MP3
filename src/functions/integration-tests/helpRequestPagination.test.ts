@@ -64,7 +64,7 @@ beforeAll(async () => {
     await getAdminAuth(admin).updateUser(user.uid, { emailVerified: true })
     await user.reload()
     await getIdToken(user, true)
-    await db.collection('users').doc(user.uid).set({ id: user.uid, email, displayName: role, role: role.toLowerCase().includes('student') ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
+    await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(user.uid).set({ id: user.uid, email, displayName: role, role: role.toLowerCase().includes('student') ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
   }
 
   const older = Timestamp.fromDate(new Date(Date.now() - 2 * 60 * 60 * 1000))
@@ -103,7 +103,7 @@ afterAll(async () => {
   }
   for (const role of roles) {
     if (ids[role]) {
-      await db.collection('users').doc(ids[role]).delete()
+      await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).delete()
       await getAdminAuth(admin).deleteUser(ids[role])
     }
     await signOut(getAuth(apps[role]))
@@ -178,7 +178,7 @@ describe('F01 real owner pagination and live membership (TC-014, 015, 018, 019, 
     const before = (await db.collection('helpRequests').where('studentId', '==', ids.student).get()).docs
       .map((item) => [item.id, item.data()] as const)
     for (const [role, kind, first] of [['student', 'student', firstStudent], ['mentor', 'pending', firstMentor]] as const) {
-      const userRef = db.collection('users').doc(ids[role])
+      const userRef = db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role])
       await userRef.update({ status: 'SUSPENDED' })
       try {
         await expect(getDocs(requestPage(role, kind, first.docs.at(-1)))).rejects.toMatchObject({ code: 'permission-denied' })

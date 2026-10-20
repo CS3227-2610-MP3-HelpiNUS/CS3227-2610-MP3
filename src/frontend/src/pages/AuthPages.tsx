@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useServices } from '../services/useServices'
 import type { Session } from '../services/contracts'
+import type { UserRole } from '@helpinus/shared'
 
 function destination(role: 'STUDENT' | 'MENTOR') {
   return role === 'STUDENT' ? '/student/dashboard' : '/mentor/dashboard'
@@ -27,11 +28,13 @@ function message(error: unknown) {
   return 'We could not complete that request. Please try again.'
 }
 
-function issueMessage(issue: Session['issue'], registering = false) {
+function roleName(role: UserRole) { return role === 'STUDENT' ? 'Student' : 'Mentor' }
+
+function issueMessage(issue: Session['issue'], role: UserRole, registering = false) {
   if (issue === 'PROFILE_MISSING') {
     return registering
-      ? 'Your Google account is ready, but we need your name to finish creating your Student profile.'
-      : 'No HelpiNUS profile is linked to this Google account. Create a Student account to continue.'
+      ? `Your Google account is ready, but we need your name to finish creating your ${roleName(role)} profile.`
+      : `No ${roleName(role)} profile is linked to this Google account. Create a ${roleName(role)} account to continue.`
   }
   if (issue === 'ACCOUNT_INACTIVE') return 'This account is suspended or disabled. Contact HelpiNUS support.'
   return 'Your account profile could not be validated. Contact HelpiNUS support.'
@@ -41,8 +44,9 @@ function Brand({ to = '/login' }: { to?: string }) {
   return <Link className="brand auth-brand" to={to}><span className="brand-mark">H</span><span>Helpi<span className="brand-accent">NUS</span></span></Link>
 }
 
-function ProfileRecoveryForm({ busy, onRetry }: {
+function ProfileRecoveryForm({ busy, role, onRetry }: {
   busy: boolean
+  role: UserRole
   onRetry: (displayName: string) => Promise<void>
 }) {
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -55,7 +59,7 @@ function ProfileRecoveryForm({ busy, onRetry }: {
     <label htmlFor="recovery-name">Name</label>
     <input id="recovery-name" name="displayName" autoComplete="name" maxLength={100} required />
     <button className="button button-primary auth-submit" disabled={busy}>
-      {busy ? 'Finishing setup…' : 'Finish Student profile setup'}
+      {busy ? 'Finishing setup…' : `Finish ${roleName(role)} profile setup`}
     </button>
   </form>
 }
@@ -76,17 +80,20 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [roleChoice, setRoleChoice] = useState<UserRole | null>(null)
+  const chosenRole = roleChoice ?? session?.selectedRole ?? null
   if (session?.user?.status === 'ACTIVE') return <Navigate to={destination(session.user.role)} replace />
 
-  async function signIn() {
+  async function signIn(role: UserRole) {
     if (busy) return
     setError('')
     setBusy(true)
+    setRoleChoice(role)
     try {
-      const result = await services.session.signInWithGoogle()
+      const result = await services.session.signInWithGoogle(role)
       await refreshSession()
-      if (result.user) navigate(destination(result.user.role))
-      else setError(issueMessage(result.issue))
+      if (result.user?.role === role) navigate(destination(role))
+      else setError(issueMessage(result.issue, role))
     } catch (cause) {
       if ((cause as { code?: unknown })?.code !== 'auth/popup-closed-by-user') setError(message(cause))
     } finally {
@@ -98,10 +105,14 @@ export function LoginPage() {
     <Brand />
     <section className="auth-panel" aria-labelledby="login-title">
       <h1 id="login-title">Welcome to HelpiNUS</h1>
-      <p>Use your Google account to continue.</p>
+      <p>Choose how you want to continue with your Google account.</p>
       {error && <p id="login-error" className="auth-error" role="alert">{error}</p>}
-      <GoogleButton busy={busy} label="Continue with Google" busyLabel="Opening Google…" onClick={signIn} />
-      <p className="auth-secondary">New to HelpiNUS? <Link to="/register">Create a Student account</Link></p>
+      <div className="auth-actions" role="group" aria-label="Choose a role">
+        <button type="button" className="button auth-role-button auth-role-student" disabled={busy} onClick={() => void signIn('STUDENT')}>Continue as Student</button>
+        <button type="button" className="button auth-role-button auth-role-mentor" disabled={busy} onClick={() => void signIn('MENTOR')}>Continue as Mentor</button>
+      </div>
+      {chosenRole && session?.issue === 'PROFILE_MISSING' && <p className="auth-secondary"><Link to={`/register?role=${chosenRole}`}>Create {roleName(chosenRole)} account</Link></p>}
+      {!chosenRole && <p className="auth-secondary">New to HelpiNUS? Choose a role to register.</p>}
       <p className="auth-secondary"><Link to="/forgot-password">Need help with your Google password?</Link></p>
     </section>
     <p className="auth-footnote">For students and mentors</p>
@@ -111,22 +122,26 @@ export function LoginPage() {
 export function RegisterPage() {
   const { services, session, refreshSession } = useServices()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const role: UserRole = params.get('role') === 'MENTOR' ? 'MENTOR' : 'STUDENT'
   const [error, setError] = useState('')
-  const [needsName, setNeedsName] = useState(session?.issue === 'PROFILE_MISSING')
+  const [needsName, setNeedsName] = useState(session?.selectedRole === role && session.issue === 'PROFILE_MISSING')
   const [busy, setBusy] = useState(false)
-  if (session?.user?.status === 'ACTIVE') return <Navigate to={destination(session.user.role)} replace />
+  if (session?.user?.status === 'ACTIVE' && session.user.role === role) return <Navigate to={destination(role)} replace />
 
   async function register() {
     if (busy) return
     setError('')
     setBusy(true)
     try {
-      const result = await services.session.registerStudentWithGoogle()
+      const result = role === 'STUDENT'
+        ? await services.session.registerStudentWithGoogle()
+        : await services.session.registerMentorWithGoogle()
       await refreshSession()
-      if (result.user) navigate(destination(result.user.role))
+      if (result.user?.role === role) navigate(destination(role))
       else {
         setNeedsName(result.issue === 'PROFILE_MISSING')
-        setError(issueMessage(result.issue, true))
+        setError(issueMessage(result.issue, role, true))
       }
     } catch (cause) {
       if ((cause as { code?: unknown })?.code !== 'auth/popup-closed-by-user') setError(message(cause))
@@ -139,10 +154,12 @@ export function RegisterPage() {
     setError('')
     setBusy(true)
     try {
-      const result = await services.session.retryStudentProfile(displayName)
+      const result = role === 'STUDENT'
+        ? await services.session.retryStudentProfile(displayName)
+        : await services.session.retryMentorProfile(displayName)
       await refreshSession()
-      if (result.user) navigate(destination(result.user.role))
-      else setError(issueMessage(result.issue, true))
+      if (result.user?.role === role) navigate(destination(role))
+      else setError(issueMessage(result.issue, role, true))
     } catch (cause) {
       setError(message(cause))
     } finally {
@@ -153,12 +170,12 @@ export function RegisterPage() {
   return <main className="auth-screen">
     <Brand />
     <section className="auth-panel" aria-labelledby="register-title">
-      <h1 id="register-title">Create your Student account</h1>
-      <p>Continue with any Google account. Public registration always creates a Student profile.</p>
+      <h1 id="register-title">Create your {roleName(role)} account</h1>
+      <p>Continue with your Google account to create your {roleName(role)} profile.</p>
       {error && <p id="register-error" className="auth-error" role="alert">{error}</p>}
       {needsName
-        ? <ProfileRecoveryForm busy={busy} onRetry={retry} />
-        : <GoogleButton busy={busy} label="Create Student account with Google" busyLabel="Opening Google…" onClick={register} />}
+        ? <ProfileRecoveryForm busy={busy} role={role} onRetry={retry} />
+        : <GoogleButton busy={busy} label={`Create ${roleName(role)} account with Google`} busyLabel="Opening Google…" onClick={register} />}
       <p className="auth-secondary">Already registered? <Link to="/login">Sign in</Link></p>
     </section>
   </main>
@@ -179,6 +196,7 @@ export function ForgotPasswordPage() {
 export function AccountAccessPage() {
   const { session, services, refreshSession } = useServices()
   const navigate = useNavigate()
+  const role = session?.selectedRole ?? 'STUDENT'
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   if (session?.user?.status === 'ACTIVE') return <Navigate to={destination(session.user.role)} replace />
@@ -187,10 +205,12 @@ export function AccountAccessPage() {
     setBusy(true)
     setNotice('')
     try {
-      const result = await services.session.retryStudentProfile(displayName)
+      const result = role === 'STUDENT'
+        ? await services.session.retryStudentProfile(displayName)
+        : await services.session.retryMentorProfile(displayName)
       await refreshSession()
-      if (result.user) navigate(destination(result.user.role), { replace: true })
-      else setNotice(issueMessage(result.issue, true))
+      if (result.user?.role === role) navigate(destination(role), { replace: true })
+      else setNotice(issueMessage(result.issue, role, true))
     } catch (cause) {
       setNotice(message(cause))
     } finally {
@@ -202,9 +222,10 @@ export function AccountAccessPage() {
   return <main className="auth-screen">
     <Brand />
     <section className="auth-panel" aria-labelledby="access-title">
-      <h1 id="access-title">{missing ? 'Student profile setup incomplete' : 'Account access unavailable'}</h1>
-      <p>{missing ? 'Your Google identity is ready, but your trusted Student profile still needs a name.' : session?.issue === 'ACCOUNT_INACTIVE' ? 'This account is suspended or disabled. Contact HelpiNUS support.' : 'Your account profile could not be validated. Contact HelpiNUS support.'}</p>
-      {missing && <ProfileRecoveryForm busy={busy} onRetry={retry} />}
+      <h1 id="access-title">{missing ? `${roleName(role)} profile setup incomplete` : 'Account access unavailable'}</h1>
+      <p>{missing ? `Your Google identity is ready to create a ${roleName(role)} profile.` : session?.issue === 'ACCOUNT_INACTIVE' ? 'This account is suspended or disabled. Contact HelpiNUS support.' : 'Your account profile could not be validated. Contact HelpiNUS support.'}</p>
+      {missing && <Link to={`/register?role=${role}`}>Create {roleName(role)} account</Link>}
+      {missing && <ProfileRecoveryForm busy={busy} role={role} onRetry={retry} />}
       {notice && <p className="auth-error" role="alert">{notice}</p>}
       <Link to="/login">Return to sign in</Link>
     </section>

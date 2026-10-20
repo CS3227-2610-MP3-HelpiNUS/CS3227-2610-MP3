@@ -19,14 +19,14 @@ const tupleHash = createHash('sha256').update(JSON.stringify(['adapter-student',
 
 beforeAll(async () => {
   const now = Timestamp.now()
-  await db.collection('users').doc('adapter-mentor').set({ id: 'adapter-mentor', email: 'adapter-mentor@example.test', displayName: 'Adapter Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: now })
+  await db.collection('mentors').doc('adapter-mentor').set({ id: 'adapter-mentor', email: 'adapter-mentor@example.test', displayName: 'Adapter Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: now })
   await db.collection('helpRequests').doc(id).set({ id, studentId: 'adapter-student', mentorId: 'adapter-mentor', moduleId: 'adapter-module', studentDisplayName: 'Adapter Student', mentorDisplayName: 'Adapter Mentor', title: 'Question', description: 'A detailed question', status: 'PENDING', createdAt: now, updatedAt: now })
   await db.collection('pendingHelpRequestKeys').doc(tupleHash).set({ studentId: 'adapter-student', mentorId: 'adapter-mentor', moduleId: 'adapter-module', helpRequestId: id })
   await db.collection('helpRequestSummaries').doc('adapter-student').set({ pendingCount: 1, acceptedCount: 0, rejectedCount: 0, openCount: 1, updatedAt: now })
 })
 afterAll(async () => {
   await Promise.all([
-    db.collection('users').doc('adapter-mentor').delete(),
+    db.collection('mentors').doc('adapter-mentor').delete(),
     db.collection('helpRequests').doc(id).delete(),
     db.collection('pendingHelpRequestKeys').doc(tupleHash).delete(),
     db.collection('helpRequestSummaries').doc('adapter-student').delete(),

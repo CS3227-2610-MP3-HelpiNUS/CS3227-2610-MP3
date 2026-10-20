@@ -5,7 +5,7 @@ import {
   f01HelpRequestSchema, f02ConversationSchema, f02SavedMessageSchema, userSchema,
   type AcknowledgeMessageInput, type F01HelpRequest, type F02SavedMessage, type SendMessageInput,
 } from '@helpinus/shared'
-import { requireActiveUser } from './auth.js'
+import { requireAuthenticated, requireRole } from './auth.js'
 
 type StoredRequest = Omit<F01HelpRequest, 'createdAt' | 'updatedAt'> & { createdAt: Timestamp; updatedAt: Timestamp }
 const denied = (): never => { throw new HttpsError('permission-denied', 'Conversation access is unavailable.') }
@@ -35,13 +35,19 @@ export function provisionForAcceptedRequest(tx: Transaction, request: StoredRequ
   return request.id
 }
 
-async function currentActor(call: CallableRequest<unknown>, db: Firestore) {
-  const actor = await requireActiveUser(call)
+async function currentActor(call: CallableRequest<unknown>, db: Firestore, requestId: string) {
+  const { uid } = await requireAuthenticated(call)
+  const parent = await db.collection('helpRequests').doc(requestId).get()
+  const data = parent.data()
+  if (!parent.exists || !data) return denied()
+  if (data.studentId === data.mentorId) return denied()
+  const role = data.studentId === uid ? 'STUDENT' : data.mentorId === uid ? 'MENTOR' : denied()
+  const actor = await requireRole(call, role)
   let authUser
   try { authUser = await getAuth().getUser(actor.uid) } catch { return denied() }
   const synthetic = process.env.FUNCTIONS_EMULATOR === 'true' && actor.email.endsWith('@example.test')
   if (authUser.disabled || authUser.email !== actor.email || (!authUser.emailVerified && !synthetic)) denied()
-  return { actor, userRef: db.collection('users').doc(actor.uid) }
+  return { actor, userRef: db.collection(role === 'MENTOR' ? 'mentors' : 'users').doc(actor.uid) }
 }
 
 function assertActor(snapshot: DocumentSnapshot, actor: { uid: string; email: string; role: string }) {
@@ -78,7 +84,7 @@ function parseMessage(snapshot: DocumentSnapshot, requestId: string): F02SavedMe
 }
 
 export async function sendMessageHandler(input: SendMessageInput, call: CallableRequest<unknown>, db: Firestore): Promise<{ message: F02SavedMessage }> {
-  const { actor, userRef } = await currentActor(call, db)
+  const { actor, userRef } = await currentActor(call, db, input.requestId)
   const requestRef = db.collection('helpRequests').doc(input.requestId)
   const conversationRef = db.collection('conversations').doc(input.requestId)
   const messageRef = conversationRef.collection('messages').doc(input.messageId)
@@ -99,7 +105,7 @@ export async function sendMessageHandler(input: SendMessageInput, call: Callable
 }
 
 export async function acknowledgeMessageHandler(input: AcknowledgeMessageInput, call: CallableRequest<unknown>, db: Firestore): Promise<{ readAt: string }> {
-  const { actor, userRef } = await currentActor(call, db)
+  const { actor, userRef } = await currentActor(call, db, input.requestId)
   const requestRef = db.collection('helpRequests').doc(input.requestId)
   const conversationRef = db.collection('conversations').doc(input.requestId)
   const messageRef = conversationRef.collection('messages').doc(input.messageId)

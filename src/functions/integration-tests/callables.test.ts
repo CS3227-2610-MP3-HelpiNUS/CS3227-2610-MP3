@@ -8,6 +8,8 @@ import { getFirestore } from 'firebase-admin/firestore'
 import {
   discoverMentorsOutputSchema,
   initializeStudentProfileOutputSchema,
+  type InitializeMentorProfileInput,
+  type InitializeMentorProfileOutput,
   type DiscoverMentorsInput,
   type DiscoverMentorsOutput,
   type InitializeStudentProfileInput,
@@ -21,6 +23,7 @@ const functions = getFunctions(app, 'asia-southeast1')
 connectFunctionsEmulator(functions, '127.0.0.1', 5001)
 
 const initializeProfile = httpsCallable<InitializeStudentProfileInput, InitializeStudentProfileOutput>(functions, 'initializeStudentProfile')
+const initializeMentor = httpsCallable<InitializeMentorProfileInput, InitializeMentorProfileOutput>(functions, 'initializeMentorProfile')
 const testAuthenticated = httpsCallable<{ displayName: string }, { uid: string; ok: boolean }>(functions, 'testAuthenticated')
 const discoverMentors = httpsCallable<DiscoverMentorsInput, DiscoverMentorsOutput>(functions, 'discoverMentors')
 const adminApp = initializeAdminApp({ projectId: 'helpinus-integration-test' }, 'helpinus-integration-admin')
@@ -72,7 +75,7 @@ describe('callable emulator integration', () => {
     expect(afterLogin.updateTime?.isEqual(beforeLogin.updateTime!)).toBe(true)
   }, 30000)
 
-  it('preserves an existing Mentor profile during public Student initialization', async () => {
+  it('allows an existing Mentor to add Student access under the same UID without changing Mentor identity', async () => {
     const studentEmail = email
     const mentorEmail = `mentor-${crypto.randomUUID()}@example.test`
     const mentor = await adminAuth.createUser({ email: mentorEmail, password, emailVerified: true })
@@ -84,19 +87,28 @@ describe('callable emulator integration', () => {
       status: 'ACTIVE',
       createdAt: new Date(),
     }
-    await adminDb.collection('users').doc(mentor.uid).create(mentorRecord)
+    await adminDb.collection('mentors').doc(mentor.uid).create(mentorRecord)
     try {
       await signOut(auth)
       await signInWithEmailAndPassword(auth, mentorEmail, password)
-      await expect(initializeProfile({ displayName: 'Forged Student' }))
-        .rejects.toMatchObject({ code: 'functions/permission-denied' })
-      const stored = await adminDb.collection('users').doc(mentor.uid).get()
+      await expect(initializeProfile({ displayName: 'Integration Student' }))
+        .resolves.toMatchObject({ data: { user: { id: mentor.uid, role: 'STUDENT' } } })
+      expect((await adminDb.collection('users').doc(mentor.uid).get()).data()).toMatchObject({ id: mentor.uid, role: 'STUDENT' })
+      const stored = await adminDb.collection('mentors').doc(mentor.uid).get()
       expect(stored.data()).toEqual({ ...mentorRecord, createdAt: expect.anything() })
       expect(stored.data()?.role).toBe('MENTOR')
     } finally {
       await signOut(auth)
       await signInWithEmailAndPassword(auth, studentEmail, password)
     }
+  })
+
+  it('rejects public Mentor registration from an email/password session even when Student exists', async () => {
+    const user = auth.currentUser
+    if (!user) throw new Error('Expected signed-in synthetic Student.')
+    await expect(initializeMentor({ displayName: 'Forged Mentor' }))
+      .rejects.toMatchObject({ code: 'functions/failed-precondition' })
+    expect((await adminDb.collection('mentors').doc(user.uid).get()).exists).toBe(false)
   })
 
   it('returns paginated public Mentor fields after scanning past ineligible owners', async () => {
@@ -106,7 +118,7 @@ describe('callable emulator integration', () => {
     const batch = adminDb.batch()
     for (let index = 0; index < 101; index += 1) {
       const suspendedId = `a-suspended-${String(index).padStart(3, '0')}`
-      batch.set(adminDb.collection('users').doc(suspendedId), {
+      batch.set(adminDb.collection('mentors').doc(suspendedId), {
         id: suspendedId,
         displayName: `Suspended Mentor ${index}`,
         email: `suspended-${index}@example.test`,
@@ -125,7 +137,7 @@ describe('callable emulator integration', () => {
       [firstActiveId, 'First Active Mentor'],
       [secondActiveId, 'Second Active Mentor'],
     ] as const) {
-      batch.set(adminDb.collection('users').doc(id), {
+      batch.set(adminDb.collection('mentors').doc(id), {
         id,
         displayName,
         email: `${id}@example.test`,

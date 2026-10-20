@@ -30,7 +30,7 @@ beforeAll(async () => {
     await getAdminAuth(admin).updateUser(user.uid, { emailVerified: true })
     await user.reload()
     await getIdToken(user, true)
-    await db.collection('users').doc(ids[role]).set({ id: ids[role], email, displayName: role, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
+    await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).set({ id: ids[role], email, displayName: role, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
   }
   await db.collection('mentorProfiles').doc(ids.mentor).set({ userId: ids.mentor, biography: '', moduleIds: ['f02-module'], active: true })
   await db.collection('modules').doc('f02-module').set({ id: 'f02-module', code: 'CS3227', title: 'Software Engineering', active: true })
@@ -51,7 +51,7 @@ afterAll(async () => {
   await db.collection('modules').doc('f02-module').delete()
   if (ids.mentor) await db.collection('mentorProfiles').doc(ids.mentor).delete()
   for (const role of roles) {
-    if (ids[role]) { await db.collection('users').doc(ids[role]).delete(); await getAdminAuth(admin).deleteUser(ids[role]) }
+    if (ids[role]) { await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).delete(); await getAdminAuth(admin).deleteUser(ids[role]) }
     await signOut(getAuth(apps[role])); await deleteApp(apps[role])
   }
   await deleteAdminApp(admin)
@@ -399,7 +399,7 @@ describe('F02 production acceptance, send and receipt', () => {
     for (const role of ['student', 'mentor'] as const) {
       const clientDb = getClientFirestore(apps[role])
       const clientAuth = getAuth(apps[role])
-      const userRef = db.collection('users').doc(ids[role])
+      const userRef = db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role])
       const originalUser = (await userRef.get()).data()!
       const ownerField = role === 'student' ? 'studentId' : 'mentorId'
       const deniedCurrentReads = async () => {

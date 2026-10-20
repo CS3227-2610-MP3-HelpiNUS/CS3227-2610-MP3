@@ -56,7 +56,7 @@ beforeAll(async () => {
     await getAdminAuth(admin).updateUser(user.uid, { emailVerified: true })
     await user.reload()
     await getIdToken(user, true)
-    await db.collection('users').doc(user.uid).set({ id: user.uid, email, displayName: role, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
+    await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(user.uid).set({ id: user.uid, email, displayName: role, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
   }
   await db.collection('mentorProfiles').doc(ids.mentor).set({ userId: ids.mentor, biography: '', moduleIds: [moduleId], active: true })
   await db.collection('modules').doc(moduleId).set({ id: moduleId, code: 'CS3227', title: 'Integration module', active: true })
@@ -79,7 +79,7 @@ afterAll(async () => {
   await db.collection('modules').doc(moduleId).delete()
   if (ids.mentor) await db.collection('mentorProfiles').doc(ids.mentor).delete()
   for (const role of roles) {
-    if (ids[role]) { await db.collection('users').doc(ids[role]).delete(); await getAdminAuth(admin).deleteUser(ids[role]) }
+    if (ids[role]) { await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).delete(); await getAdminAuth(admin).deleteUser(ids[role]) }
     await signOut(getAuth(apps[role]))
     await deleteApp(apps[role])
   }
@@ -230,9 +230,9 @@ describe('F01/F02 final production-wired acceptance (F01-TC-022–025, 029–035
     }
     const pendingId = await createRequest()
     const before = await state(pendingId)
-    await db.collection('users').doc(ids.mentor).update({ status: 'SUSPENDED' })
+    await db.collection('mentors').doc(ids.mentor).update({ status: 'SUSPENDED' })
     try { await expect(decide('mentor', pendingId, 'ACCEPTED')).rejects.toMatchObject({ code: 'functions/permission-denied' }) }
-    finally { await db.collection('users').doc(ids.mentor).update({ status: 'ACTIVE' }) }
+    finally { await db.collection('mentors').doc(ids.mentor).update({ status: 'ACTIVE' }) }
     expect(await state(pendingId)).toEqual(before)
     expect((await decide('mentor', pendingId, 'REJECTED')).data).toMatchObject({ kind: 'decided' })
   }, 30000)

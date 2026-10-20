@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HelpiNUS — role button gradient preview</title>
+  <style>
+    :root {
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #243238;
+      background: #f6f8f7;
+      font-synthesis: none;
+      -webkit-font-smoothing: antialiased;
+    }
+    * { box-sizing: border-box; }
+    body { min-width: 320px; min-height: 100vh; margin: 0; }
+    .screen {
+      display: grid;
+      min-height: 100vh;
+      min-height: 100svh;
+      align-content: center;
+      justify-items: center;
+      padding: 28px 18px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -.045em;
+    }
+    .brand-mark {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border-radius: 10px;
+      background: #176b55;
+      color: #fff;
+      font-size: 18px;
+    }
+    .brand-accent { color: #176b55; }
+    .panel {
+      width: min(100%, 420px);
+      padding: 30px;
+      border: 1px solid #dfe7e3;
+      border-radius: 12px;
+      background: #fff;
+    }
+    h1 { margin: 0 0 8px; font-size: 24px; font-weight: 650; letter-spacing: -.03em; }
+    .intro { margin: 0 0 21px; color: #58686c; font-size: 13px; line-height: 1.55; }
+    .actions { display: grid; gap: 10px; }
+    .role-button {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 15px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      color: #fff;
+      cursor: default;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 650;
+      box-shadow: inset 0 1px rgb(255 255 255 / 16%);
+    }
+    .role-button.student { background: linear-gradient(110deg, #168168, #0e5b50); }
+    .role-button.mentor { background: linear-gradient(110deg, #3a8047, #195c3e); }
+    .secondary { margin: 18px 0 0; color: #58686c; font-size: 11px; text-align: center; }
+    .help { margin-top: 20px; color: #105742; font-weight: 650; }
+    .footnote { margin: 19px 0 0; color: #58686c; font-size: 11px; }
+    @media (max-width: 480px) { .panel { padding: 25px 20px; } }
+  </style>
+</head>
+<body>
+  <!-- Static visual preview of point 1 only; these buttons have no sign-in behavior. -->
+  <main class="screen">
+    <div class="brand" aria-label="HelpiNUS"><span class="brand-mark">H</span><span>Helpi<span class="brand-accent">NUS</span></span></div>
+    <section class="panel" aria-labelledby="login-title">
+      <h1 id="login-title">Welcome to HelpiNUS</h1>
+      <p class="intro">Choose how you want to continue with your Google account.</p>
+      <div class="actions" role="group" aria-label="Choose a role">
+        <button class="role-button student" type="button">Continue as Student</button>
+        <button class="role-button mentor" type="button">Continue as Mentor</button>
+      </div>
+      <p class="secondary">New to HelpiNUS? Choose a role to register.</p>
+      <p class="secondary help">Need help with your Google password?</p>
+    </section>
+    <p class="footnote">For students and mentors</p>
+  </main>
+</body>
+</html>

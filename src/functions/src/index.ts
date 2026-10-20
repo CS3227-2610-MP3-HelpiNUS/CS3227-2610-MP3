@@ -5,7 +5,7 @@ import { callable, singaporeRegion } from './callable.js'
 import { requireActiveUser, requireRole } from './auth.js'
 import { callableSchemas } from '@helpinus/shared'
 import type { ZodType } from 'zod'
-import { initializeStudentProfileHandler } from './profile.js'
+import { initializeMentorProfileHandler, initializeStudentProfileHandler } from './profile.js'
 import { discoverMentorsHandler } from './mentorDiscovery.js'
 import { getMentorRequestSelectionHandler } from './mentorRequestSelection.js'
 import { readOwnMentorProfileHandler, updateOwnMentorProfileHandler } from './mentorProfileManagement.js'
@@ -25,6 +25,11 @@ export const testAuthenticated = callable(
 export const initializeStudentProfile = callable(
   callableSchemas.initializeStudentProfile.input,
   (input, request) => initializeStudentProfileHandler(input, request, db, process.env.FUNCTIONS_EMULATOR === 'true'),
+)
+
+export const initializeMentorProfile = callable(
+  callableSchemas.initializeMentorProfile.input,
+  (input, request) => initializeMentorProfileHandler(input, request, db),
 )
 
 export const discoverMentors = callable(

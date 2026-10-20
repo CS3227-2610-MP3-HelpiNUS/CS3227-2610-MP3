@@ -68,7 +68,7 @@ export async function updateOwnMentorProfileHandler(input: UpdateOwnMentorProfil
   const profileRef = db.collection('mentorProfiles').doc(user.uid)
   const stateRef = profileRef.collection('private').doc('profileState')
   const recordRef = profileRef.collection('saveRequests').doc(input.requestId)
-  const userRef = db.collection('users').doc(user.uid)
+  const userRef = db.collection('mentors').doc(user.uid)
   const expectedFingerprint = fingerprint(user.uid, input)
   return db.runTransaction(async (transaction) => {
     const [userSnapshot, profileSnapshot, stateSnapshot, recordSnapshot] = await Promise.all([

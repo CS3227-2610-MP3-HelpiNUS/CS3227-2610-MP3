@@ -48,7 +48,7 @@ async function expectAllProfileCallablesDenied(
 beforeAll(async () => {
   email = `f04-${crypto.randomUUID()}@example.test`
   uid = (await createUserWithEmailAndPassword(auth, email, 'Synthetic-123!')).user.uid
-  await db.collection('users').doc(uid).set({ id: uid, email, displayName: 'Integration Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: new Date() })
+  await db.collection('mentors').doc(uid).set({ id: uid, email, displayName: 'Integration Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: new Date() })
   await db.collection('mentorProfiles').doc(uid).set({ userId: uid, biography: '', moduleIds: [], active: true })
   for (const module of [
     { id: 'cs2103t', code: 'CS2103T', title: 'Software Engineering', active: true },
@@ -60,7 +60,7 @@ afterAll(async () => {
   await signOut(auth)
   if (uid) {
     await db.recursiveDelete(db.collection('mentorProfiles').doc(uid))
-    await db.collection('users').doc(uid).delete()
+    await db.collection('mentors').doc(uid).delete()
     await adminAuth.deleteUser(uid)
   }
   await deleteApp(app)
@@ -211,10 +211,10 @@ describe('Mentor profile callable emulator persistence', () => {
     const rejected = outcomes.map(({ data }) => updateOwnMentorProfileOutputSchema.parse(data)).find((outcome) => outcome.kind === 'rejected')
     expect(rejected).toMatchObject({ kind: 'rejected', reason: 'CONFLICT' })
     const acceptedInput = updateOwnMentorProfileOutputSchema.parse(outcomes[0]!.data).kind === 'accepted' ? first : second
-    await db.collection('users').doc(uid).update({ status: 'SUSPENDED' })
+    await db.collection('mentors').doc(uid).update({ status: 'SUSPENDED' })
     try {
       await expect(update(acceptedInput)).rejects.toMatchObject({ code: 'functions/permission-denied' })
-    } finally { await db.collection('users').doc(uid).update({ status: 'ACTIVE' }) }
+    } finally { await db.collection('mentors').doc(uid).update({ status: 'ACTIVE' }) }
     expect(updateOwnMentorProfileOutputSchema.parse((await update(acceptedInput)).data).kind).toBe('accepted')
     expect((await db.collection('mentorProfiles').doc(uid).get()).data()).not.toHaveProperty('profileRevision')
     expect((await db.collection('mentorProfiles').doc(uid).collection('private').doc('profileState').get()).data()).toEqual({ revision: initial.profile.version.revision + 1 })
@@ -315,7 +315,7 @@ describe('Mentor profile callable emulator persistence', () => {
         update: httpsCallable<UpdateOwnMentorProfileInput, unknown>(studentFunctions, 'updateOwnMentorProfile'),
       }
       const mentorBeforeDenial = (await db.collection('mentorProfiles').doc(uid).get()).data()
-      await expectAllProfileCallablesDenied(studentCallables, { revision: 0, updateTime: '0:000000000' }, 'functions/permission-denied')
+      await expectAllProfileCallablesDenied(studentCallables, { revision: 0, updateTime: '0:000000000' }, 'functions/failed-precondition')
       expect((await db.collection('mentorProfiles').doc(uid).get()).data()).toEqual(mentorBeforeDenial)
       expect((await db.collection('mentorProfiles').doc(student.uid).get()).exists).toBe(false)
       const studentDiscover = httpsCallable<{ limit: number }, unknown>(studentFunctions, 'discoverMentors')
@@ -347,15 +347,15 @@ describe('Mentor profile callable emulator persistence', () => {
     const original = (await db.collection('mentorProfiles').doc(uid).get()).data()
     const callables = { read, search, update }
 
-    await db.collection('users').doc(uid).update({ role: 'STUDENT' })
+    await db.collection('mentors').doc(uid).update({ role: 'STUDENT' })
     try {
       await expectAllProfileCallablesDenied(callables, current.profile.version, 'functions/permission-denied')
-    } finally { await db.collection('users').doc(uid).update({ role: 'MENTOR' }) }
+    } finally { await db.collection('mentors').doc(uid).update({ role: 'MENTOR' }) }
 
-    await db.collection('users').doc(uid).update({ status: 'SUSPENDED' })
+    await db.collection('mentors').doc(uid).update({ status: 'SUSPENDED' })
     try {
       await expectAllProfileCallablesDenied(callables, current.profile.version, 'functions/permission-denied')
-    } finally { await db.collection('users').doc(uid).update({ status: 'ACTIVE' }) }
+    } finally { await db.collection('mentors').doc(uid).update({ status: 'ACTIVE' }) }
 
     await adminAuth.updateUser(uid, { disabled: true })
     try {
@@ -380,7 +380,7 @@ describe('Mentor profile callable emulator persistence', () => {
     const otherUser = (await createUserWithEmailAndPassword(otherAuth, otherEmail, 'Synthetic-123!')).user
     const otherUid = otherUser.uid
     const profileRef = db.collection('mentorProfiles').doc(otherUid)
-    await db.collection('users').doc(otherUid).set({ id: otherUid, email: otherEmail, displayName: 'Other Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: new Date() })
+    await db.collection('mentors').doc(otherUid).set({ id: otherUid, email: otherEmail, displayName: 'Other Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: new Date() })
     await profileRef.set({ userId: otherUid, biography: '', moduleIds: [], active: true })
     const baseline = { revision: 0, updateTime: '0:000000000' }
     try {
@@ -399,7 +399,7 @@ describe('Mentor profile callable emulator persistence', () => {
     } finally {
       await signOut(otherAuth)
       await db.recursiveDelete(profileRef)
-      await db.collection('users').doc(otherUid).delete()
+      await db.collection('mentors').doc(otherUid).delete()
       await adminAuth.deleteUser(otherUid).catch((error: { code?: string }) => {
         if (error.code !== 'auth/user-not-found') throw error
       })
