@@ -84,31 +84,16 @@ export function LoginPage() {
   const chosenRole = roleChoice ?? session?.selectedRole ?? null
   if (session?.user?.status === 'ACTIVE') return <Navigate to={destination(session.user.role)} replace />
 
-  async function choose(role: UserRole) {
+  async function signIn(role: UserRole) {
     if (busy) return
     setError('')
     setBusy(true)
+    setRoleChoice(role)
     try {
-      setRoleChoice(role)
-      const result = await services.session.selectRole(role)
+      const result = await services.session.signInWithGoogle(role)
       await refreshSession()
       if (result.user?.role === role) navigate(destination(role))
-    } catch (cause) {
-      setError(message(cause))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function signIn() {
-    if (busy || !chosenRole) return
-    setError('')
-    setBusy(true)
-    try {
-      const result = await services.session.signInWithGoogle(chosenRole)
-      await refreshSession()
-      if (result.user?.role === chosenRole) navigate(destination(chosenRole))
-      else setError(issueMessage(result.issue, chosenRole))
+      else setError(issueMessage(result.issue, role))
     } catch (cause) {
       if ((cause as { code?: unknown })?.code !== 'auth/popup-closed-by-user') setError(message(cause))
     } finally {
@@ -123,10 +108,9 @@ export function LoginPage() {
       <p>Choose how you want to continue with your Google account.</p>
       {error && <p id="login-error" className="auth-error" role="alert">{error}</p>}
       <div className="auth-actions" role="group" aria-label="Choose a role">
-        <button type="button" className={`button ${chosenRole === 'STUDENT' ? 'button-primary' : 'button-secondary'}`} aria-pressed={chosenRole === 'STUDENT'} disabled={busy} onClick={() => void choose('STUDENT')}>Continue as Student</button>
-        <button type="button" className={`button ${chosenRole === 'MENTOR' ? 'button-primary' : 'button-secondary'}`} aria-pressed={chosenRole === 'MENTOR'} disabled={busy} onClick={() => void choose('MENTOR')}>Continue as Mentor</button>
+        <button type="button" className="button auth-role-button auth-role-student" disabled={busy} onClick={() => void signIn('STUDENT')}>Continue as Student</button>
+        <button type="button" className="button auth-role-button auth-role-mentor" disabled={busy} onClick={() => void signIn('MENTOR')}>Continue as Mentor</button>
       </div>
-      {chosenRole && <GoogleButton busy={busy} label={`Continue with Google as ${roleName(chosenRole)}`} busyLabel="Opening Google…" onClick={signIn} />}
       {chosenRole && session?.issue === 'PROFILE_MISSING' && <p className="auth-secondary"><Link to={`/register?role=${chosenRole}`}>Create {roleName(chosenRole)} account</Link></p>}
       {!chosenRole && <p className="auth-secondary">New to HelpiNUS? Choose a role to register.</p>}
       <p className="auth-secondary"><Link to="/forgot-password">Need help with your Google password?</Link></p>

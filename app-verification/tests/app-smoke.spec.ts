@@ -35,9 +35,8 @@ const test = base.extend<{ diagnostics: Diagnostics }>({
 })
 
 async function signInWithSeededGoogleAccount(page: Page, email: string, role: 'Student' | 'Mentor') {
-  await page.getByRole('button', { name: `Continue as ${role}` }).click()
   const popupReady = page.waitForEvent('popup')
-  await page.getByRole('button', { name: `Continue with Google as ${role}` }).click()
+  await page.getByRole('button', { name: `Continue as ${role}` }).click()
   const popup = await popupReady
   await expect(popup.locator('#title .js-provider-id')).toHaveText('Google.com')
   await popup.getByText(email, { exact: true }).click()
