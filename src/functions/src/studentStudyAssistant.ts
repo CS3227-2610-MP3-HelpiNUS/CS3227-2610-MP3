@@ -43,6 +43,10 @@ const defaultReplaysPerWindow = 60
 const historyMessageLimit = 12
 const historyCharacterLimit = 16_000
 const retrievalLimit = 4
+const contextualFollowUpTerms = new Set([
+  'it', 'its', 'that', 'this', 'these', 'those', 'they', 'them', 'their',
+  'former', 'latter', 'above', 'previous', 'earlier', 'further', 'more', 'elaborate',
+])
 const hasInvisibleControl = (value: string) => Array.from(value).some((character) => {
   const codePoint = character.codePointAt(0) ?? 0
   return codePoint <= 0x08 || codePoint === 0x0b || codePoint === 0x0c ||
@@ -50,6 +54,14 @@ const hasInvisibleControl = (value: string) => Array.from(value).some((character
     (codePoint >= 0x200b && codePoint <= 0x200f) || (codePoint >= 0x202a && codePoint <= 0x202e) ||
     (codePoint >= 0x2060 && codePoint <= 0x206f) || codePoint === 0xfeff
 })
+
+function isContextDependentFollowUp(value: string): boolean {
+  const tokens = value.normalize('NFKC').toLocaleLowerCase('en').match(/[\p{L}\p{N}]+/gu) ?? []
+  return tokens.length > 0 && tokens.length <= 40 && (
+    tokens.some((token) => contextualFollowUpTerms.has(token)) ||
+    (tokens.length <= 3 && (tokens[0] === 'why' || tokens[0] === 'how'))
+  )
+}
 
 export const studentStudyAssistantExpiryCleanupPolicy = Object.freeze({
   collectionGroup: 'studentStudyAssistantConversations',
@@ -68,6 +80,11 @@ export const studentStudyAssistantDeleteOperationCleanupPolicy = Object.freeze({
   collectionGroup: 'studentStudyAssistantDeleteOperations',
   field: 'expiresAt',
   retentionDays: 30,
+})
+
+export const studentStudyAssistantSendOperationCleanupPolicy = Object.freeze({
+  collectionGroup: 'studentStudyAssistantSendOperations',
+  field: 'leaseExpiresAt',
 })
 
 export interface StudentStudyAssistantDependencies {
@@ -280,20 +297,21 @@ async function recordAuditBestEffort(
   }
 }
 
-async function recordRateLimitAuditBestEffort(
+async function recordCoalescedRequestRejectionAuditBestEffort(
   db: Firestore,
+  event: 'VALIDATION_REJECTED' | 'REQUEST_REJECTED',
   actor: AuthorizedUser,
   now: Timestamp,
-  reason: 'RATE_LIMITED' | 'REPLAY_RATE_LIMITED',
+  reason: string,
   metadata: Record<string, unknown>,
 ): Promise<void> {
   const windowStartedAt = Math.floor(now.toMillis() / rateWindowMs) * rateWindowMs
   const auditRef = db.collection('studentStudyAssistantAuditEvents')
-    .doc(digest(['rate-limit-audit', actor.uid, reason, windowStartedAt]).slice(0, 40))
+    .doc(digest(['request-rejection-audit', actor.uid, event, reason, windowStartedAt]).slice(0, 40))
   try {
     await db.runTransaction(async (transaction) => {
       if ((await transaction.get(auditRef)).exists) return
-      transaction.create(auditRef, auditRecord('REQUEST_REJECTED', actor, now, {
+      transaction.create(auditRef, auditRecord(event, actor, now, {
         ...metadata,
         reason,
         windowStartedAt: Timestamp.fromMillis(windowStartedAt),
@@ -578,10 +596,9 @@ export async function studentStudyAssistHandler(
   const actor = await requireRole(request, 'STUDENT')
   requireEnabled(dependencies)
   if (hasInvisibleControl(input.userMessage)) {
-    await recordAuditBestEffort(db, 'VALIDATION_REJECTED', actor, dependencies.now(), {
+    await recordCoalescedRequestRejectionAuditBestEffort(db, 'VALIDATION_REJECTED', actor, dependencies.now(), 'UNSAFE_TEXT_CONTROL', {
       requestId: input.requestId,
       conversationId: input.conversationId,
-      reason: 'UNSAFE_TEXT_CONTROL',
     })
     throw new HttpsError('invalid-argument', 'The message contains unsupported invisible control characters.', {
       reason: 'UNSAFE_TEXT_CONTROL',
@@ -594,11 +611,7 @@ export async function studentStudyAssistHandler(
     const now = dependencies.now()
     const reason = safeErrorReason(error)
     const metadata = { requestId: input.requestId, conversationId: input.conversationId }
-    if (reason === 'RATE_LIMITED' || reason === 'REPLAY_RATE_LIMITED') {
-      await recordRateLimitAuditBestEffort(db, actor, now, reason, metadata)
-    } else {
-      await recordAuditBestEffort(db, 'REQUEST_REJECTED', actor, now, { ...metadata, reason })
-    }
+    await recordCoalescedRequestRejectionAuditBestEffort(db, 'REQUEST_REJECTED', actor, now, reason, metadata)
     throw error
   }
   if (claim.replay) {
@@ -611,10 +624,14 @@ export async function studentStudyAssistHandler(
 
   const providerStartedAt = Date.now()
   try {
-    const [retrieval, history] = await Promise.all([
-      dependencies.retriever.retrieve(input.userMessage, retrievalLimit),
-      input.conversationId ? loadHistory(actor, claim.conversationId, db) : Promise.resolve([]),
-    ])
+    const history = input.conversationId ? await loadHistory(actor, claim.conversationId, db) : []
+    const directRetrieval = await dependencies.retriever.retrieve(input.userMessage, retrievalLimit)
+    const retrieval = directRetrieval.chunks.length > 0 || history.length === 0 || !isContextDependentFollowUp(input.userMessage)
+      ? directRetrieval
+      : await dependencies.retriever.retrieve(
+        [...history.map(({ content }) => content), input.userMessage].join('\n'),
+        retrievalLimit,
+      )
     const rawProviderResult = retrieval.chunks.length === 0
       ? {
         kind: 'insufficient_context' as const,
@@ -910,4 +927,40 @@ export async function cleanupExpiredStudentStudyAssistantDeleteOperations(
   for (const operation of deletable) batch.delete(operation.ref)
   await batch.commit()
   return deletable.length
+}
+
+/** Bounded cleanup for expired first-send claims whose conversation was never created. */
+export async function cleanupAbandonedStudentStudyAssistantSendOperations(
+  db: Firestore,
+  now = Timestamp.now(),
+  limit = 200,
+): Promise<number> {
+  const boundedLimit = Math.max(1, Math.min(limit, 500))
+  const expired = await db.collectionGroup(studentStudyAssistantSendOperationCleanupPolicy.collectionGroup)
+    .where('state', '==', 'PENDING')
+    .where(studentStudyAssistantSendOperationCleanupPolicy.field, '<=', now)
+    .limit(boundedLimit)
+    .get()
+  let cleaned = 0
+  for (const candidate of expired.docs) {
+    const ownerRef = candidate.ref.parent.parent
+    const ownerId = ownerRef?.id
+    const candidateData = candidate.data()
+    const conversationId = candidateData.conversationId
+    if (!ownerRef || !ownerId || candidateData.ownerId !== ownerId || typeof conversationId !== 'string') continue
+    const conversationRef = ownerRef.collection('studentStudyAssistantConversations').doc(conversationId)
+    const deleted = await db.runTransaction(async (transaction) => {
+      const [operation, conversation] = await Promise.all([
+        transaction.get(candidate.ref), transaction.get(conversationRef),
+      ])
+      const data = operation.data()
+      if (!operation.exists || data?.ownerId !== ownerId || data.conversationId !== conversationId ||
+          data.state !== 'PENDING' || !(data.leaseExpiresAt instanceof Timestamp) ||
+          data.leaseExpiresAt.toMillis() > now.toMillis() || conversation.exists) return false
+      transaction.delete(candidate.ref)
+      return true
+    })
+    if (deleted) cleaned += 1
+  }
+  return cleaned
 }
