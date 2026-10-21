@@ -88,7 +88,8 @@ service cloud.firestore {
     match /studentStudyAssistantUsers/{document=**} { allow read, write: if false; }
     match /studentStudyAssistantCorpus/{document=**} { allow read, write: if false; }
     match /studentStudyAssistantConfig/{document=**} { allow read, write: if false; }
-    match /studentStudyAssistantRateLimits/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantRateControls/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantDeletionTombstones/{document=**} { allow read, write: if false; }
     match /studentStudyAssistantAuditEvents/{document=**} { allow read, write: if false; }
   }
 }

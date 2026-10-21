@@ -33,12 +33,14 @@ beforeEach(async () => {
     await setDoc(doc(db, 'availabilitySlots/slot'), { mentorId: 'mentor', withdrawn: false, startsAt: new Date(Date.now() + 60 * 60 * 1000) })
     await setDoc(doc(db, 'appointments/appointment'), { studentId: 'student', mentorId: 'mentor', status: 'PENDING' })
     await setDoc(doc(db, 'studentStudyAssistantUsers/student'), { ownerUid: 'student' })
-    await setDoc(doc(db, 'studentStudyAssistantUsers/student/studyConversations/conversation'), { ownerUid: 'student', state: 'ACTIVE' })
-    await setDoc(doc(db, 'studentStudyAssistantUsers/student/studyConversations/conversation/studyMessages/message'), { role: 'STUDENT', content: 'Private study question' })
-    await setDoc(doc(db, 'studentStudyAssistantUsers/student/studyOperations/operation'), { state: 'COMPLETED' })
+    await setDoc(doc(db, 'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation'), { ownerUid: 'student', state: 'ACTIVE' })
+    await setDoc(doc(db, 'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation/studentStudyAssistantMessages/message'), { role: 'STUDENT', content: 'Private study question' })
+    await setDoc(doc(db, 'studentStudyAssistantUsers/student/studentStudyAssistantSendOperations/operation'), { state: 'COMPLETED' })
+    await setDoc(doc(db, 'studentStudyAssistantUsers/student/studentStudyAssistantDeleteOperations/operation'), { state: 'COMPLETED' })
     await setDoc(doc(db, 'studentStudyAssistantCorpus/generation/studyChunks/chunk'), { sourceId: 'synthetic-source' })
     await setDoc(doc(db, 'studentStudyAssistantConfig/runtime'), { enabled: true })
-    await setDoc(doc(db, 'studentStudyAssistantRateLimits/student'), { count: 1 })
+    await setDoc(doc(db, 'studentStudyAssistantRateControls/student'), { count: 1 })
+    await setDoc(doc(db, 'studentStudyAssistantDeletionTombstones/student/studentStudyAssistantConversations/conversation'), { deletedAt: new Date() })
     await setDoc(doc(db, 'studentStudyAssistantAuditEvents/event'), { featureId: 'S2-D1-F03' })
   })
 })
@@ -192,22 +194,26 @@ describe('approved direct access matrix', () => {
     ]
     const documents = [
       'studentStudyAssistantUsers/student',
-      'studentStudyAssistantUsers/student/studyConversations/conversation',
-      'studentStudyAssistantUsers/student/studyConversations/conversation/studyMessages/message',
-      'studentStudyAssistantUsers/student/studyOperations/operation',
+      'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation',
+      'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation/studentStudyAssistantMessages/message',
+      'studentStudyAssistantUsers/student/studentStudyAssistantSendOperations/operation',
+      'studentStudyAssistantUsers/student/studentStudyAssistantDeleteOperations/operation',
       'studentStudyAssistantCorpus/generation/studyChunks/chunk',
       'studentStudyAssistantConfig/runtime',
-      'studentStudyAssistantRateLimits/student',
+      'studentStudyAssistantRateControls/student',
+      'studentStudyAssistantDeletionTombstones/student/studentStudyAssistantConversations/conversation',
       'studentStudyAssistantAuditEvents/event',
     ]
     const collections = [
       'studentStudyAssistantUsers',
-      'studentStudyAssistantUsers/student/studyConversations',
-      'studentStudyAssistantUsers/student/studyConversations/conversation/studyMessages',
-      'studentStudyAssistantUsers/student/studyOperations',
+      'studentStudyAssistantUsers/student/studentStudyAssistantConversations',
+      'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation/studentStudyAssistantMessages',
+      'studentStudyAssistantUsers/student/studentStudyAssistantSendOperations',
+      'studentStudyAssistantUsers/student/studentStudyAssistantDeleteOperations',
       'studentStudyAssistantCorpus/generation/studyChunks',
       'studentStudyAssistantConfig',
-      'studentStudyAssistantRateLimits',
+      'studentStudyAssistantRateControls',
+      'studentStudyAssistantDeletionTombstones/student/studentStudyAssistantConversations',
       'studentStudyAssistantAuditEvents',
     ]
     for (const db of databases) {
