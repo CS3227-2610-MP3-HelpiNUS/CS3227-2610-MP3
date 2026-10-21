@@ -48,7 +48,16 @@ jobs:
       - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HELPINUS_DEV }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
       - run: npx firebase-tools deploy --only hosting,functions,firestore:rules,firestore:indexes --project helpinus-dev --non-interactive
+      - name: Preserve public access for the Student Study Assistant callable
+        run: >-
+          gcloud run services add-iam-policy-binding studentstudyassist
+          --project=helpinus-dev
+          --region=asia-southeast1
+          --member=allUsers
+          --role=roles/run.invoker
+          --quiet
   deploy-prod:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: verify
@@ -72,4 +81,13 @@ jobs:
       - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HELPINUS_PROD }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
       - run: npx firebase-tools deploy --only hosting,functions,firestore:rules,firestore:indexes --project helpinus-prod --non-interactive
+      - name: Preserve public access for the Student Study Assistant callable
+        run: >-
+          gcloud run services add-iam-policy-binding studentstudyassist
+          --project=helpinus-prod
+          --region=asia-southeast1
+          --member=allUsers
+          --role=roles/run.invoker
+          --quiet
