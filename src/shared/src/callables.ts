@@ -136,11 +136,99 @@ export const completeAppointmentInputSchema = nonEmptyInputSchema.extend({
 })
 export const completeAppointmentOutputSchema = z.object({ appointment: appointmentSchema })
 
-const aiPromptSchema = z.string().trim().min(1).max(4000)
-export const studentStudyAssistInputSchema = nonEmptyInputSchema.extend({
-  prompt: aiPromptSchema,
+const studyAssistantTextSchema = z.string().trim().min(1).max(4000)
+const studyAssistantDateTimeSchema = z.string().datetime({ offset: true })
+const studyAssistantCursorSchema = z.string().min(1).max(512)
+export const studentStudyAssistantCitationSchema = z.object({
+  sourceId: canonicalDocumentIdSchema,
+  title: z.string().trim().min(1).max(200),
+  canonicalUrl: z.string().url().max(2048).refine((value) => new URL(value).protocol === 'https:', 'Citation URL must use HTTPS'),
+  version: z.string().trim().min(1).max(100),
+  section: z.string().trim().min(1).max(160).nullable(),
+}).strict()
+const studentStudyAssistantMessageBaseSchema = z.object({
+  id: canonicalDocumentIdSchema,
+  content: z.string().min(1).max(8000),
+  createdAt: studyAssistantDateTimeSchema,
 })
-export const studentStudyAssistOutputSchema = z.object({ response: z.string().max(8000) })
+export const studentStudyAssistantStudentMessageSchema = studentStudyAssistantMessageBaseSchema.extend({
+  role: z.literal('STUDENT'),
+}).strict()
+export const studentStudyAssistantGroundedMessageSchema = studentStudyAssistantMessageBaseSchema.extend({
+  role: z.literal('ASSISTANT'),
+  grounding: z.literal('GROUNDED'),
+  citations: z.array(studentStudyAssistantCitationSchema).min(1).max(8),
+}).strict()
+export const studentStudyAssistantInsufficientMessageSchema = studentStudyAssistantMessageBaseSchema.extend({
+  role: z.literal('ASSISTANT'),
+  grounding: z.literal('INSUFFICIENT_CONTEXT'),
+  citations: z.array(studentStudyAssistantCitationSchema).length(0),
+}).strict()
+export const studentStudyAssistantAssistantMessageSchema = z.discriminatedUnion('grounding', [
+  studentStudyAssistantGroundedMessageSchema,
+  studentStudyAssistantInsufficientMessageSchema,
+])
+export const studentStudyAssistantMessageSchema = z.union([
+  studentStudyAssistantStudentMessageSchema,
+  studentStudyAssistantAssistantMessageSchema,
+])
+export const studentStudyAssistantConversationSchema = z.object({
+  id: canonicalDocumentIdSchema,
+  title: z.string().trim().min(1).max(120),
+  preview: z.string().max(240),
+  lastActivityAt: studyAssistantDateTimeSchema,
+  expiresAt: studyAssistantDateTimeSchema,
+}).strict()
+
+export const studentStudyAssistInputSchema = z.object({
+  requestId: z.string().uuid(),
+  conversationId: canonicalDocumentIdSchema.nullable(),
+  userMessage: studyAssistantTextSchema,
+}).strict()
+const studentStudyAssistResultBase = z.object({
+  conversation: studentStudyAssistantConversationSchema,
+  userMessage: studentStudyAssistantStudentMessageSchema,
+  replayed: z.boolean(),
+})
+export const studentStudyAssistOutputSchema = z.discriminatedUnion('kind', [
+  studentStudyAssistResultBase.extend({
+    kind: z.literal('grounded'),
+    assistantMessage: studentStudyAssistantGroundedMessageSchema,
+  }).strict(),
+  studentStudyAssistResultBase.extend({
+    kind: z.literal('insufficient_context'),
+    assistantMessage: studentStudyAssistantInsufficientMessageSchema,
+  }).strict(),
+])
+
+export const listStudentStudyAssistantConversationsInputSchema = z.object({
+  cursor: studyAssistantCursorSchema.optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+}).strict()
+export const listStudentStudyAssistantConversationsOutputSchema = z.object({
+  conversations: z.array(studentStudyAssistantConversationSchema).max(50),
+  nextCursor: studyAssistantCursorSchema.nullable(),
+}).strict()
+
+export const readStudentStudyAssistantConversationInputSchema = z.object({
+  conversationId: canonicalDocumentIdSchema,
+  cursor: studyAssistantCursorSchema.optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+}).strict()
+export const readStudentStudyAssistantConversationOutputSchema = z.object({
+  conversation: studentStudyAssistantConversationSchema,
+  messages: z.array(studentStudyAssistantMessageSchema).max(100),
+  nextCursor: studyAssistantCursorSchema.nullable(),
+}).strict()
+
+export const deleteStudentStudyAssistantConversationInputSchema = z.object({
+  requestId: z.string().uuid(),
+  conversationId: canonicalDocumentIdSchema,
+}).strict()
+export const deleteStudentStudyAssistantConversationOutputSchema = z.object({
+  kind: z.enum(['deleted', 'already_deleted']),
+  conversationId: canonicalDocumentIdSchema,
+}).strict()
 
 export const mentorConsultationSummaryInputSchema = nonEmptyInputSchema.extend({
   appointmentId: identifierSchema,
@@ -212,6 +300,18 @@ export const callableSchemas = {
     input: studentStudyAssistInputSchema,
     output: studentStudyAssistOutputSchema,
   },
+  listStudentStudyAssistantConversations: {
+    input: listStudentStudyAssistantConversationsInputSchema,
+    output: listStudentStudyAssistantConversationsOutputSchema,
+  },
+  readStudentStudyAssistantConversation: {
+    input: readStudentStudyAssistantConversationInputSchema,
+    output: readStudentStudyAssistantConversationOutputSchema,
+  },
+  deleteStudentStudyAssistantConversation: {
+    input: deleteStudentStudyAssistantConversationInputSchema,
+    output: deleteStudentStudyAssistantConversationOutputSchema,
+  },
   mentorConsultationSummary: {
     input: mentorConsultationSummaryInputSchema,
     output: mentorConsultationSummaryOutputSchema,
@@ -250,3 +350,13 @@ export type RespondToHelpRequestInput = z.infer<
   typeof respondToHelpRequestInputSchema
 >
 export type ReserveAppointmentInput = z.infer<typeof reserveAppointmentInputSchema>
+export type StudentStudyAssistInput = z.infer<typeof studentStudyAssistInputSchema>
+export type StudentStudyAssistOutput = z.infer<typeof studentStudyAssistOutputSchema>
+export type StudentStudyAssistantConversation = z.infer<typeof studentStudyAssistantConversationSchema>
+export type StudentStudyAssistantMessage = z.infer<typeof studentStudyAssistantMessageSchema>
+export type StudentStudyAssistantCitation = z.infer<typeof studentStudyAssistantCitationSchema>
+export type ListStudentStudyAssistantConversationsInput = z.input<typeof listStudentStudyAssistantConversationsInputSchema>
+export type ListStudentStudyAssistantConversationsParsedInput = z.output<typeof listStudentStudyAssistantConversationsInputSchema>
+export type ReadStudentStudyAssistantConversationInput = z.input<typeof readStudentStudyAssistantConversationInputSchema>
+export type ReadStudentStudyAssistantConversationParsedInput = z.output<typeof readStudentStudyAssistantConversationInputSchema>
+export type DeleteStudentStudyAssistantConversationInput = z.infer<typeof deleteStudentStudyAssistantConversationInputSchema>

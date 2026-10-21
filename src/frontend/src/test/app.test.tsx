@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { AppShell } from '../components/AppShell'
 import { LoginPage } from '../pages/AuthPages'
 import { StudentDashboard } from '../pages/StudentDashboard'
+import { StudentStudyAssistantPage } from '../pages/StudentStudyAssistantPage'
 import { WorkspacePage } from '../pages/WorkspacePage'
 import { MentorDiscoveryPage } from '../pages/MentorDiscoveryPage'
 import { MentorProfilePage } from '../pages/MentorProfilePage'
@@ -24,7 +25,7 @@ function renderStudentAt(path: string, services: HelpiNUSServices = mockServices
       { path: '/student/conversations', element: <WorkspacePage /> },
       { path: '/student/conversations/:requestId', element: <ConversationDetailPage role="student" /> },
       { path: '/student/consultations', element: <WorkspacePage /> },
-      { path: '/student/study-assistant', element: <WorkspacePage /> },
+      { path: '/student/study-assistant', element: <StudentStudyAssistantPage /> },
     ] }] },
     { path: '/login', element: <LoginPage /> },
     { element: <ProtectedRoute role="MENTOR" />, children: [{ element: <AppShell />, children: [
