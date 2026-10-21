@@ -20,6 +20,9 @@ export async function initializeStudentProfileHandler(
   if (!auth) throw new HttpsError('unauthenticated', 'Sign in to continue.')
   const email = typeof auth.token.email === 'string' ? auth.token.email : ''
   if (!email) throw new HttpsError('failed-precondition', 'An email address is required.')
+  if ((auth.token.firebase as { sign_in_provider?: string } | undefined)?.sign_in_provider !== 'google.com') {
+    throw new HttpsError('failed-precondition', 'Sign in with Google to register.')
+  }
   const syntheticEmulatorUser = emulator && email.endsWith('@example.test')
   if (!syntheticEmulatorUser && auth.token.email_verified !== true) {
     throw new HttpsError('failed-precondition', 'Verify your email before continuing.')
@@ -28,14 +31,20 @@ export async function initializeStudentProfileHandler(
   const ref = db.collection('users').doc(auth.uid)
   let output!: { user: Record<string, unknown> }
   await db.runTransaction(async (transaction) => {
-    const existing = await transaction.get(ref)
+    // Reading both records serializes competing Student/Mentor registrations.
+    const [existing, mentor] = await Promise.all([
+      transaction.get(ref), transaction.get(db.collection('mentors').doc(auth.uid)),
+    ])
+    if (mentor.exists || existing.data()?.role === 'MENTOR') {
+      throw new HttpsError('already-exists', 'This Google account already has a Mentor profile. Contact support if the account has conflicting roles.')
+    }
     if (existing.exists) {
       const value = existing.data()!
       if (value.role !== 'STUDENT' || value.email !== email) {
         throw new HttpsError('permission-denied', 'An existing profile cannot be changed through registration.')
       }
       const parsed = normalizedUser(value)
-      if (!parsed.success || parsed.data.id !== auth.uid) {
+      if (!parsed.success || parsed.data.id !== auth.uid || parsed.data.status !== 'ACTIVE') {
         throw new HttpsError('permission-denied', 'Your account profile is invalid. Contact HelpiNUS support.')
       }
       output = { user: parsed.data }
@@ -85,9 +94,12 @@ export async function initializeMentorProfileHandler(
     const [mentorSnapshot, domainSnapshot, legacySnapshot] = await Promise.all([
       transaction.get(mentorRef), transaction.get(domainRef), transaction.get(legacyRef),
     ])
+    if (legacySnapshot.exists && legacySnapshot.data()?.role !== 'MENTOR') {
+      throw new HttpsError('already-exists', 'This Google account already has a Student profile. Contact support if the account has conflicting roles.')
+    }
     if (mentorSnapshot.exists) {
       const existing = normalizedUser(mentorSnapshot.data())
-      if (!existing.success || existing.data.id !== auth.uid || existing.data.email !== email || existing.data.role !== 'MENTOR') {
+      if (!existing.success || existing.data.id !== auth.uid || existing.data.email !== email || existing.data.role !== 'MENTOR' || existing.data.status !== 'ACTIVE') {
         throw new HttpsError('permission-denied', 'An existing Mentor profile cannot be changed through registration.')
       }
       if (!domainSnapshot.exists) transaction.create(domainRef, { userId: auth.uid, biography: '', moduleIds: [], active: true })
@@ -96,6 +108,9 @@ export async function initializeMentorProfileHandler(
     const legacy = normalizedUser(legacySnapshot.data())
     // Legacy Mentors live in users/{uid}. Copy only a valid matching identity; never rewrite it.
     const matchingLegacyMentor = legacy.success && legacy.data.id === auth.uid && legacy.data.email === email && legacy.data.role === 'MENTOR'
+    if (legacySnapshot.exists && (!matchingLegacyMentor || legacy.data.status !== 'ACTIVE')) {
+      throw new HttpsError('permission-denied', 'Your legacy Mentor profile needs support review.')
+    }
     const user = {
       id: auth.uid,
       displayName: matchingLegacyMentor ? legacy.data.displayName : input.displayName,

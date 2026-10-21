@@ -3,7 +3,13 @@ import { HttpsError } from 'firebase-functions/v2/https'
 
 const get = vi.fn()
 const getUser = vi.fn()
-const collection = vi.fn((name: string) => ({ doc: () => ({ get, path: name }) }))
+let dualRole = false
+const collection = vi.fn((name: string) => ({ doc: () => ({
+  get: async () => {
+    const result = await get()
+    return !dualRole && result.exists && name === 'mentors' && result.data().role === 'STUDENT' ? { exists: false } : result
+  }, path: name,
+}) }))
 vi.mock('firebase-admin/firestore', () => ({ getFirestore: () => ({ collection }) }))
 vi.mock('firebase-admin/auth', () => ({ getAuth: () => ({ getUser }) }))
 import { assertCurrentMentorRecord, requireActiveUser, requireAuthenticated, requireCurrentMentor, requireRole } from './auth.js'
@@ -11,7 +17,7 @@ import { assertCurrentMentorRecord, requireActiveUser, requireAuthenticated, req
 const request = { auth: { uid: 'u1', token: { email: 'u1@example.test', email_verified: true } } } as never
 const validProfile = { id: 'u1', displayName: 'Student', email: 'u1@example.test', role: 'STUDENT', status: 'ACTIVE', createdAt: '2026-10-13T02:00:00.000Z' }
 describe('profile authorization', () => {
-  beforeEach(() => { get.mockReset(); getUser.mockReset(); collection.mockClear() })
+  beforeEach(() => { get.mockReset(); getUser.mockReset(); collection.mockClear(); dualRole = false })
   it('checks current Auth state and transaction user eligibility for Mentor operations', async () => {
     const mentor = { ...validProfile, role: 'MENTOR' }
     get.mockResolvedValue({ exists: true, data: () => mentor })
@@ -41,9 +47,11 @@ describe('profile authorization', () => {
     await expect(requireRole(request, 'MENTOR')).rejects.toBeInstanceOf(HttpsError)
     expect(collection).toHaveBeenCalledWith('mentors')
   })
-  it('checks the Student collection even if the same UID also has a Mentor identity', async () => {
+  it('blocks both roles when one UID has conflicting profiles', async () => {
+    dualRole = true
     get.mockResolvedValue({ exists: true, data: () => validProfile })
-    await expect(requireRole(request, 'STUDENT')).resolves.toMatchObject({ uid: 'u1', role: 'STUDENT' })
+    await expect(requireRole(request, 'STUDENT')).rejects.toMatchObject({ code: 'permission-denied' })
+    await expect(requireRole(request, 'MENTOR')).rejects.toMatchObject({ code: 'permission-denied' })
     expect(collection).toHaveBeenCalledWith('users')
   })
   it('rejects profiles missing trusted fields or carrying another uid', async () => {

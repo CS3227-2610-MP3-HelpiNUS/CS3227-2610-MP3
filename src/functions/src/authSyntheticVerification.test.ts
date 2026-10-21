@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CallableRequest } from 'firebase-functions/v2/https'
 
 const mocks = vi.hoisted(() => ({ get: vi.fn() }))
-vi.mock('firebase-admin/firestore', () => ({ getFirestore: () => ({ collection: () => ({ doc: () => ({ get: mocks.get }) }) }) }))
+vi.mock('firebase-admin/firestore', () => ({ getFirestore: () => ({ collection: (name: string) => ({ doc: () => ({ get: name === 'mentors' ? async () => ({ exists: false }) : mocks.get }) }) }) }))
 
 import { requireActiveUser } from './auth.js'
 
