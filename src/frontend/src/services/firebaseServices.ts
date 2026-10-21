@@ -50,14 +50,28 @@ async function sessionForIdentity(identity: AuthUser | null): Promise<Session | 
   if (!identityIsCurrent(identity) || getSelectedRole() !== role) return staleSessionRead
   const email = identity.email ?? ''
   if (!identity.emailVerified && !syntheticEmulatorUser(identity)) return { user: null, selectedRole: role, issue: 'EMAIL_UNVERIFIED' }
-  const snapshot = await getDoc(doc(client.firestore, role === 'STUDENT' ? 'users' : 'mentors', identity.uid))
+  const [student, mentor] = await Promise.all([
+    getDoc(doc(client.firestore, 'users', identity.uid)), getDoc(doc(client.firestore, 'mentors', identity.uid)),
+  ])
   if (!identityIsCurrent(identity) || getSelectedRole() !== role) return staleSessionRead
-  if (!snapshot.exists()) return { user: null, selectedRole: role, issue: 'PROFILE_MISSING' }
+  const googleIdentity = { email, displayName: identity.displayName }
+  if (student.exists() && mentor.exists() && student.data().role !== 'MENTOR') {
+    return { user: null, selectedRole: role, identity: googleIdentity, issue: 'ROLE_CONFLICT' }
+  }
+  const snapshot = role === 'STUDENT' ? student : mentor
+  if (!snapshot.exists()) {
+    const other = role === 'STUDENT' ? mentor : student
+    const wrongRole = other.exists() && other.data().role !== role
+    return { user: null, selectedRole: role, identity: googleIdentity, issue: wrongRole ? 'WRONG_ROLE' : 'PROFILE_MISSING' }
+  }
+  if (role === 'STUDENT' && snapshot.data().role === 'MENTOR') {
+    return { user: null, selectedRole: role, identity: googleIdentity, issue: 'WRONG_ROLE' }
+  }
   const data = snapshot.data()
   const parsed = userSchema.safeParse({ ...data, createdAt: normalizeFirestoreTimestamp(data.createdAt), id: snapshot.id })
   if (!parsed.success || data.id !== snapshot.id || snapshot.id !== identity.uid || parsed.data.email !== email || parsed.data.role !== role || !parsed.data.displayName.trim()) return { user: null, selectedRole: role, issue: 'PROFILE_INVALID' }
   if (parsed.data.status !== 'ACTIVE') return { user: null, selectedRole: role, issue: 'ACCOUNT_INACTIVE' }
-  return { user: parsed.data, selectedRole: role }
+  return { user: parsed.data, selectedRole: role, identity: googleIdentity }
 }
 
 async function currentSession(): Promise<Session> {
@@ -69,6 +83,9 @@ async function initializeProfile(role: UserRole, displayName?: string): Promise<
   const client = configured()
   const identity = client.auth.currentUser
   if (!identity) throw new Error(`Sign in again to finish setting up your ${role === 'STUDENT' ? 'Student' : 'Mentor'} profile.`)
+  if (registrationIdentity?.uid !== identity.uid || registrationIdentity.role !== role) {
+    throw Object.assign(new Error('Continue with Google to confirm registration.'), { code: 'auth/registration-required' })
+  }
   await identity.reload()
   if (!identity.email) {
     throw Object.assign(new Error('The Google identity did not provide an email address.'), { code: 'auth/missing-email' })
@@ -76,7 +93,7 @@ async function initializeProfile(role: UserRole, displayName?: string): Promise<
   await identity.getIdToken(true)
   const suppliedName = displayName?.trim()
   const profileName = suppliedName || identity.displayName?.trim()
-  if (!profileName) return { user: null, selectedRole: role, issue: 'PROFILE_MISSING' }
+  if (!profileName) return { user: null, selectedRole: role, identity: { email: identity.email, displayName: identity.displayName }, issue: 'PROFILE_MISSING' }
   if (suppliedName && identity.displayName !== suppliedName) {
     await updateProfile(identity, { displayName: suppliedName })
   }
@@ -86,23 +103,30 @@ async function initializeProfile(role: UserRole, displayName?: string): Promise<
 }
 
 let googleAuthenticationPending = false
+let registrationIdentity: { uid: string; role: UserRole } | null = null
 
 async function authenticateWithGoogle(role: UserRole, createProfile: boolean): Promise<Session> {
   if (googleAuthenticationPending) {
     throw Object.assign(new Error('A Google sign-in request is already in progress.'), { code: 'auth/cancelled-popup-request' })
   }
   googleAuthenticationPending = true
+  const previousRole = getSelectedRole()
+  registrationIdentity = null
   try {
     const client = configured()
     setSelectedRole(role)
-    if (!createProfile || !client.auth.currentUser) {
-      const provider = new GoogleAuthProvider()
-      provider.setCustomParameters({ prompt: 'select_account' })
-      await signInWithPopup(client.auth, provider)
-    }
+    const provider = new GoogleAuthProvider()
+    provider.setCustomParameters({ prompt: 'select_account' })
+    const authenticated = await signInWithPopup(client.auth, provider)
     const session = await currentSession()
-    if (createProfile && session.issue === 'PROFILE_MISSING') return initializeProfile(role)
+    if (createProfile && session.issue === 'PROFILE_MISSING' && client.auth.currentUser?.uid === authenticated.user.uid && getSelectedRole() === role) {
+      registrationIdentity = { uid: authenticated.user.uid, role }
+      return await initializeProfile(role)
+    }
     return session
+  } catch (error) {
+    if ((error as { code?: string })?.code?.startsWith('auth/popup-') || (error as { code?: string })?.code === 'auth/cancelled-popup-request') setSelectedRole(previousRole)
+    throw error
   } finally {
     googleAuthenticationPending = false
   }
@@ -122,7 +146,6 @@ async function invokeCallable<Name extends CallableName>(
 export const firebaseServices: HelpiNUSServices = {
   session: {
     async getCurrent() { return currentSession() },
-    async selectRole(role) { setSelectedRole(role); return currentSession() },
     subscribe(listener, onError) {
       const client = configured()
       let requestId = 0
@@ -140,7 +163,7 @@ export const firebaseServices: HelpiNUSServices = {
     async registerMentorWithGoogle() { return authenticateWithGoogle('MENTOR', true) },
     async retryStudentProfile(displayName) { setSelectedRole('STUDENT'); return initializeProfile('STUDENT', displayName) },
     async retryMentorProfile(displayName) { setSelectedRole('MENTOR'); return initializeProfile('MENTOR', displayName) },
-    async signOut() { await signOut(configured().auth); setSelectedRole(null) },
+    async signOut() { await signOut(configured().auth); registrationIdentity = null; setSelectedRole(null) },
   },
   dashboard: {
     async getStudentDashboard(): Promise<DashboardData> { return mockDashboard },
