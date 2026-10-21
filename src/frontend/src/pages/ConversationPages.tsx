@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useOutletContext, useParams } from 'react-router-dom'
-import { messageBodySchema, type F02SavedMessage } from '@helpinus/shared'
+import { messageBodySchema, type CallableOutput, type F02SavedMessage } from '@helpinus/shared'
 import { useServices } from '../services/useServices'
 import { clearChatRetries, loadChatRetries, removeChatRetry, saveChatRetry, type ChatRetry } from '../services/chatRetryStore'
 import type { ChatCursor, ChatDetail, ChatRow } from '../services/contracts'
@@ -12,6 +12,37 @@ import './ConversationPages.css'
 const denied = (error: unknown) => ['permission-denied', 'unauthenticated'].some((code) => String((error as { code?: unknown })?.code ?? '').includes(code))
 const messageConflict = () => Object.assign(new Error('Message ID conflicts with saved content.'), { code: 'already-exists' })
 const support = 'This conversation needs support review. Contact HelpiNUS support.'
+type MentorBrief = CallableOutput<'mentorConsultationSummary'>['brief']
+type AiState = 'idle' | 'loading' | 'success' | 'empty' | 'denied' | 'support' | 'capacity' | 'timeout' | 'invalid' | 'config' | 'provider'
+const aiFeedback: Record<Exclude<AiState, 'idle' | 'loading' | 'success'>, string> = {
+  empty: 'This conversation has no messages to summarise.',
+  denied: 'Conversation access changed. The AI draft is unavailable.',
+  support: 'Conversation data needs support review before a draft can be made.',
+  capacity: 'An AI request is already running or the provider is busy. Try again shortly.',
+  timeout: 'The AI draft timed out. An earlier attempt may still count.',
+  invalid: 'The AI returned an invalid draft. No draft was added.',
+  config: 'AI drafting is not configured for this test account.',
+  provider: 'The AI draft is unavailable. Try again later; an earlier attempt may still count.',
+}
+function aiFailure(error: unknown): Exclude<AiState, 'idle' | 'loading' | 'success'> {
+  const record = error as { code?: unknown; details?: { reason?: unknown }; customData?: { reason?: unknown } } | null
+  const code = String(record?.code ?? '')
+  const reason = record?.details?.reason ?? record?.customData?.reason
+  if (code.includes('permission-denied') || code.includes('unauthenticated') || reason === 'ACCESS_UNAVAILABLE') return 'denied'
+  if (reason === 'EMPTY_HISTORY') return 'empty'
+  if (reason === 'SUPPORT_NEEDED') return 'support'
+  if (reason === 'AI_CAPACITY' || reason === 'AI_PROVIDER_LIMIT' || code.includes('resource-exhausted')) return 'capacity'
+  if (reason === 'AI_TIMEOUT' || code.includes('deadline-exceeded')) return 'timeout'
+  if (reason === 'AI_RESPONSE') return 'invalid'
+  if (reason === 'AI_CONFIG') return 'config'
+  return 'provider'
+}
+const briefFields: Array<{ key: keyof MentorBrief; label: string }> = [
+  { key: 'summary', label: 'Conversation summary' },
+  { key: 'unresolvedQuestions', label: 'Unresolved Student questions' },
+  { key: 'teachingApproaches', label: 'Suggested teaching approaches' },
+  { key: 'limitations', label: 'Limitations or missing context' },
+]
 
 export function ConversationListPage({ role }: { role: 'student' | 'mentor' }) {
   const { services, session } = useServices()
@@ -115,6 +146,13 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
   const [loadingEarlier, setLoadingEarlier] = useState(false)
   const [foreground, setForeground] = useState(() => document.visibilityState === 'visible' && document.hasFocus())
   const [receiptRetry, setReceiptRetry] = useState(0)
+  const [ai, setAi] = useState<{ owner: string; state: AiState; brief: MentorBrief | null; partialHistory: boolean }>({ owner: '', state: 'idle', brief: null, partialHistory: false })
+  const aiSequence = useRef(0)
+  const aiOwner = `${role}:${uid}:${requestId}`
+  const aiOwnerRef = useRef(aiOwner)
+  aiOwnerRef.current = aiOwner
+  const visibleAi = ai.owner === aiOwner ? ai : { owner: aiOwner, state: 'idle' as const, brief: null, partialHistory: false }
+  const readyForAi = detail !== null && detailState === 'ready'
   const epoch = useRef(0)
   const detailUnsubscribe = useRef<(() => void) | null>(null)
   const sendSequence = useRef(0)
@@ -126,6 +164,28 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
   const historyRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const scrollRestore = useRef<{ height: number; top: number } | null>(null)
+
+  useEffect(() => {
+    const sequence = aiSequence
+    sequence.current++
+    setAi({ owner: aiOwner, state: 'idle', brief: null, partialHistory: false })
+    return () => { sequence.current++ }
+  }, [aiOwner, readyForAi])
+
+  async function summariseConversation() {
+    if (role !== 'mentor' || !uid || !detail || detailState !== 'ready' || visibleAi.state === 'loading') return
+    const sequence = ++aiSequence.current
+    const owner = aiOwner
+    setAi({ owner, state: 'loading', brief: null, partialHistory: false })
+    try {
+      const result = await services.callables.invoke('mentorConsultationSummary', { helpRequestId: requestId })
+      if (aiSequence.current !== sequence || aiOwnerRef.current !== owner) return
+      setAi({ owner, state: 'success', brief: result.brief, partialHistory: result.partialHistory })
+    } catch (error) {
+      if (aiSequence.current !== sequence || aiOwnerRef.current !== owner) return
+      setAi({ owner, state: aiFailure(error), brief: null, partialHistory: false })
+    }
+  }
 
   useLayoutEffect(() => {
     const field = composerRef.current
@@ -351,6 +411,17 @@ export function ConversationDetailPage({ role }: { role: 'student' | 'mentor' })
     {detailState === 'support' && <p className="help-card" role="alert">{support}</p>}
     {detail && <>
       {historyState === 'stale' && <p className="chat-state" role="alert">Messages may be out of date. <button className="button button-secondary" onClick={() => setGeneration((value) => value + 1)}>Retry</button></p>}
+      {role === 'mentor' && <section className="chat-ai-panel" aria-label="Consultation draft"><div className="chat-ai-heading"><div><h2>Consultation draft</h2><p>AI summary for your review. It is not sent or saved.</p></div><button className="button button-secondary" type="button" onClick={() => void summariseConversation()} disabled={visibleAi.state === 'loading'}>{visibleAi.state === 'loading' ? 'Summarising…' : 'Summarise Conversation'}</button></div>
+        {visibleAi.state === 'loading' && <p role="status">Preparing consultation draft…</p>}
+        {visibleAi.state !== 'idle' && visibleAi.state !== 'loading' && visibleAi.state !== 'success' && <p role="alert">{aiFeedback[visibleAi.state]}</p>}
+        {visibleAi.state === 'success' && visibleAi.brief && <details className="chat-ai-draft" open>
+          <summary>Consultation summary</summary>
+          <div className="chat-ai-sections" role="region" aria-label="AI consultation summary">
+            {visibleAi.partialHistory && <p className="chat-ai-partial" role="status">Partial history: earlier messages were omitted from this summary.</p>}
+            {briefFields.map(({ key, label }) => <section className="chat-ai-section" key={key}><h3>{label}</h3><p>{visibleAi.brief![key]}</p></section>)}
+          </div>
+        </details>}
+      </section>}
       {next && <div className="chat-history-actions"><button className="button button-secondary" disabled={loadingEarlier} onClick={() => { const history = historyRef.current; if (history) scrollRestore.current = { height: history.scrollHeight, top: history.scrollTop }; setLoadingEarlier(true); more.current?.(next) }}>{loadingEarlier ? 'Loading earlier messages…' : 'Load earlier messages'}</button></div>}
       <div className="chat-history" ref={historyRef} role="log" aria-label="Messages" tabIndex={-1}>
         {historyState === 'loading' && <p className="chat-empty" role="status">Loading messages…</p>}
