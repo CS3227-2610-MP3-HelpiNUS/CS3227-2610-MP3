@@ -90,6 +90,34 @@ export const mockDashboard: DashboardData = {
 }
 let signedInUser: User | null = student
 
+type MockStudyConversation = {
+  conversation: CallableOutput<'listStudentStudyAssistantConversations'>['conversations'][number]
+  messages: CallableOutput<'readStudentStudyAssistantConversation'>['messages']
+}
+const mockStudyConversations = new Map<string, MockStudyConversation>()
+const mockStudyReceipts = new Map<string, CallableOutput<'studentStudyAssist'>>()
+const mockStudyDeleted = new Set<string>()
+
+function mockStudyTitle(message: string) {
+  const normalized = message.replace(/\s+/gu, ' ').trim()
+  return Array.from(normalized).length > 56 ? `${Array.from(normalized).slice(0, 55).join('')}…` : normalized
+}
+
+function mockStudyAnswer(question: string) {
+  if (/\b(?:weather|football|recipe|unsupported)\b/iu.test(question)) {
+    return {
+      kind: 'insufficient_context' as const,
+      content: 'I could not find enough information in the approved NUS computing sources to answer that question.',
+      citations: [],
+    }
+  }
+  return {
+    kind: 'grounded' as const,
+    content: 'Breadth-first search explores a graph one distance layer at a time. A queue keeps newly discovered vertices in first-in, first-out order, so every vertex reached through fewer edges is processed before vertices farther from the start.',
+    citations: [{ sourceId: 'synthetic-cs2040s-bfs', title: 'Synthetic CS2040S graph traversal notes', canonicalUrl: 'https://example.edu/approved/cs2040s/bfs', version: 'synthetic-v1', section: 'Breadth-first search' }],
+  }
+}
+
 // Discovery fixtures contain only the callable's public Mentor fields. Their
 // opaque cursor is selected by input, just as a later callable page would be.
 const discoveryPages = {
@@ -204,6 +232,56 @@ export const mockServices: HelpiNUSServices = {
       if (cursor === undefined) return discoveryPages.first
       if (cursor === 'sample-page-2') return discoveryPages['sample-page-2']
       throw new Error('Unknown mock discovery cursor.')
+    },
+    listStudentStudyAssistantConversations: async ({ cursor, limit }) => {
+      const pageSize = limit ?? 20
+      const sorted = [...mockStudyConversations.values()].map(({ conversation }) => conversation)
+        .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt) || b.id.localeCompare(a.id))
+      const start = cursor ? sorted.findIndex((conversation) => conversation.id === cursor) + 1 : 0
+      const page = sorted.slice(start, start + pageSize)
+      return { conversations: page, nextCursor: start + pageSize < sorted.length ? page.at(-1)?.id ?? null : null }
+    },
+    readStudentStudyAssistantConversation: async ({ conversationId, cursor, limit }) => {
+      const pageSize = limit ?? 50
+      const record = mockStudyConversations.get(conversationId)
+      if (!record || mockStudyDeleted.has(conversationId)) throw Object.assign(new Error('Conversation unavailable'), { code: 'not-found' })
+      const start = cursor ? record.messages.findIndex((message) => message.id === cursor) + 1 : 0
+      const page = record.messages.slice(start, start + pageSize)
+      return { conversation: record.conversation, messages: page, nextCursor: start + pageSize < record.messages.length ? page.at(-1)?.id ?? null : null }
+    },
+    studentStudyAssist: async (input) => {
+      const replay = mockStudyReceipts.get(input.requestId)
+      if (replay) return { ...replay, replayed: true }
+      const now = new Date().toISOString()
+      const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+      const conversationId = input.conversationId ?? crypto.randomUUID()
+      if (mockStudyDeleted.has(conversationId)) throw Object.assign(new Error('Conversation unavailable'), { code: 'not-found' })
+      const prior = mockStudyConversations.get(conversationId)
+      if (input.conversationId && !prior) throw Object.assign(new Error('Conversation unavailable'), { code: 'not-found' })
+      const answer = mockStudyAnswer(input.userMessage)
+      const userMessage = { id: crypto.randomUUID(), role: 'STUDENT' as const, content: input.userMessage.trim(), createdAt: now }
+      const assistantMessage = {
+        id: crypto.randomUUID(), role: 'ASSISTANT' as const, content: answer.content,
+        createdAt: new Date(Date.now() + 1).toISOString(),
+        grounding: answer.kind === 'grounded' ? 'GROUNDED' as const : 'INSUFFICIENT_CONTEXT' as const,
+        citations: answer.citations,
+      }
+      const conversation = {
+        id: conversationId,
+        title: prior?.conversation.title ?? mockStudyTitle(input.userMessage),
+        preview: assistantMessage.content.slice(0, 240),
+        lastActivityAt: assistantMessage.createdAt,
+        expiresAt,
+      }
+      mockStudyConversations.set(conversationId, { conversation, messages: [...(prior?.messages ?? []), userMessage, assistantMessage] })
+      const output = { kind: answer.kind, conversation, userMessage, assistantMessage, replayed: false } as CallableOutput<'studentStudyAssist'>
+      mockStudyReceipts.set(input.requestId, output)
+      return output
+    },
+    deleteStudentStudyAssistantConversation: async ({ conversationId }) => {
+      const kind = mockStudyConversations.delete(conversationId) ? 'deleted' as const : 'already_deleted' as const
+      mockStudyDeleted.add(conversationId)
+      return { kind, conversationId }
     },
   }),
 }
