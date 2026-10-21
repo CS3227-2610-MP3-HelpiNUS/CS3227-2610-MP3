@@ -218,11 +218,9 @@ describe('Student Study Assistant emulator integration', () => {
     expect(messages.size).toBe(4)
     const auditDocuments = await adminDb.collection('studentStudyAssistantAuditEvents').get()
     const auditData = auditDocuments.docs.map((snapshot) => snapshot.data())
-    expect(auditData).toEqual(expect.arrayContaining([
-      expect.objectContaining({ event: 'VALIDATION_REJECTED', operation: 'studentStudyAssist', actorId: null }),
-      expect.objectContaining({ event: 'AUTHENTICATION_REJECTED', operation: 'studentStudyAssist', actorId: null }),
-      expect.objectContaining({ event: 'AUTHORIZATION_REJECTED', actorId: ids.student }),
-    ]))
+    expect(auditData.some(({ event }) => [
+      'VALIDATION_REJECTED', 'AUTHENTICATION_REJECTED', 'AUTHORIZATION_REJECTED', 'CALLABLE_REJECTED',
+    ].includes(event))).toBe(false)
     expect(JSON.stringify(auditData)).not.toContain('private malformed audit sentinel')
   }, 60_000)
 

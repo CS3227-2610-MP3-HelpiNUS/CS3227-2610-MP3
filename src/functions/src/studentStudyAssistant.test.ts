@@ -248,30 +248,27 @@ describe('Student Study Assistant send persistence', () => {
 
   it('records schema and authorization boundary failures without request content', async () => {
     const db = database()
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     await recordStudentStudyAssistantBoundaryAudit(
-      db as unknown as Firestore,
       { auth: { uid: actor.uid } } as CallableRequest<unknown>,
       'studentStudyAssist',
       'validation',
       new HttpsError('invalid-argument', 'Do not persist this payload.'),
-      fixedNow,
     )
     await recordStudentStudyAssistantBoundaryAudit(
-      db as unknown as Firestore,
       request,
       'readStudentStudyAssistantConversation',
       'handler',
       new HttpsError('unauthenticated', 'Do not persist this auth message.'),
-      fixedNow,
     )
-    const audits = [...db.store.entries()]
-      .filter(([path]) => path.startsWith('studentStudyAssistantAuditEvents/'))
-      .map(([, value]) => value)
-    expect(audits).toEqual(expect.arrayContaining([
+    const logged = warning.mock.calls.map((call) => call[1])
+    expect(logged).toEqual(expect.arrayContaining([
       expect.objectContaining({ event: 'VALIDATION_REJECTED', actorId: actor.uid, operation: 'studentStudyAssist' }),
       expect.objectContaining({ event: 'AUTHENTICATION_REJECTED', actorId: null, operation: 'readStudentStudyAssistantConversation' }),
     ]))
-    expect(JSON.stringify(audits)).not.toContain('Do not persist')
+    expect(JSON.stringify(logged)).not.toContain('Do not persist')
+    expect([...db.store.keys()].some((path) => path.startsWith('studentStudyAssistantAuditEvents/'))).toBe(false)
+    warning.mockRestore()
   })
 
   it('replays a completed request without calling the provider or adding messages', async () => {
@@ -296,6 +293,11 @@ describe('Student Study Assistant send persistence', () => {
     await expect(studentStudyAssistHandler(input, request, db as unknown as Firestore, deps)).rejects.toMatchObject({
       code: 'resource-exhausted', details: { reason: 'REPLAY_RATE_LIMITED' },
     })
+    const auditsAfterFirstLimit = [...db.store.keys()].filter((path) => path.startsWith('studentStudyAssistantAuditEvents/')).length
+    await expect(studentStudyAssistHandler(input, request, db as unknown as Firestore, deps)).rejects.toMatchObject({
+      code: 'resource-exhausted', details: { reason: 'REPLAY_RATE_LIMITED' },
+    })
+    expect([...db.store.keys()].filter((path) => path.startsWith('studentStudyAssistantAuditEvents/'))).toHaveLength(auditsAfterFirstLimit)
     expect(provider.answer).toHaveBeenCalledOnce()
     expect([...db.store.keys()].filter((path) => path.includes('/studentStudyAssistantMessages/'))).toHaveLength(2)
   })
@@ -343,6 +345,13 @@ describe('Student Study Assistant send persistence', () => {
     }, request, db as unknown as Firestore, deps)).rejects.toMatchObject({
       code: 'resource-exhausted', details: { reason: 'RATE_LIMITED' },
     })
+    const auditsAfterFirstLimit = [...db.store.keys()].filter((path) => path.startsWith('studentStudyAssistantAuditEvents/')).length
+    await expect(studentStudyAssistHandler({
+      requestId: '22222222-2222-4222-8222-222222222223', conversationId: null, userMessage: 'Explain the queue again.',
+    }, request, db as unknown as Firestore, deps)).rejects.toMatchObject({
+      code: 'resource-exhausted', details: { reason: 'RATE_LIMITED' },
+    })
+    expect([...db.store.keys()].filter((path) => path.startsWith('studentStudyAssistantAuditEvents/'))).toHaveLength(auditsAfterFirstLimit)
     expect(provider.answer).toHaveBeenCalledOnce()
   })
 

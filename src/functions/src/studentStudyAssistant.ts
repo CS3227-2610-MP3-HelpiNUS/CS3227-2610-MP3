@@ -277,6 +277,30 @@ async function recordAuditBestEffort(
   }
 }
 
+async function recordRateLimitAuditBestEffort(
+  db: Firestore,
+  actor: AuthorizedUser,
+  now: Timestamp,
+  reason: 'RATE_LIMITED' | 'REPLAY_RATE_LIMITED',
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  const windowStartedAt = Math.floor(now.toMillis() / rateWindowMs) * rateWindowMs
+  const auditRef = db.collection('studentStudyAssistantAuditEvents')
+    .doc(digest(['rate-limit-audit', actor.uid, reason, windowStartedAt]).slice(0, 40))
+  try {
+    await db.runTransaction(async (transaction) => {
+      if ((await transaction.get(auditRef)).exists) return
+      transaction.create(auditRef, auditRecord('REQUEST_REJECTED', actor, now, {
+        ...metadata,
+        reason,
+        windowStartedAt: Timestamp.fromMillis(windowStartedAt),
+      }))
+    })
+  } catch {
+    // A competing request may create the same coalesced event first.
+  }
+}
+
 async function recordAuditForActorBestEffort(
   db: Firestore,
   event: string,
@@ -292,22 +316,27 @@ async function recordAuditForActorBestEffort(
 }
 
 export async function recordStudentStudyAssistantBoundaryAudit(
-  db: Firestore,
   request: CallableRequest<unknown>,
   operation: string,
   phase: 'validation' | 'handler',
   error: unknown,
-  now = Timestamp.now(),
 ): Promise<void> {
   const code = error instanceof HttpsError ? error.code : 'internal'
   const event = phase === 'validation'
     ? 'VALIDATION_REJECTED'
     : code === 'unauthenticated'
       ? 'AUTHENTICATION_REJECTED'
-      : code === 'permission-denied' || code === 'failed-precondition'
+      : code === 'permission-denied'
         ? 'AUTHORIZATION_REJECTED'
         : 'CALLABLE_REJECTED'
-  await recordAuditForActorBestEffort(db, event, request.auth?.uid ?? null, now, {
+  // Public boundary failures stay in structured platform logs. Persisting a
+  // random Firestore document for every unauthenticated or malformed request
+  // would create a write-amplification path before feature rate controls.
+  console.warn('Student Study Assistant callable rejected', {
+    featureId: 'S2-D1-F03',
+    feature: 'STUDENT_STUDY_ASSISTANT',
+    event,
+    actorId: request.auth?.uid ?? null,
     operation,
     phase,
     code,
@@ -559,11 +588,14 @@ export async function studentStudyAssistHandler(
   try {
     claim = await claimSend(input, actor, db, dependencies)
   } catch (error) {
-    await recordAuditBestEffort(db, 'REQUEST_REJECTED', actor, dependencies.now(), {
-      requestId: input.requestId,
-      conversationId: input.conversationId,
-      reason: safeErrorReason(error),
-    })
+    const now = dependencies.now()
+    const reason = safeErrorReason(error)
+    const metadata = { requestId: input.requestId, conversationId: input.conversationId }
+    if (reason === 'RATE_LIMITED' || reason === 'REPLAY_RATE_LIMITED') {
+      await recordRateLimitAuditBestEffort(db, actor, now, reason, metadata)
+    } else {
+      await recordAuditBestEffort(db, 'REQUEST_REJECTED', actor, now, { ...metadata, reason })
+    }
     throw error
   }
   if (claim.replay) {
