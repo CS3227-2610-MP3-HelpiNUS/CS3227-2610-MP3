@@ -76,6 +76,7 @@ studentStudyAssistantAuditEvents/{eventId}
 - `5464d88` — close keyboard/focus and encoded-input evidence gaps.
 - `307f759` — bound public and rate-limit rejection audit volume.
 - `51b0a6f` — connect the reviewed SoCLaaS Chat Completions provider.
+- `3bef738` — enable non-secret development-staging configuration.
 
 Documentation and this handoff are committed separately.
 
