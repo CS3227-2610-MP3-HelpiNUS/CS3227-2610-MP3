@@ -126,9 +126,12 @@ function integerSetting(value: string | undefined, fallback: number): number {
 
 export function createStudentStudyAssistantDependencies(
   emulator = process.env.FUNCTIONS_EMULATOR === 'true',
+  providerApiKey: () => string | undefined = () => process.env.SOCLAAS_API_KEY,
 ): StudentStudyAssistantDependencies {
+  const providerTimeoutMs = Math.min(integerSetting(process.env.STUDENT_STUDY_ASSISTANT_PROVIDER_TIMEOUT_MS, 15_000), 30_000)
+  const providerRequestTimeoutMs = Math.min(12_000, Math.max(1, providerTimeoutMs - 250))
   return {
-    provider: createStudentStudyAssistantProvider(emulator),
+    provider: createStudentStudyAssistantProvider(emulator, providerApiKey, providerRequestTimeoutMs),
     retriever: createStudentStudyAssistantRetriever(emulator),
     // Emulators are usable by default with synthetic fixtures. Production is
     // fail-closed until the provider, corpus, retention jobs, and secret are
@@ -138,7 +141,7 @@ export function createStudentStudyAssistantDependencies(
       : process.env.STUDENT_STUDY_ASSISTANT_ENABLED === 'true',
     requestsPerWindow: integerSetting(process.env.STUDENT_STUDY_ASSISTANT_REQUESTS_PER_MINUTE, defaultRequestsPerWindow),
     replaysPerWindow: integerSetting(process.env.STUDENT_STUDY_ASSISTANT_REPLAYS_PER_MINUTE, defaultReplaysPerWindow),
-    providerTimeoutMs: Math.min(integerSetting(process.env.STUDENT_STUDY_ASSISTANT_PROVIDER_TIMEOUT_MS, 15_000), 30_000),
+    providerTimeoutMs,
     now: Timestamp.now,
     newLeaseToken: randomUUID,
   }
@@ -637,11 +640,13 @@ export async function studentStudyAssistHandler(
     )
   } catch (error) {
     await releaseSendClaim(input, actor, claim, db)
-    const providerOutputRejected = error instanceof ZodError
+    const failureReason = safeErrorReason(error)
+    const providerOutputRejected = error instanceof ZodError ||
+      failureReason === 'PROVIDER_OUTPUT_INVALID' || failureReason === 'PROVIDER_RESPONSE_INVALID'
     await recordAuditBestEffort(db, providerOutputRejected ? 'OUTPUT_VALIDATION_REJECTED' : 'MESSAGE_FAILED', actor, dependencies.now(), {
       requestId: input.requestId,
       conversationId: claim.conversationId,
-      reason: providerOutputRejected ? 'PROVIDER_OUTPUT_INVALID' : safeErrorReason(error),
+      reason: error instanceof ZodError ? 'PROVIDER_OUTPUT_INVALID' : failureReason,
       providerLatencyMs: Math.max(0, Date.now() - providerStartedAt),
     })
     if (error instanceof HttpsError) throw error

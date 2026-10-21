@@ -6,6 +6,7 @@ import type {
   StudentStudyAssistantProvider,
   StudentStudyAssistantProviderInput,
 } from './studentStudyAssistantProvider.js'
+import { SoclaasStudentStudyAssistantProvider } from './studentStudyAssistantProvider.js'
 
 const actor = vi.hoisted(() => ({
   uid: 'student-one', email: 'student@example.test', displayName: 'Student One',
@@ -500,6 +501,24 @@ describe('Student Study Assistant send persistence', () => {
       .find(([, value]) => value.event === 'OUTPUT_VALIDATION_REJECTED')?.[1]
     expect(audit).toMatchObject({ reason: 'PROVIDER_OUTPUT_INVALID' })
     expect(JSON.stringify(audit)).not.toContain('private malformed output')
+  })
+
+  it('classifies malformed SoCLaaS output as an output-validation rejection', async () => {
+    const db = database()
+    const provider = new SoclaasStudentStudyAssistantProvider({
+      apiKey: () => 'synthetic-test-key',
+      fetchImplementation: vi.fn<typeof fetch>(async () => new Response(JSON.stringify({
+        choices: [{ message: { content: 'not-json' } }],
+      }), { status: 200 })),
+    })
+    await expect(studentStudyAssistHandler({
+      requestId: '20202020-2020-4020-8020-202020202020', conversationId: null, userMessage: 'Explain BFS.',
+    }, request, db as unknown as Firestore, dependencies({ provider })))
+      .rejects.toMatchObject({ code: 'unavailable', details: { reason: 'PROVIDER_OUTPUT_INVALID' } })
+    const audit = [...db.store.entries()]
+      .find(([, value]) => value.event === 'OUTPUT_VALIDATION_REJECTED')?.[1]
+    expect(audit).toMatchObject({ reason: 'PROVIDER_OUTPUT_INVALID' })
+    expect(JSON.stringify(audit)).not.toContain('not-json')
   })
 
   it('maps a provider timeout safely and releases the idempotency lease for retry', async () => {

@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
+import { defineSecret } from 'firebase-functions/params'
 import { callable, singaporeRegion } from './callable.js'
 import { requireActiveUser, requireRole } from './auth.js'
 import { callableSchemas } from '@helpinus/shared'
@@ -23,6 +24,7 @@ import {
 
 initializeApp()
 const db = getFirestore()
+const soclaasApiKey = defineSecret('SOCLAAS_API_KEY')
 
 export const testAuthenticated = callable(
   // The shared initialization schema keeps runtime parsing consistent without inventing a domain contract.
@@ -71,11 +73,14 @@ export const reserveAppointment = notImplemented('reserveAppointment', 'STUDENT'
 export const respondToAppointment = notImplemented('respondToAppointment', 'MENTOR')
 export const cancelAppointment = notImplemented('cancelAppointment')
 export const completeAppointment = notImplemented('completeAppointment', 'MENTOR')
-const studentStudyAssistantDependencies = createStudentStudyAssistantDependencies()
+const studentStudyAssistantDependencies = createStudentStudyAssistantDependencies(
+  process.env.FUNCTIONS_EMULATOR === 'true',
+  () => soclaasApiKey.value(),
+)
 export const studentStudyAssist = callable(
   callableSchemas.studentStudyAssist.input,
   (input, request) => studentStudyAssistHandler(input, request, db, studentStudyAssistantDependencies),
-  {},
+  { secrets: [soclaasApiKey] },
   (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(request, 'studentStudyAssist', phase, error),
 )
 export const listStudentStudyAssistantConversations = callable(
