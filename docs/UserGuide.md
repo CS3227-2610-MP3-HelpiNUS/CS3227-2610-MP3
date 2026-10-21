@@ -227,6 +227,58 @@ attention: a modified client can acknowledge early or withhold acknowledgement.
 6. Choose **Delete conversation**, review the warning, and choose **Delete** to
    remove its saved content. This cannot be undone.
 
+#### Copyable example prompts
+
+Copy one of these prompts into **Ask a question**, or adapt it to the concept
+you are studying.
+
+**CS2030S — generics and PECS**
+
+```text
+Explain Java's PECS rule in simple terms. When should I use ? extends and ? super?
+```
+
+**CS2030S — object-oriented design**
+
+```text
+Compare composition and inheritance, and explain how the Liskov Substitution Principle helps me choose between them.
+```
+
+**CS2030S — streams**
+
+```text
+Explain the roles of a stream source, intermediate operations, and a terminal operation. When would flatMap be useful?
+```
+
+**CS2103 — requirements**
+
+```text
+Explain the difference between functional and non-functional requirements, with one example of each for a student task-management app.
+```
+
+**CS2103 — test-case design**
+
+```text
+How should I use partitions, boundary values, and invalid inputs to design test cases for an age field that accepts values from 18 to 100?
+```
+
+**CS2103 — refactoring**
+
+```text
+What makes refactoring different from rewriting code, fixing a bug, or adding a feature?
+```
+
+For a natural follow-up, keep using the same conversation. For example, ask
+the PECS question above and then send:
+
+```text
+Why is the producer unable to safely accept most values in that example?
+```
+
+If the assistant responds with **Not enough approved context**, mention the
+module and exact topic in a new question, such as `CS2103 test-case design`,
+and avoid relying on the assistant for material outside CS2030S or CS2103.
+
 Conversation access expires 14 days after its latest activity, at which point
 the content immediately disappears from lists, reads, retries, and assistant
 context. The maintenance policy targets physical removal of expired message
