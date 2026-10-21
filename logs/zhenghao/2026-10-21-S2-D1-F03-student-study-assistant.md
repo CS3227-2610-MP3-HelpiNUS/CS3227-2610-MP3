@@ -31,6 +31,12 @@ without exposing their bodies. No real key or provider request was used.
 Production still requires an explicit server-side enable flag and currently has
 an empty corpus.
 
+Development staging is enabled with a committed non-secret project-specific
+dotenv file that pins only the reviewed base URL and `default` model. The key
+is not present in the repository and must be created separately in Firebase
+Secret Manager. The deployed retriever remains empty pending human source
+approval, so staging cannot yet exercise a grounded real-provider answer.
+
 The adapter follow-up passed the full Node 22 repository gate (frontend 323,
 Functions 99, shared 16 tests), deploy-package validation, the verify-app
 structural grader and self-test, and the final 2/2 Chromium Study Assistant

@@ -1087,7 +1087,12 @@ enabling a deployed environment, a human must:
 5. explicitly approve deployment and a real-provider smoke test.
 
 Production is disabled by default; the local emulator is enabled by default for
-synthetic verification. A future source importer must remain a separately
+synthetic verification. Development staging (`helpinus-dev`) is enabled through
+the committed non-secret `src/functions/deploy/.env.helpinus-dev` configuration;
+that file pins the public base URL and `default` model but never contains the
+API key. Its production-empty retriever still returns insufficient context
+until a real corpus generation is approved and supplied. A future source
+importer must remain a separately
 reviewed trusted process and enforce content-type and size bounds, bounded
 same-allowlist redirects, DNS/IP checks against loopback, private, link-local,
 metadata-service and internal destinations, deterministic Unicode

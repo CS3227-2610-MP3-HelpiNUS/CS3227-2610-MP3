@@ -25,6 +25,9 @@
 - Server-only SoCLaaS Chat Completions adapter using the fixed `/v1` base URL,
   `default` model alias, Bearer secret binding, bounded timeout/retries, safe
   error mapping, response-size limits, and strict output validation.
+- Non-secret `helpinus-dev` runtime configuration enables the staging feature
+  and pins the reviewed base URL/model. Production remains disabled by default,
+  and neither environment file nor source control contains the API key.
 - Rolling 14-day conversation content retention and 30-day metadata retention
   targets for audit and delete-operation records.
 - Direct Firestore access denied for every feature namespace.
@@ -144,6 +147,12 @@ response path, retryable `429`/`5xx` failures, and the validated `default` chat
 model alias. The adapter is implemented without exposing or accessing a real
 credential. Provider retention/privacy terms and a real-model semantic result
 remain unverified.
+
+Development staging is enabled after merge, but its registry is intentionally
+empty until Zheng Hao approves a real source generation. It can exercise route,
+authorization, persistence, deletion, and insufficient-context behavior after
+deployment; it cannot produce a grounded real-model answer or prove that the
+provider was called until the corpus and controlled smoke test are approved.
 
 Before production enablement, a human must:
 
