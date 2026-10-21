@@ -30,6 +30,7 @@ The Mission Briefs and feature specifications under `docs/mission-brief/` and `d
 - The Functions workspace `test` script already expands to all `src` tests; for one file, invoke Vitest directly through that workspace instead of appending `--run`, which does not narrow the existing positional path.
 - Node installed through NVM does not place npm under the Node binary's directory; child launchers must prefer npm's `npm_execpath` instead of constructing an npm CLI path from `process.execPath`.
 - In Playwright, scope repeated accessible names to the intended landmark or region; an unscoped strict locator fails when navigation and main content expose the same link label.
+- After clicking sign-out, assert the completed login redirect before navigating again; cancellation tests must wait for the provider popup to render before closing it.
 - Before hard-coding role-specific UI copy in Playwright, inspect the rendered accessible tree; assert the current page contract rather than assuming Student and Mentor headings match.
 - Firestore may cancel and replace its own Listen-channel long polls with `net::ERR_ABORTED`; retain those requests in browser diagnostics but distinguish that exact expected cancellation from unrelated request failures.
 - Playwright resolves relative reporter paths from the config directory; anchor generated evidence to the repository root so discovery runs cannot place artifacts inside a segregated subsystem.

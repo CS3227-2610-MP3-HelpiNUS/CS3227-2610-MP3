@@ -5,6 +5,19 @@ import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
 const repositoryRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
+const maintainedJourneys = [
+  'Google authentication public journey reaches account recovery',
+  'seeded Student signs in with Google through the local Firebase stack',
+  'seeded Mentor signs in with Google and keeps the trusted Mentor role',
+  'new Google identity registers only as a Student',
+  'Google authentication keeps one role and rejects cross-role registration',
+  'Google authentication recovers partial registration after cancellation and refresh',
+  'Google authentication guides an unregistered returning user to explicit registration',
+]
+
+function missingJourneys(output) {
+  return maintainedJourneys.filter((journey) => !output.includes(`› ${journey}\n`))
+}
 
 const requiredFiles = [
   '.agents/skills/verify-app/SKILL.md',
@@ -70,7 +83,10 @@ async function grade(root, { runCommands = true } = {}) {
     const playwrightCli = join(root, 'node_modules', '@playwright', 'test', 'cli.js')
     const discovery = commandResult(process.execPath, [playwrightCli, 'test', '--config', 'app-verification/playwright.config.ts', '--list'], root)
     if (!discovery.ok) failures.push(`Playwright discovery failed: ${discovery.output}`)
-    else if (!discovery.output.includes('Total: 4 tests')) failures.push(`Playwright discovery did not find the maintained four-test smoke set: ${discovery.output}`)
+    else {
+      const missing = missingJourneys(`${discovery.output}\n`)
+      if (missing.length) failures.push(`Playwright discovery omitted maintained journeys: ${missing.join(', ')}`)
+    }
   }
   return failures
 }
@@ -95,9 +111,13 @@ async function selfTest() {
     const failingFailures = await grade(failing, { runCommands: false })
     const acceptedPass = passingFailures.length === 0
     const rejectedFailure = failingFailures.some((message) => message.includes('missing required file: app-verification/scripts/verify-app.mjs'))
+    const discovered = maintainedJourneys.map((journey) => `› ${journey}\n`).join('')
+    const discoveryPass = missingJourneys(discovered).length === 0
+    const discoveryFailure = missingJourneys(discovered.replace(`› ${maintainedJourneys[4]}\n`, '')).includes(maintainedJourneys[4])
     console.info(`${acceptedPass ? 'PASS' : 'FAIL'}: isolated complete fixture ${acceptedPass ? 'accepted' : passingFailures.join('; ')}`)
     console.info(`${rejectedFailure ? 'PASS' : 'FAIL'}: isolated missing-launcher fixture ${rejectedFailure ? 'rejected' : 'was incorrectly accepted'}`)
-    return acceptedPass && rejectedFailure
+    console.info(`${discoveryPass && discoveryFailure ? 'PASS' : 'FAIL'}: complete discovery accepted and missing authorization journey rejected`)
+    return acceptedPass && rejectedFailure && discoveryPass && discoveryFailure
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true })
   }
