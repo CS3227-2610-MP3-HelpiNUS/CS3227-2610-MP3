@@ -13,7 +13,7 @@ Sprint 1 establishes the production-shaped foundation:
   scaffolds;
 - Firebase Authentication, Firestore, Cloud Functions v2, Hosting, and local
   emulators;
-- Google-only Student registration and sign-in, trusted Mentor provisioning,
+- Google-only Student/Mentor registration and sign-in with one role per UID,
   session restoration, and role routing;
 - shared domain and callable contracts with runtime validation;
 - Firestore Security Rules and emulator tests;
@@ -101,10 +101,11 @@ flowchart LR
 | Cloud Firestore | Store authoritative profiles and domain documents |
 | GitHub Actions | Verify changes, deploy development automatically, and gate production |
 
-`users/{uid}` is the single authoritative record for role and account status.
-Only trusted Admin SDK code writes it. This simpler single-source-of-truth design
-is worth more for HelpiNUS than avoiding one authorization-document lookup: it
-prevents custom claims and profile records from drifting.
+`users/{uid}` is authoritative for Students and `mentors/{uid}` for Mentors.
+Only trusted Admin SDK code writes those identity records. Registration and
+authorization check both collections to enforce one role per UID rather than
+trusting client-selected roles or custom claims. Legacy Mentor copies in
+`users/{uid}` are handled as described in the rollout notes below.
 
 ## 5. Authentication and role routing
 
@@ -133,12 +134,24 @@ sequenceDiagram
 Registration is recoverable and fail-closed. Google authentication creates or
 restores the Firebase identity first. Until `initializeStudentProfile`
 succeeds, protected routes and operations remain unavailable. Retrying is
-idempotent and cannot select a role or status. The recovery form accepts the
-Student name only when the Google identity has no usable display name. Existing
+idempotent and cannot change an existing role or status. The recovery form accepts the
+name only after Google authentication when that identity has no usable display name. Existing
 malformed or privileged profiles are rejected rather than overwritten.
 
-Sign-in resolves only an existing authoritative `users/{uid}` profile;
-registration initializes a missing profile only as `STUDENT` / `ACTIVE`. A
+`/login` asks whether an account already exists. **Yes, sign in** opens
+`/login?existing=1` with Student/Mentor sign-in choices; **No, create an account**
+opens `/register` with an explicit account-type selector and **Continue with Google**.
+Both registration and login always call `signInWithPopup(GoogleAuthProvider)`;
+registration never silently reuses a previous Firebase session.
+
+Sign-in resolves existing authoritative `users/{uid}` (Student) and
+`mentors/{uid}` (Mentor) records. Registration uses the corresponding
+`initializeStudentProfile` or `initializeMentorProfile` callable to create a
+missing `ACTIVE` profile on the authenticated UID. Both callables read both
+identity records in the same transaction before writing, so concurrent
+cross-role registration cannot create two roles. Tokens must indicate Google
+authentication. Dashboard role switching and the client `selectRole` API have
+been removed. A
 single-flight guard prevents concurrent Google pop-ups. Popup closure is a
 quiet cancellation, while blocked pop-ups, unauthorized domains, disabled
 providers, network failures, and callable failures receive bounded messages.
@@ -147,9 +160,28 @@ emulator restart is signed out instead of producing a permanent account-loading
 error. Auth-state subscriptions bind each profile read to the identity that
 initiated it and discard delayed results after sign-out or account switching.
 
-Mentors are never publicly registered. A Mentor must first establish a verified
-Google Firebase Auth identity; use the trusted Admin SDK provisioning script in
-Section 12 to bind that identity to a Mentor profile.
+Partial setup shows the authenticated Google email and allows changing Google
+accounts. Name recovery is bound to the UID and role confirmed by the current
+registration popup; refresh requires Google confirmation again. Password
+management remains delegated to Google. Emulator versus real OAuth selection
+is unchanged in `firebase.ts` and `firebaseConfig.ts`.
+
+### Existing accounts and rollout
+
+No account data is deleted or automatically assigned a different role. Existing
+Student-only and Mentor-only accounts continue to work. Legacy `MENTOR` records
+in `users/{uid}` may be copied idempotently to `mentors/{uid}` through Mentor
+registration; the legacy copy is retained and is not a second role. A UID with
+a Student record and a Mentor record is denied protected access by both
+callable authorization and Firestore Rules, with support-review guidance in the
+UI. Support must review its ownership and dependent records before resolving
+the conflict; there is no automatic winner or destructive migration.
+
+In Firebase Authentication settings, keep **one account per email address** and
+Google as the only public provider. The provider's email-to-UID association
+then gives one role per Google email. The Admin SDK Mentor provisioning script
+also refuses an existing Student identity. No live-account migration or cloud
+configuration changes are performed by this feature.
 
 ## 6. Domain model and Firestore organization
 
@@ -264,6 +296,7 @@ their existing `requestId` fields.
 | Callable | Authorized role | Purpose in approved contract |
 | --- | --- | --- |
 | `initializeStudentProfile` | Authenticated new Student | Create or return the trusted Student profile |
+| `initializeMentorProfile` | Verified Google identity without a Student profile | Create or return the trusted Mentor identity and domain profile |
 | `discoverMentors` | Active Student or Mentor | Return a cursor-paginated list of public Mentor fields after verifying each profile against its authoritative ACTIVE Mentor account; sign-in email and account metadata are never returned |
 | `createHelpRequest` | Student | Create a pending request or return an authorized duplicate/replay outcome |
 | `respondToHelpRequest` | Mentor | Accept or reject an addressed pending request; acceptance atomically creates its matching conversation |
