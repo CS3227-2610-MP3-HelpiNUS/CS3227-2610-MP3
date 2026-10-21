@@ -129,6 +129,12 @@ test('Student study assistant completes the grounded local journey', async ({ pa
   await expect(page.getByLabel('Ask a question')).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('student-study-assistant-mobile.png'), fullPage: true })
 
+  const newConversation = page.getByRole('button', { name: 'New conversation' })
+  await newConversation.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByText('Local only until your first message is sent')).toBeVisible()
+  await expect(page.getByLabel('Ask a question')).toBeFocused()
+  await page.locator('.study-assistant-history-list button').first().click()
   await page.getByRole('button', { name: 'Delete conversation' }).click()
   await page.getByRole('button', { name: 'Delete', exact: true }).click()
   await expect(page.getByText('Local only until your first message is sent')).toBeVisible()
