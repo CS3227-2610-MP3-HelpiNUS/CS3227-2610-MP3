@@ -19,35 +19,42 @@ the Student and addressed Mentor. Consultations and AI actions remain scaffolds.
 HelpiNUS has two roles:
 
 - **Student** — may register publicly and access Student pages.
-- **Mentor** — must be provisioned by a trusted administrator.
+- **Mentor** — may register publicly to offer academic help.
+
+Each Google account has one role. Dashboard navigation does not offer role
+switching; use a different Google account if you need a separate role.
 
 Laptop and mobile browsers are equally supported. The application targets WCAG
 2.1 AA, including keyboard access, visible focus, semantic form labels,
 sufficient contrast, and reduced-motion support.
 
-## 3. Create a Student account
+## 3. Create an account
 
-1. Open HelpiNUS and choose **Create a Student account**.
-2. Select **Create Student account with Google**.
-3. Choose any Google account in the Google sign-in window.
+1. Open HelpiNUS and choose **No, create an account**.
+2. Choose **Student (mentee)** or **Mentor** under **Account type**.
+3. Select **Continue with Google** and choose your Google account in the popup.
 4. If that account does not provide a display name, enter your name and select
-   **Finish Student profile setup**.
+   **Finish Student profile setup** or **Finish Mentor profile setup**.
 
-Public registration always creates an `ACTIVE` Student profile. The form does
-not accept a role or account status, so it cannot create a Mentor account or
-elevate privileges. HelpiNUS does not collect or store a password.
+Registration creates an `ACTIVE` profile for the chosen role under the Google
+identity's Firebase UID. An existing account cannot register under the other
+role. HelpiNUS does not collect or store a password. Registration always opens
+Google authentication, even if a previous Google session remains in the browser.
 
 Firebase creates the sign-in identity before HelpiNUS creates the authoritative
 profile. If the second step is interrupted, the account remains unable to open
 protected pages until the safe retry succeeds. The retry never changes an
-existing role.
+existing role. The recovery form appears only after Google authentication in
+the current registration attempt and shows the Google email being used. Choose
+**Use another Google account** to clear that session. After a refresh, select
+**Continue with Google** again before completing an unfinished profile.
 
 ## 4. Sign in and restore a session
 
-1. Choose **Continue with Google**.
-2. Select the Google account connected to the HelpiNUS profile.
+1. Choose **Yes, sign in**, then **Continue as Student** or **Continue as Mentor**.
+2. Select the Google account connected to that role in the popup.
 3. HelpiNUS verifies the identity and authoritative profile.
-4. Students are sent to `/student/dashboard`; provisioned Mentors are sent to
+4. Students are sent to `/student/dashboard`; Mentors are sent to
    `/mentor/dashboard`.
 
 Reloading the page restores a valid session. A missing, malformed, suspended,
@@ -56,6 +63,11 @@ recovery explanation. Closing the Google window simply returns to the sign-in
 page. If pop-ups are blocked, allow them for HelpiNUS and try again. If a local
 Auth emulator is restarted, an identity left in browser storage is signed out
 automatically instead of becoming permanently stuck.
+
+Choosing the wrong role shows guidance to sign in using the existing role; it
+does not create another profile. A Google identity without a HelpiNUS profile
+is offered registration. Older accounts with conflicting Student and Mentor
+profiles require support review; their data is retained.
 
 ## 5. Student navigation
 
@@ -183,11 +195,10 @@ attention: a modified client can acknowledge early or withhold acknowledgement.
 
 ## 6. Mentor access
 
-Mentors cannot register through the public form. An administrator provisions a
-Mentor with a trusted backend script after the Mentor has established a Google
-Firebase Authentication identity. After provisioning, the Mentor uses
-**Continue with Google** and is routed to the Mentor dashboard. Student URLs
-redirect back to the Mentor dashboard.
+Mentors register through **No, create an account**, choose **Mentor**, and
+continue with Google. Returning Mentors choose **Yes, sign in**, then
+**Continue as Mentor**. Student URLs redirect back to the Mentor dashboard;
+there is no dashboard role-switching control.
 
 ### Mentor dashboard
 
@@ -412,7 +423,7 @@ into the emulator.
 ### Emulator Student
 
 1. Start and seed the emulators using Section 9.
-2. Choose **Continue with Google**, then select `student@example.test` in the
+2. Choose **Yes, sign in**, then **Continue as Student** and `student@example.test` in the
    emulator window.
 3. Confirm the Student dashboard opens.
 4. Reload and confirm the session is restored.
@@ -422,7 +433,7 @@ into the emulator.
 
 ### Emulator Mentor
 
-1. Choose **Continue with Google**, then select `mentor@example.test` in the
+1. Choose **Yes, sign in**, then **Continue as Mentor** and `mentor@example.test` in the
    emulator window.
 2. Confirm the Mentor dashboard opens with the saved profile summary and a
    **My profile** link. The seeded Mentor initially has no listed modules.
@@ -434,9 +445,9 @@ into the emulator.
 
 ### Registration and recovery
 
-1. Choose **Create Student account with Google** while using the emulator, then
-   add a new mock Google identity.
-2. Confirm no role selector is shown.
+1. Choose **No, create an account**, select **Student (mentee)**, then
+   **Continue with Google** and add a new mock Google identity.
+2. Confirm the selected role and that no password is requested.
 3. Confirm the new account reaches the Student dashboard.
 4. Stop and restart the Auth emulator without clearing browser storage.
 5. Refresh HelpiNUS and confirm the stale local identity is safely returned to

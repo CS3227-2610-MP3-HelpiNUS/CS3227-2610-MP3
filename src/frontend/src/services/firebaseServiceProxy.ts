@@ -7,7 +7,6 @@ async function loadFirebaseServices() {
 export const firebaseServiceProxy: HelpiNUSServices = {
   session: {
     async getCurrent() { return (await loadFirebaseServices()).session.getCurrent() },
-    async selectRole(role) { return (await loadFirebaseServices()).session.selectRole(role) },
     subscribe(listener, onError) { let unsubscribe = () => {}; let cancelled = false; void loadFirebaseServices().then((services) => { if (cancelled) return; unsubscribe = services.session.subscribe(listener, onError) }).catch(onError); return () => { cancelled = true; unsubscribe() } },
     async signInWithGoogle(role) { return (await loadFirebaseServices()).session.signInWithGoogle(role) },
     async registerStudentWithGoogle() { return (await loadFirebaseServices()).session.registerStudentWithGoogle() },

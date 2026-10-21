@@ -6,6 +6,7 @@ src/functions/deploy/node_modules/
 coverage/
 .firebase/
 .emulator-data/
+.emulator-data-auth-smoke/
 firebase-debug.log*
 firestore-debug.log*
 ui-debug.log*

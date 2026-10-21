@@ -140,9 +140,11 @@
 .auth-role-mentor { background: linear-gradient(110deg, #3a8047, #195c3e); }
 .auth-role-button:hover:not(:disabled) { filter: brightness(1.07); }
 .auth-panel label { margin-top: 7px; color: var(--ink); font-size: 13px; font-weight: 600; }
-.auth-panel input { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #aebdb6; border-radius: 7px; background: #fff; color: var(--ink); font-size: 16px; }
-.auth-panel input:hover { border-color: #758d82; }
-.auth-panel input:focus-visible { border-color: var(--green-dark); }
+.auth-panel :is(input, select) { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #aebdb6; border-radius: 7px; background: #fff; color: var(--ink); font-size: 16px; }
+.auth-panel :is(input, select):hover { border-color: #758d82; }
+.auth-panel :is(input, select):focus-visible { border-color: var(--green-dark); }
+.auth-panel > .auth-actions { margin-bottom: 16px; }
+.auth-panel strong { overflow-wrap: anywhere; }
 .auth-panel .auth-error { margin: 4px 0 5px; padding: 10px 12px; border: 1px solid #e8c6c1; border-radius: 7px; background: #fff7f5; color: #7d3026; font-size: 13px; line-height: 1.5; }
 .notice-panel { display: grid; gap: 5px; margin: 20px 0; padding: 14px; border-radius: 8px; background: #f1f6f3; color: #3d5148; font-size: 11px; line-height: 1.5; }
 .notice-panel strong { color: var(--ink); font-size: 12px; }
@@ -173,7 +175,6 @@
   .topbar-avatar { display: grid; width: 31px; height: 31px; font-size: 12px; }
   .mobile-signout { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); cursor: pointer; font-size: 12px; font-weight: 600; }
   .mobile-signout:disabled { cursor: wait; opacity: .65; }
-  .mobile-switch-role { font-size: 11px; padding-inline: 7px; }
   .topbar-account { gap: 8px; }
   .signout-error { top: 66px; right: 12px; }
   .main-content { padding: 27px 20px 34px; }

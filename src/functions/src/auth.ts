@@ -18,7 +18,15 @@ export async function requireAuthenticated(request: CallableRequest<unknown>): P
 
 export async function requireActiveUser(request: CallableRequest<unknown>, role: UserRole = 'STUDENT'): Promise<AuthorizedUser> {
   const auth = await requireAuthenticated(request)
-  const snapshot = await getFirestore().collection(role === 'MENTOR' ? 'mentors' : 'users').doc(auth.uid).get()
+  const db = getFirestore()
+  const [student, mentor] = await Promise.all([
+    db.collection('users').doc(auth.uid).get(), db.collection('mentors').doc(auth.uid).get(),
+  ])
+  // Legacy Mentor copies in users are still a single role. Dual-role records fail closed.
+  if (student.exists && mentor.exists && student.data()?.role !== 'MENTOR') {
+    throw new HttpsError('permission-denied', 'This account has conflicting roles. Contact HelpiNUS support for review.')
+  }
+  const snapshot = role === 'MENTOR' ? mentor : student
   if (!snapshot.exists) throw new HttpsError('failed-precondition', 'Your profile is not ready yet.')
   const profile = snapshot.data()
   if (profile?.status !== 'ACTIVE') throw new HttpsError('permission-denied', 'Your account is not active.')

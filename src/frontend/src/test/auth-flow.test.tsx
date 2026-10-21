@@ -22,7 +22,7 @@ function renderAt(path: string, services: HelpiNUSServices) {
   return render(<ServiceProvider servicesOverride={services}><RouterProvider router={router} /></ServiceProvider>)
 }
 function services(session: Session = { user: null }, overrides: Partial<HelpiNUSServices['session']> = {}): HelpiNUSServices {
-  return { ...mockServices, session: { ...mockServices.session, getCurrent: async () => session, selectRole: async (role) => ({ user: null, selectedRole: role }), subscribe: (listener) => { listener(session); return () => {} }, ...overrides } }
+  return { ...mockServices, session: { ...mockServices.session, getCurrent: async () => session, subscribe: (listener) => { listener(session); return () => {} }, ...overrides } }
 }
 
 describe('authentication and role routing', () => {
@@ -30,7 +30,7 @@ describe('authentication and role routing', () => {
     const user = userEvent.setup()
     let current: Session = { user: null }
     const signInWithGoogle = vi.fn(async () => { current = { user: null, selectedRole: 'MENTOR', issue: 'PROFILE_MISSING' as const }; return current })
-    renderAt('/login', services(current, { signInWithGoogle, getCurrent: async () => current }))
+    renderAt('/login?existing=1', services(current, { signInWithGoogle, getCurrent: async () => current }))
     expect(screen.queryByRole('button', { name: /Continue with Google/ })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Continue as Mentor' }))
     expect(signInWithGoogle).toHaveBeenCalledWith('MENTOR')
@@ -43,17 +43,19 @@ describe('authentication and role routing', () => {
     let current: Session = { user: null, selectedRole: 'MENTOR', issue: 'PROFILE_MISSING' }
     const registerMentorWithGoogle = vi.fn(async () => { current = { user: mentor, selectedRole: 'MENTOR' }; return current })
     renderAt('/register?role=MENTOR', services(current, { registerMentorWithGoogle, getCurrent: async () => current }))
-    await user.click(screen.getByRole('button', { name: 'Create Mentor account with Google' }))
+    await user.click(screen.getByRole('button', { name: 'Continue with Google' }))
     expect(registerMentorWithGoogle).toHaveBeenCalledOnce()
     expect(await screen.findByRole('heading', { name: 'Mentor dashboard' })).toBeInTheDocument()
   })
 
-  it('registers a Student with Google without exposing role or status controls', async () => {
+  it('requires a role choice before registering a Student through Google', async () => {
     const user = userEvent.setup(); const register = vi.fn().mockResolvedValue({ user: student })
     const svc = services({ user: null }, { registerStudentWithGoogle: register, getCurrent: async () => ({ user: student }) })
     renderAt('/register', svc)
-    expect(screen.queryByLabelText(/email|password|role|status/i)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Create Student account with Google' }))
+    expect(screen.queryByLabelText(/email|password|status/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeDisabled()
+    await user.selectOptions(screen.getByLabelText('Account type'), 'STUDENT')
+    await user.click(screen.getByRole('button', { name: 'Continue with Google' }))
     expect(register).toHaveBeenCalledOnce()
     expect(await screen.findByRole('heading', { name: 'Student dashboard' })).toBeInTheDocument()
   })
@@ -61,7 +63,7 @@ describe('authentication and role routing', () => {
   it('signs in with Google and routes using the trusted Mentor profile', async () => {
     const user = userEvent.setup(); let current: Session = { user: null }
     const signInWithGoogle = vi.fn(async () => { current = { user: mentor, selectedRole: 'MENTOR' }; return current })
-    renderAt('/login', services(current, { signInWithGoogle, getCurrent: async () => current }))
+    renderAt('/login?existing=1', services(current, { signInWithGoogle, getCurrent: async () => current }))
     expect(screen.queryByLabelText(/email|password/i)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Continue as Mentor' }))
     expect(signInWithGoogle).toHaveBeenCalledWith('MENTOR')
@@ -69,10 +71,12 @@ describe('authentication and role routing', () => {
   })
 
   it('offers bounded name recovery when Google has no display name', async () => {
-    const user = userEvent.setup(); const retry = vi.fn().mockResolvedValue({ user: student }); let current: Session = { user: null, issue: 'PROFILE_MISSING' }
+    const user = userEvent.setup(); const retry = vi.fn().mockResolvedValue({ user: student }); let current: Session = { user: null, selectedRole: 'STUDENT', identity: { email: student.email, displayName: null }, issue: 'PROFILE_MISSING' }
     const svc = services({ user: null }, { registerStudentWithGoogle: async () => current, getCurrent: async () => current, retryStudentProfile: async (displayName) => { current = { user: student }; return retry(displayName) } })
-    renderAt('/register', svc)
-    await user.click(screen.getByRole('button', { name: 'Create Student account with Google' }))
+    renderAt('/register?role=STUDENT', svc)
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue with Google' }))
+    expect(await screen.findByText(student.email)).toBeVisible()
     await user.type(await screen.findByLabelText('Name'), 'Jamie Tan')
     expect(screen.queryByLabelText(/role|status/i)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Finish Student profile setup' }))
@@ -88,7 +92,7 @@ describe('authentication and role routing', () => {
   ])('maps %s without exposing raw Firebase text', async (code, expected) => {
     const user = userEvent.setup()
     const raw = Object.assign(new Error(`Firebase: Error (${code}). token-secret`), { code })
-    renderAt('/login', services({ user: null }, { signInWithGoogle: async () => { throw raw } }))
+    renderAt('/login?existing=1', services({ user: null }, { signInWithGoogle: async () => { throw raw } }))
     await user.click(screen.getByRole('button', { name: 'Continue as Student' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(expected)
     expect(screen.queryByText(/Firebase:|token-secret/)).not.toBeInTheDocument()
@@ -96,7 +100,7 @@ describe('authentication and role routing', () => {
 
   it('treats popup dismissal as a quiet cancellation', async () => {
     const user = userEvent.setup()
-    renderAt('/login', services({ user: null }, { signInWithGoogle: async () => { throw Object.assign(new Error('closed'), { code: 'auth/popup-closed-by-user' }) } }))
+    renderAt('/login?existing=1', services({ user: null }, { signInWithGoogle: async () => { throw Object.assign(new Error('closed'), { code: 'auth/popup-closed-by-user' }) } }))
     await user.click(screen.getByRole('button', { name: 'Continue as Student' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Continue as Student' })).toBeEnabled())
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -216,6 +220,26 @@ describe('authentication and role routing', () => {
     const brands = await screen.findAllByRole('link', { name: 'HelpiNUS home' })
     expect(brands).toHaveLength(2)
     expect(brands.map((brand) => brand.getAttribute('href'))).toEqual(['/mentor/dashboard', '/mentor/dashboard'])
+    expect(screen.queryByRole('button', { name: /Switch to/ })).not.toBeInTheDocument()
+  })
+
+  it('asks whether the visitor has an account before exposing login roles', async () => {
+    const user = userEvent.setup()
+    renderAt('/login', services())
+    expect(screen.getByText('Do you already have a HelpiNUS account?')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Continue as Mentor' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'No, create an account' })).toHaveAttribute('href', '/register')
+    await user.click(screen.getByRole('link', { name: 'Yes, sign in' }))
+    expect(screen.getByRole('button', { name: 'Continue as Mentor' })).toBeVisible()
+  })
+
+  it.each(['WRONG_ROLE', 'ROLE_CONFLICT'] as const)('shows actionable %s feedback and offers no cross-role registration shortcut', async (issue) => {
+    const user = userEvent.setup()
+    let current: Session = { user: null }
+    renderAt('/login?existing=1', services(current, { signInWithGoogle: async () => { current = { user: null, selectedRole: 'MENTOR', issue }; return current }, getCurrent: async () => current }))
+    await user.click(screen.getByRole('button', { name: 'Continue as Mentor' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(issue === 'ROLE_CONFLICT' ? /support for review/ : /existing role/)
+    expect(screen.queryByRole('link', { name: 'Create Mentor account' })).not.toBeInTheDocument()
   })
 
   it('denies cross-role access and routes to the profile-authorized dashboard', async () => {

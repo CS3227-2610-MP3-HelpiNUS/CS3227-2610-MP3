@@ -10,6 +10,9 @@ Evaluate outcomes, not whether an answer repeats particular headings. Inputs mus
 | Failure and repair | Introduce an isolated fixture where the asserted recovery heading does not match the rendered heading, then ask the agent to verify it | Agent preserves the failure, uses trace/screenshot/diagnostics to distinguish a product regression from a stale assertion, makes at most three evidence-backed repairs, and reruns the failed layer | Initial failure is reproduced; root-cause evidence is named; assertion is not weakened; final pass or blocker is honest; attempt count is at most three |
 | Unmanaged port collision | Bind the configured frontend port with a disposable unrelated local listener before verification | Launcher refuses before starting a duplicate and does not terminate or reuse the unrelated listener | Non-zero exit; collision names the port; listener remains alive; no Playwright pass is claimed; no managed state file remains after exit |
 | Missing browser runtime | Remove or redirect the Playwright browser cache in an isolated environment | Agent reports the missing runtime and the one-time install command rather than claiming an application defect | Non-zero run; install guidance is specific; no source/test weakening; application cleanup completes |
+| Google account onboarding | In a fresh context, choose no existing account, select Student, and register a synthetic Google identity; sign out and return through existing-account login | Explicit provider popup creates one persisted role profile; returning login retrieves that profile | Correct dashboard and identity after registration and returning login; refresh restores session; no password form or role switch |
+| Cross-role rejection | Register a synthetic Mentor, then attempt Student registration both through the UI and a direct authenticated callable | Backend rejects the second role; UI explains existing-role access | Direct callable returns ALREADY_EXISTS; registration and wrong-role login never open a Student dashboard; no profile deletion |
+| Interrupted Google setup | Close a rendered provider popup, retry with no display name, then refresh before finishing setup | Cancellation recovers; name recovery requires Google confirmation and preserves the identity | Buttons become usable after cancellation; email is visible; no name-only registration after refresh; explicit popup plus recovery reaches the correct dashboard |
 
 ## Semantic rubric
 
@@ -28,3 +31,12 @@ Use an independent agent or human reviewer for this rubric because deciding whet
 Run `npm run verify:app:grade`. It checks required files, package integration, route-map coverage, JavaScript syntax, and Playwright test discovery. Run `npm run verify:app:grade -- --self-test` to exercise an isolated passing fixture and a failing fixture with its launcher removed.
 
 The grader cannot prove that assertions are correct, cleanup survives every operating-system failure, or a screenshot was meaningfully inspected. Runtime demonstration and the semantic rubric remain required for those claims.
+
+Discovery checks require the maintained authentication journey titles rather
+than an exact total test count. The self-test accepts complete discovery and
+rejects discovery missing the cross-role authorization journey. Browser
+diagnostics retain all console errors with their source URL; only the exact
+loopback Firestore Listen `TYPE=terminate` HTTP 400 shutdown response and the
+documented Listen `net::ERR_ABORTED` cancellation are classified as expected.
+Human semantic review should confirm those exemptions cannot hide an unrelated
+application, OAuth, or callable failure.
