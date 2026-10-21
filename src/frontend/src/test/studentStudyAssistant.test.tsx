@@ -84,6 +84,8 @@ describe('Student Study Assistant', () => {
     const user = userEvent.setup()
     mount(services)
 
+    expect(await screen.findByRole('note', { name: 'Supported Study assistant modules' }))
+      .toHaveTextContent('Available for CS2030S and CS2103')
     expect(await screen.findByText('Local only until your first message is sent')).toBeInTheDocument()
     expect(await screen.findByText('Your saved conversations will appear here after you send your first message.')).toBeInTheDocument()
     expect(sendInputs).toHaveLength(0)

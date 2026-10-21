@@ -306,11 +306,16 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
     <header className="study-assistant-heading">
       <div>
         <h1>Study assistant</h1>
-        <p>Work through NUS computing concepts with answers grounded in approved sources.</p>
+        <p>Ask source-grounded questions about programming methodology and software engineering.</p>
       </div>
     </header>
 
     <p className="study-assistant-live" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
+
+    <div className="study-assistant-scope" role="note" aria-label="Supported Study assistant modules">
+      <strong>Available for CS2030S and CS2103</strong>
+      <span>Answers use selected pages from the CS2030S notes and CS2103 software engineering textbook.</span>
+    </div>
 
     <div className="study-assistant-trust" role="note">
       <strong>Check before you rely on an answer.</strong>
@@ -363,7 +368,7 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
             {messages.length === 0 && <div className="study-assistant-empty">
               <span className="study-assistant-empty-icon"><Icon name="study" /></span>
               <h3>What would you like to understand?</h3>
-              <p>Ask about a concept or work through a question. A saved conversation begins only after you send.</p>
+              <p>Ask about a CS2030S or CS2103 concept. A saved conversation begins only after you send.</p>
             </div>}
             {messages.map((message) => <article key={message.id} className={`study-assistant-message ${message.role === 'STUDENT' ? 'is-student' : 'is-assistant'}`} aria-label={`${message.role === 'STUDENT' ? 'You' : 'Study assistant'} at ${formatDate(message.createdAt)}`}>
               <div className="study-assistant-message-meta"><strong>{message.role === 'STUDENT' ? 'You' : 'Study assistant'}</strong><time dateTime={message.createdAt}>{formatDate(message.createdAt)}</time></div>
@@ -375,7 +380,7 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
                   <span>{citation.section ? `${citation.section} · ` : ''}Version {citation.version}</span>
                 </li>)}</ol>
               </section>}
-              {message.role === 'ASSISTANT' && message.grounding === 'INSUFFICIENT_CONTEXT' && <div className="study-assistant-grounding-note" role="note"><strong>Not enough approved context</strong><p>Try narrowing your question or check your course materials. The assistant will not fill gaps with uncited information.</p></div>}
+              {message.role === 'ASSISTANT' && message.grounding === 'INSUFFICIENT_CONTEXT' && <div className="study-assistant-grounding-note" role="note"><strong>Not enough approved context</strong><p>Try asking specifically about CS2030S or CS2103, or check your course materials. The assistant will not fill gaps with uncited information.</p></div>}
             </article>)}
           </div>
 
@@ -384,7 +389,7 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
           <form className="study-assistant-composer" onSubmit={submit}>
             <label htmlFor="study-assistant-message">Ask a question</label>
             <div className="study-assistant-composer-row">
-              <textarea ref={composerRef} id="study-assistant-message" value={draft} maxLength={4000} rows={1} disabled={sendState !== 'idle'} placeholder="Ask about a computing concept…" onChange={(event) => setDraft(event.target.value)} />
+              <textarea ref={composerRef} id="study-assistant-message" value={draft} maxLength={4000} rows={1} disabled={sendState !== 'idle'} placeholder="Ask about CS2030S or CS2103…" onChange={(event) => setDraft(event.target.value)} />
               <button className="study-assistant-send" type="submit" disabled={!draft.trim() || sendState !== 'idle'} aria-label={sendState === 'sending' ? 'Sending message' : 'Send message'}><Icon name="send" /></button>
             </div>
             <div className="study-assistant-composer-notes"><span>{draft.length.toLocaleString()} / 4,000</span><span>Answers may be inaccurate. Check the cited sources.</span></div>
