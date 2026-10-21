@@ -24,7 +24,7 @@ import {
 
 initializeApp()
 const db = getFirestore()
-const soclaasApiKey = defineSecret('SOCLAAS_API_KEY')
+const studentSoclaasApiKey = defineSecret('SOCLAAS_API_KEY_STUDENT')
 
 export const testAuthenticated = callable(
   // The shared initialization schema keeps runtime parsing consistent without inventing a domain contract.
@@ -75,12 +75,12 @@ export const cancelAppointment = notImplemented('cancelAppointment')
 export const completeAppointment = notImplemented('completeAppointment', 'MENTOR')
 const studentStudyAssistantDependencies = createStudentStudyAssistantDependencies(
   process.env.FUNCTIONS_EMULATOR === 'true',
-  () => soclaasApiKey.value(),
+  () => studentSoclaasApiKey.value(),
 )
 export const studentStudyAssist = callable(
   callableSchemas.studentStudyAssist.input,
   (input, request) => studentStudyAssistHandler(input, request, db, studentStudyAssistantDependencies),
-  { secrets: [soclaasApiKey] },
+  { secrets: [studentSoclaasApiKey] },
   (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(request, 'studentStudyAssist', phase, error),
 )
 export const listStudentStudyAssistantConversations = callable(

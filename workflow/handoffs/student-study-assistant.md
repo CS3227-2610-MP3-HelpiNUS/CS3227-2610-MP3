@@ -158,7 +158,7 @@ provider was called until the corpus and controlled smoke test are approved.
 Before production enablement, a human must:
 
 1. review and approve this branch;
-2. create `SOCLAAS_API_KEY` in Firebase Secret Manager for the target project;
+2. create `SOCLAAS_API_KEY_STUDENT` in Firebase Secret Manager for the target project;
 3. approve the immutable production corpus and exact source allowlist;
 4. approve cadence/IAM, implement/export/deploy the scheduled cleanup
    Functions, and monitor the 14-day content, 30-day audit, and 30-day

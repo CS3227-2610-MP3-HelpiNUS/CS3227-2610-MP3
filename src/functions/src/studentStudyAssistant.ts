@@ -126,7 +126,7 @@ function integerSetting(value: string | undefined, fallback: number): number {
 
 export function createStudentStudyAssistantDependencies(
   emulator = process.env.FUNCTIONS_EMULATOR === 'true',
-  providerApiKey: () => string | undefined = () => process.env.SOCLAAS_API_KEY,
+  providerApiKey: () => string | undefined = () => process.env.SOCLAAS_API_KEY_STUDENT,
 ): StudentStudyAssistantDependencies {
   const providerTimeoutMs = Math.min(integerSetting(process.env.STUDENT_STUDY_ASSISTANT_PROVIDER_TIMEOUT_MS, 15_000), 30_000)
   const providerRequestTimeoutMs = Math.min(12_000, Math.max(1, providerTimeoutMs - 250))

@@ -24,7 +24,7 @@ responsive styling, tests, guides, and an adversarial evaluation were added.
 
 The sanitized SoCLaaS Quick Start later confirmed the Chat Completions endpoint,
 Bearer header, request/response shape, retry categories, and `default` model
-alias. A server-only adapter now binds `SOCLAAS_API_KEY` only to
+alias. A server-only adapter now binds `SOCLAAS_API_KEY_STUDENT` only to
 `studentStudyAssist`, applies bounded timeout/retry and response-size policies,
 validates strict grounded/insufficient-context JSON, and maps upstream failures
 without exposing their bodies. No real key or provider request was used.
@@ -96,7 +96,7 @@ credential access, production data access, or real SoCLaaS request occurred.
 
 ## Human follow-up
 
-The user must review the local branch, create the `SOCLAAS_API_KEY` Firebase
+The user must review the local branch, create the `SOCLAAS_API_KEY_STUDENT` Firebase
 secret for the intended project, approve the production corpus and cleanup
 schedule, run semantic and real-provider validation, and explicitly authorize
 later remote or production actions.

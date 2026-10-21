@@ -282,7 +282,7 @@ export class SoclaasStudentStudyAssistantProvider implements StudentStudyAssista
 
 export function createStudentStudyAssistantProvider(
   emulator: boolean,
-  apiKey: () => string | undefined = () => process.env.SOCLAAS_API_KEY,
+  apiKey: () => string | undefined = () => process.env.SOCLAAS_API_KEY_STUDENT,
   requestTimeoutMs = defaultSoclaasRequestTimeoutMs,
 ): StudentStudyAssistantProvider {
   return emulator

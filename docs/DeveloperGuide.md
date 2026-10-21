@@ -1062,7 +1062,7 @@ Production uses an empty retriever and the server-only
 `SoclaasStudentStudyAssistantProvider`. The adapter calls the documented
 OpenAI-compatible `POST /v1/chat/completions` endpoint with Bearer
 authentication, `model: "default"`, bounded system/history/source messages,
-and `reasoning_effort: "none"`. It reads `SOCLAAS_API_KEY` lazily from a
+and `reasoning_effort: "none"`. It reads `SOCLAAS_API_KEY_STUDENT` lazily from a
 Firebase Secret Manager binding that is attached only to `studentStudyAssist`.
 The fixed default base URL is `https://soclaas-api.comp.nus.edu.sg/v1`; an
 override must still resolve to that exact HTTPS origin and `/v1` path. The
@@ -1077,7 +1077,7 @@ The local Functions emulator continues to use
 corpus, so local and CI tests never require or transmit a real key. Before
 enabling a deployed environment, a human must:
 
-1. create the `SOCLAAS_API_KEY` Firebase secret for that Firebase project and
+1. create the `SOCLAAS_API_KEY_STUDENT` Firebase secret for that Firebase project and
    ensure only the Functions runtime can access it;
 2. approve immutable source generations and their exact HTTPS prefixes;
 3. run the repeated semantic evaluation in

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  createStudentStudyAssistantProvider,
   FakeStudentStudyAssistantProvider,
   SoclaasStudentStudyAssistantProvider,
   studentStudyAssistantProviderResultSchema,
@@ -80,6 +81,37 @@ describe('Student Study Assistant providers', () => {
       code: 'unavailable', details: { reason: 'PROVIDER_SECRET_MISSING' },
     })
     expect(fetchImplementation).not.toHaveBeenCalled()
+  })
+
+  it('uses only the Student-specific SoCLaaS environment secret by default', async () => {
+    const originalFetch = globalThis.fetch
+    const originalStudentKey = process.env.SOCLAAS_API_KEY_STUDENT
+    const originalSharedKey = process.env.SOCLAAS_API_KEY
+    const fetchImplementation = vi.fn<typeof fetch>(async () => completion(JSON.stringify({
+      kind: 'grounded', content: 'BFS uses a queue.', citationChunkIds: ['chunk-1'],
+    })))
+    try {
+      globalThis.fetch = fetchImplementation
+      process.env.SOCLAAS_API_KEY = 'teammate-key-must-not-be-used'
+      delete process.env.SOCLAAS_API_KEY_STUDENT
+      await expect(createStudentStudyAssistantProvider(false).answer(input)).rejects.toMatchObject({
+        details: { reason: 'PROVIDER_SECRET_MISSING' },
+      })
+      expect(fetchImplementation).not.toHaveBeenCalled()
+
+      process.env.SOCLAAS_API_KEY_STUDENT = 'student-specific-test-key'
+      await expect(createStudentStudyAssistantProvider(false).answer(input)).resolves.toMatchObject({ kind: 'grounded' })
+      expect(fetchImplementation).toHaveBeenCalledOnce()
+      expect(fetchImplementation.mock.calls[0]?.[1]?.headers).toEqual(expect.objectContaining({
+        Authorization: 'Bearer student-specific-test-key',
+      }))
+    } finally {
+      globalThis.fetch = originalFetch
+      if (originalStudentKey === undefined) delete process.env.SOCLAAS_API_KEY_STUDENT
+      else process.env.SOCLAAS_API_KEY_STUDENT = originalStudentKey
+      if (originalSharedKey === undefined) delete process.env.SOCLAAS_API_KEY
+      else process.env.SOCLAAS_API_KEY = originalSharedKey
+    }
   })
 
   it('retries a transient provider failure and then returns the valid answer', async () => {
