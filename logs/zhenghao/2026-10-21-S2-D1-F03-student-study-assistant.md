@@ -39,6 +39,7 @@ identified and prompted repairs for:
 - completed-replay and repeated-delete resource abuse;
 - delete-operation and audit cleanup gaps;
 - missing feature audit events for schema/auth/provider-output/expiry failures;
+- public-rejection audit write amplification and duplicate/misclassified events;
 - incomplete callable authorization-matrix evidence;
 - over-broad browser assertions; and
 - cleanup that could recreate a conversation shell from a tombstone alone.
@@ -56,6 +57,11 @@ code review found no critical/high correctness or isolation defect. Its final
 audit, scheduler-documentation, encoded-input evaluation, and keyboard/focus
 evidence observations were addressed before handoff; production integration
 remains deliberately unapproved.
+
+The final abuse-control follow-up moved public schema/auth rejection events to
+content-free structured platform logs and coalesced durable rate-limit audits
+to one event per Student, minute window, and reason. Repeated over-limit calls
+therefore do not grow the Firestore audit collection.
 
 ## Security and scope result
 

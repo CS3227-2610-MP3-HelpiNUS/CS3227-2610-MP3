@@ -1106,6 +1106,17 @@ title/preview content, and write a tombstone to prevent resurrection. Audit
 events contain identifiers, result/reason, counts, generation, and timestamps,
 not questions or answers, and target 30-day retention.
 
+Malformed-schema, unauthenticated, and authorization boundary failures emit
+feature-tagged structured platform logs with operation, category, safe reason,
+and authenticated UID when present. They never include request content and do
+not create one Firestore document per public rejection, avoiding a pre-rate-
+limit write-amplification path. Durable Firestore audits are reserved for
+bounded feature lifecycle events such as completed/replayed/failed sends,
+deletion, provider-output rejection, and expiry cleanup.
+Rate-limit rejections are durably coalesced to one deterministic metadata event
+per Student, minute window, and reason so repeated over-limit retries cannot
+grow the audit collection.
+
 The cleanup policy exports its collection group, field, target interval (24
 hours), and investigation threshold (72 hours), but this feature does not
 silently create a production scheduler. An administrator must configure and

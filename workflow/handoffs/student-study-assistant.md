@@ -68,6 +68,7 @@ studentStudyAssistantAuditEvents/{eventId}
 - `e3e2bd8` — add the adversarial evaluation and rendered app journey.
 - `a29aebd` — complete schema, auth, provider-output, and expiry auditing.
 - `5464d88` — close keyboard/focus and encoded-input evidence gaps.
+- `307f759` — bound public and rate-limit rejection audit volume.
 
 Documentation and this handoff are committed separately.
 
@@ -107,8 +108,10 @@ The final code review additionally found a stale page-response race and a
 tombstone-only deletion path that could recreate a shell document. Repairs add
 bounded metadata validation and immutable corpus snapshots, session-transition
 cleanup, a replay limiter, expiring delete receipts, cleanup seams, expanded
-audits at schema/auth/provider-output/expiry boundaries, request-generation
-guards, and update-only tombstone cleanup. Direct
+content-free structured logs at schema/auth boundaries, durable bounded audits
+for provider-output/lifecycle/expiry events, request-generation guards, and
+coalesced per-Student/window rate-limit audits, and update-only tombstone
+cleanup. Direct
 regressions cover each repair. Final reviewer verdicts are recorded in the
 interaction log.
 
