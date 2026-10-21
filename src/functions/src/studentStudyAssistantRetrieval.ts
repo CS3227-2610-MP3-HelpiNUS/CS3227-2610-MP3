@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { HttpsError } from 'firebase-functions/v2/https'
 import type { StudentStudyAssistantCitation } from '@helpinus/shared'
+import { nusComputingStudentStudyAssistantGeneration } from './studentStudyAssistantCorpus.js'
 
 export type StudentStudyAssistantAccessClassification = 'ALL_ACTIVE_STUDENTS'
 export type StudentStudyAssistantReviewState = 'APPROVED' | 'QUARANTINED'
@@ -204,11 +205,18 @@ export class SyntheticStudentStudyAssistantRetriever extends VersionedStudentStu
   constructor() { super([syntheticGeneration], syntheticGeneration.generation) }
 }
 
+export class ApprovedNusStudentStudyAssistantRetriever extends VersionedStudentStudyAssistantCorpus {
+  constructor() {
+    super([nusComputingStudentStudyAssistantGeneration], nusComputingStudentStudyAssistantGeneration.generation)
+  }
+}
+
 export const citationFromChunk = (chunk: StudentStudyAssistantChunk): StudentStudyAssistantCitation => ({
   sourceId: chunk.sourceId, title: chunk.title, canonicalUrl: chunk.canonicalUrl,
   version: chunk.version, section: chunk.section,
 })
 
 export function createStudentStudyAssistantRetriever(emulator: boolean): StudentStudyAssistantRetriever {
-  return emulator ? new SyntheticStudentStudyAssistantRetriever() : new EmptyStudentStudyAssistantRetriever()
+  void emulator
+  return new ApprovedNusStudentStudyAssistantRetriever()
 }

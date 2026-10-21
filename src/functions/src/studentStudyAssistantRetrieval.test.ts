@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ApprovedNusStudentStudyAssistantRetriever,
   EmptyStudentStudyAssistantRetriever,
   SyntheticStudentStudyAssistantRetriever,
   VersionedStudentStudyAssistantCorpus,
@@ -23,6 +24,26 @@ const generation = (name: string, sourceId: string): StudentStudyAssistantCorpus
 }
 
 describe('Student Study Assistant retrieval', () => {
+  it('retrieves the selected CS2030S and CS2103 sources with trusted citations', async () => {
+    const retriever = new ApprovedNusStudentStudyAssistantRetriever()
+    const generics = await retriever.retrieve('How do CS2030S generics improve type safety?', 4)
+    expect(generics.corpusGeneration).toBe('nus-cs2030s-2021-s2_cs2103-ay2526s1-v1')
+    expect(generics.chunks[0]?.chunkId).toBe('cs2030s-generics')
+    expect(citationFromChunk(generics.chunks[0]!)).toEqual({
+      sourceId: 'cs2030s-2021-s2-generics',
+      title: 'CS2030S Programming Methodology II',
+      canonicalUrl: 'https://nus-cs2030s.github.io/2021-s2/20-generics.html',
+      version: '2021 Semester 2',
+      section: 'Generic types and methods',
+    })
+
+    const testing = await retriever.retrieve('How should CS2103 boundary test cases be selected?', 4)
+    expect(testing.chunks[0]?.chunkId).toBe('cs2103-test-case-design')
+    expect(testing.chunks[0]?.canonicalUrl).toBe(
+      'https://nus-cs2103-ay2526s1.github.io/website/se-book-adapted/chapters/testCaseDesign.html',
+    )
+  })
+
   it('ranks matching synthetic chunks deterministically', async () => {
     const retriever = new SyntheticStudentStudyAssistantRetriever()
     const result = await retriever.retrieve('How does breadth first search use a queue in a graph?', 4)
@@ -43,11 +64,13 @@ describe('Student Study Assistant retrieval', () => {
     expect(result.chunks.map(({ chunkId }) => chunkId)).toEqual(['synthetic-recursion-1'])
   })
 
-  it('returns no sources for unsupported questions and for the production-empty registry', async () => {
-    const synthetic = new SyntheticStudentStudyAssistantRetriever()
-    const production = new EmptyStudentStudyAssistantRetriever()
-    await expect(synthetic.retrieve('Explain lunar geology', 4)).resolves.toEqual({ chunks: [], corpusGeneration: 'synthetic-v1' })
-    await expect(production.retrieve('breadth first search', 4)).resolves.toEqual({ chunks: [], corpusGeneration: 'disabled' })
+  it('returns no approved sources for unsupported questions or an explicitly empty registry', async () => {
+    const approved = new ApprovedNusStudentStudyAssistantRetriever()
+    const empty = new EmptyStudentStudyAssistantRetriever()
+    await expect(approved.retrieve('Explain lunar geology', 4)).resolves.toEqual({
+      chunks: [], corpusGeneration: 'nus-cs2030s-2021-s2_cs2103-ay2526s1-v1',
+    })
+    await expect(empty.retrieve('CS2030S generics', 4)).resolves.toEqual({ chunks: [], corpusGeneration: 'disabled' })
   })
 
   it('activates, rolls back, and quarantines immutable corpus generations', async () => {
