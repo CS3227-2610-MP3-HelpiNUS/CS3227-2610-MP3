@@ -36,7 +36,7 @@ beforeEach(async () => {
 })
 
 describe('approved direct access matrix', () => {
-  it('keeps Student and Mentor authorization independent for one Firebase UID', async () => {
+  it('blocks protected data for dual-role identities but preserves own-profile reads for recovery', async () => {
     await env.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore()
       await setDoc(doc(db, 'mentors/student'), { id: 'student', role: 'MENTOR', status: 'ACTIVE', email: 'student@example.test' })
@@ -52,8 +52,10 @@ describe('approved direct access matrix', () => {
     await assertFails(getDoc(doc(dualMentor, 'users/student')))
     await assertFails(setDoc(doc(dualStudent, 'mentors/student'), { id: 'student', role: 'MENTOR', status: 'ACTIVE' }))
     await assertFails(setDoc(doc(dualMentor, 'users/mentor'), { id: 'mentor', role: 'STUDENT', status: 'ACTIVE' }))
-    await assertSucceeds(getDoc(doc(dualStudent, 'helpRequests/request')))
-    await assertSucceeds(getDoc(doc(dualMentor, 'helpRequests/request')))
+    await assertFails(getDoc(doc(dualStudent, 'helpRequests/request')))
+    await assertFails(getDoc(doc(dualMentor, 'helpRequests/request')))
+    await assertFails(getDocs(query(collection(dualStudent, 'helpRequests'), where('studentId', '==', 'student'), limit(20))))
+    await assertFails(getDocs(query(collection(dualMentor, 'helpRequests'), where('mentorId', '==', 'mentor'), limit(20))))
     await env.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore()
       const acceptedAt = new Date()
@@ -65,7 +67,7 @@ describe('approved direct access matrix', () => {
       await updateDoc(doc(context.firestore(), 'mentors/mentor'), { status: 'SUSPENDED' })
     })
     await assertFails(getDoc(doc(dualMentor, 'helpRequests/request')))
-    await assertSucceeds(getDoc(doc(dualMentor, 'modules/module')))
+    await assertFails(getDoc(doc(dualMentor, 'modules/module')))
   })
   it('does not treat a legacy Mentor record in users as current Mentor authorization', async () => {
     await env.withSecurityRulesDisabled(async (context) => {

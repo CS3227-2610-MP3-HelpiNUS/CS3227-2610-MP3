@@ -15,9 +15,9 @@ const input = initializeStudentProfileInputSchema.parse({ displayName: 'Student'
 
 function fakeDb(existing?: Record<string, unknown>) {
   const create = vi.fn()
-  const get = vi.fn().mockResolvedValue({ exists: Boolean(existing), data: () => existing })
+  const get = vi.fn(async (ref: { collection: string }) => ({ exists: ref.collection === 'users' && Boolean(existing), data: () => ref.collection === 'users' ? existing : undefined }))
   const db = {
-    collection: () => ({ doc: () => ({ id: 'u1' }) }),
+    collection: (collection: string) => ({ doc: () => ({ id: 'u1', collection }) }),
     runTransaction: async (work: (transaction: { get: typeof get; create: typeof create }) => unknown) => work({ get, create }),
   }
   return { db: db as never, create, get }
@@ -34,10 +34,10 @@ describe('initializeStudentProfile', () => {
 
   it('creates only a STUDENT ACTIVE profile from authenticated identity data', async () => {
     const { db, create } = fakeDb()
-    const auth = { uid: 'u1', token: { email: 'u1@example.test', email_verified: false } } as never
+    const auth = { uid: 'u1', token: { email: 'u1@example.test', email_verified: false, firebase: { sign_in_provider: 'google.com' } } } as never
     const result = await initializeStudentProfileHandler(input, request(auth), db, true)
     expect(result.user).toMatchObject({ id: 'u1', displayName: 'Student', email: 'u1@example.test', role: 'STUDENT', status: 'ACTIVE' })
-    expect(create).toHaveBeenCalledWith({ id: 'u1' }, expect.objectContaining({ role: 'STUDENT', status: 'ACTIVE' }))
+    expect(create).toHaveBeenCalledWith({ id: 'u1', collection: 'users' }, expect.objectContaining({ role: 'STUDENT', status: 'ACTIVE' }))
   })
 
   it('requires verified email outside the emulator', async () => {
@@ -50,7 +50,7 @@ describe('initializeStudentProfile', () => {
   it('returns an existing matching student profile without changing it', async () => {
     const existing = { id: 'u1', displayName: 'Original', email: 'u1@example.test', role: 'STUDENT', status: 'ACTIVE', createdAt: new Date('2026-10-13T02:00:00.000Z') }
     const { db, create } = fakeDb(existing)
-    const auth = { uid: 'u1', token: { email: 'u1@example.test', email_verified: true } } as never
+    const auth = googleAuth
     const result = await initializeStudentProfileHandler(input, request(auth), db, false)
     expect(result.user).toMatchObject({ displayName: 'Original', role: 'STUDENT' })
     expect(create).not.toHaveBeenCalled()
@@ -58,7 +58,7 @@ describe('initializeStudentProfile', () => {
 
   it('refuses to convert an existing mentor profile', async () => {
     const { db, create } = fakeDb({ email: 'u1@example.test', role: 'MENTOR', status: 'ACTIVE' })
-    const auth = { uid: 'u1', token: { email: 'u1@example.test', email_verified: true } } as never
+    const auth = googleAuth
     await expect(initializeStudentProfileHandler(input, request(auth), db, false))
       .rejects.toBeInstanceOf(HttpsError)
     expect(create).not.toHaveBeenCalled()
@@ -93,14 +93,38 @@ describe('initializeMentorProfile', () => {
       providerData: [{ providerId: 'google.com', email: 'u1@example.test' }] })
   })
 
-  it('creates Mentor identity and domain profile without changing an existing Student', async () => {
+  it('rejects Mentor registration for an existing Student without writing profiles', async () => {
     const student = { ...existingMentor, role: 'STUDENT' }
     const { db, create } = mentorDb({ 'users/u1': student })
-    const result = await initializeMentorProfileHandler(mentorInput, request(googleAuth), db)
-    expect(result.user).toMatchObject({ id: 'u1', displayName: 'New Mentor', role: 'MENTOR', status: 'ACTIVE' })
-    expect(create).toHaveBeenCalledWith({ path: 'mentors/u1' }, expect.objectContaining({ role: 'MENTOR' }))
-    expect(create).toHaveBeenCalledWith({ path: 'mentorProfiles/u1' }, { userId: 'u1', biography: '', moduleIds: [], active: true })
-    expect(create).not.toHaveBeenCalledWith({ path: 'users/u1' }, expect.anything())
+    await expect(initializeMentorProfileHandler(mentorInput, request(googleAuth), db)).rejects.toMatchObject({ code: 'already-exists' })
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it('creates a new Mentor profile on the authenticated UID', async () => {
+    const { db, create } = mentorDb()
+    await expect(initializeMentorProfileHandler(mentorInput, request(googleAuth), db)).resolves.toMatchObject({ user: { id: 'u1', role: 'MENTOR' } })
+    expect(create).toHaveBeenCalledWith({ path: 'mentors/u1' }, expect.objectContaining({ email: 'u1@example.test' }))
+  })
+
+  it('rejects Student registration for an existing Mentor', async () => {
+    const { db, create } = mentorDb({ 'mentors/u1': existingMentor })
+    await expect(initializeStudentProfileHandler(input, request(googleAuth), db, true)).rejects.toMatchObject({ code: 'already-exists' })
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it.each(['STUDENT', 'MENTOR'])('rejects existing dual-role records during %s registration without changing data', async (role) => {
+    const { db, create } = mentorDb({ 'users/u1': { ...existingMentor, role: 'STUDENT' }, 'mentors/u1': existingMentor })
+    const operation = role === 'STUDENT'
+      ? initializeStudentProfileHandler(input, request(googleAuth), db, true)
+      : initializeMentorProfileHandler(mentorInput, request(googleAuth), db)
+    await expect(operation).rejects.toMatchObject({ code: 'already-exists' })
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it('requires Google authentication for Student registration', async () => {
+    const { db, create } = mentorDb()
+    await expect(initializeStudentProfileHandler(input, request({ uid: 'u1', token: { email: 'u1@example.test', email_verified: true } } as never), db, true)).rejects.toMatchObject({ code: 'failed-precondition' })
+    expect(create).not.toHaveBeenCalled()
   })
 
   it('returns an existing Mentor unchanged and leaves its domain profile intact', async () => {

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { deleteApp, initializeApp } from 'firebase/app'
-import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
 import { initializeApp as initializeAdminApp, deleteApp as deleteAdminApp } from 'firebase-admin/app'
 import { getAuth as getAdminAuth } from 'firebase-admin/auth'
@@ -32,6 +32,11 @@ const adminDb = getFirestore(adminApp)
 let email = ''
 const password = 'Synthetic-123!'
 
+// Fake provider claims are accepted only by the local Auth Emulator.
+async function signInWithMockGoogle(accountEmail: string) {
+  return signInWithCredential(auth, GoogleAuthProvider.credential(JSON.stringify({ sub: accountEmail, email: accountEmail, email_verified: true })))
+}
+
 beforeAll(async () => {
   email = `integration-${crypto.randomUUID()}@example.test`
   await createUserWithEmailAndPassword(auth, email, password)
@@ -55,6 +60,9 @@ describe('callable emulator integration', () => {
     if (!user) throw new Error('Expected the synthetic emulator user to be signed in.')
     await expect(testAuthenticated({ displayName: 'Student' }))
       .rejects.toMatchObject({ code: 'functions/failed-precondition' })
+    await expect(initializeProfile({ displayName: 'Password-only Student' })).rejects.toMatchObject({ code: 'functions/failed-precondition' })
+    await adminAuth.updateUser(user.uid, { emailVerified: true })
+    await signInWithMockGoogle(email)
 
     const first = await initializeProfile({ displayName: 'Integration Student', role: 'MENTOR', status: 'ACTIVE' } as never)
     expect(initializeStudentProfileOutputSchema.safeParse(first.data).success).toBe(true)
@@ -75,7 +83,7 @@ describe('callable emulator integration', () => {
     expect(afterLogin.updateTime?.isEqual(beforeLogin.updateTime!)).toBe(true)
   }, 30000)
 
-  it('allows an existing Mentor to add Student access under the same UID without changing Mentor identity', async () => {
+  it('rejects an existing Mentor adding Student access without changing Mentor identity', async () => {
     const studentEmail = email
     const mentorEmail = `mentor-${crypto.randomUUID()}@example.test`
     const mentor = await adminAuth.createUser({ email: mentorEmail, password, emailVerified: true })
@@ -90,10 +98,10 @@ describe('callable emulator integration', () => {
     await adminDb.collection('mentors').doc(mentor.uid).create(mentorRecord)
     try {
       await signOut(auth)
-      await signInWithEmailAndPassword(auth, mentorEmail, password)
+      await signInWithMockGoogle(mentorEmail)
       await expect(initializeProfile({ displayName: 'Integration Student' }))
-        .resolves.toMatchObject({ data: { user: { id: mentor.uid, role: 'STUDENT' } } })
-      expect((await adminDb.collection('users').doc(mentor.uid).get()).data()).toMatchObject({ id: mentor.uid, role: 'STUDENT' })
+        .rejects.toMatchObject({ code: 'functions/already-exists' })
+      expect((await adminDb.collection('users').doc(mentor.uid).get()).exists).toBe(false)
       const stored = await adminDb.collection('mentors').doc(mentor.uid).get()
       expect(stored.data()).toEqual({ ...mentorRecord, createdAt: expect.anything() })
       expect(stored.data()?.role).toBe('MENTOR')
@@ -179,7 +187,7 @@ describe('callable emulator integration', () => {
       .rejects.toMatchObject({ code: 'functions/failed-precondition' })
 
     await adminAuth.updateUser(unverified.user.uid, { emailVerified: true })
-    await unverified.user.getIdToken(true)
+    await signInWithMockGoogle(unverified.user.email!)
     await expect(initializeProfile({ displayName: 'Verified Student' })).resolves.toMatchObject({
       data: { user: { id: unverified.user.uid, role: 'STUDENT', status: 'ACTIVE' } },
     })
@@ -194,4 +202,18 @@ describe('callable emulator integration', () => {
     await expect(unverified.user.reload()).rejects.toMatchObject({ code: 'auth/user-token-expired' })
     await signOut(auth)
   })
+
+  it('serializes simultaneous Student and Mentor registration for one Google identity', async () => {
+    const account = await signInWithMockGoogle(`race-${crypto.randomUUID()}@example.test`)
+    const results = await Promise.allSettled([
+      initializeProfile({ displayName: 'Racing Student' }), initializeMentor({ displayName: 'Racing Mentor' }),
+    ])
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    const rejected = results.find((result) => result.status === 'rejected') as PromiseRejectedResult
+    expect(rejected.reason).toMatchObject({ code: 'functions/already-exists' })
+    const [studentRecord, mentorRecord] = await Promise.all([
+      adminDb.collection('users').doc(account.user.uid).get(), adminDb.collection('mentors').doc(account.user.uid).get(),
+    ])
+    expect(Number(studentRecord.exists) + Number(mentorRecord.exists)).toBe(1)
+  }, 30000)
 })

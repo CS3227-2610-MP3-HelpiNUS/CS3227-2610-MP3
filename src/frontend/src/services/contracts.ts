@@ -30,8 +30,9 @@ export interface DashboardData {
 
 export interface Session {
   user: User | null
+  identity?: { email: string; displayName: string | null }
   selectedRole?: UserRole | null
-  issue?: 'PROFILE_MISSING' | 'PROFILE_INVALID' | 'ACCOUNT_INACTIVE' | 'EMAIL_UNVERIFIED'
+  issue?: 'PROFILE_MISSING' | 'PROFILE_INVALID' | 'ACCOUNT_INACTIVE' | 'EMAIL_UNVERIFIED' | 'WRONG_ROLE' | 'ROLE_CONFLICT'
 }
 
 export interface CallableClient {
@@ -45,7 +46,6 @@ export interface HelpiNUSServices {
   session: {
     getCurrent(): Promise<Session>
     subscribe(listener: (session: Session) => void, onError: () => void): () => void
-    selectRole(role: UserRole): Promise<Session>
     signInWithGoogle(role: UserRole): Promise<Session>
     registerStudentWithGoogle(): Promise<Session>
     registerMentorWithGoogle(): Promise<Session>

@@ -21,7 +21,8 @@ assertGoogleMentorIdentity(identity, email)
 const mentorRef = db.collection('mentors').doc(identity.uid)
 const domainRef = db.collection('mentorProfiles').doc(identity.uid)
 await db.runTransaction(async (tx) => {
-  const [mentor, domain] = await Promise.all([tx.get(mentorRef), tx.get(domainRef)])
+  const [mentor, domain, student] = await Promise.all([tx.get(mentorRef), tx.get(domainRef), tx.get(db.collection('users').doc(identity.uid))])
+  if (student.exists && student.data()?.role !== 'MENTOR') throw new Error('This Google account already has a Student profile; refusing cross-role provisioning.')
   if (mentor.exists) {
     const record = mentor.data()
     if (record?.id !== identity.uid || record.email !== email || record.role !== 'MENTOR') {

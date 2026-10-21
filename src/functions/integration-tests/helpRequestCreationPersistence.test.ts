@@ -67,14 +67,27 @@ afterAll(async () => {
 }, 30000)
 
 describe('F01 successful persisted creation (TC-006)', () => {
-  it('rejects a request to the same account acting as Mentor', async () => {
+  it('rejects a self-request from an otherwise valid Student identity', async () => {
     const selfOperationId = crypto.randomUUID()
+    await expect(create({ ...input, operationId: selfOperationId, mentorId: ids.student })).rejects.toMatchObject({ code: 'functions/invalid-argument' })
+    expect((await db.collection('helpRequestOperations').doc(ids.student).collection('operations').doc(selfOperationId).get()).exists).toBe(false)
+    expect((await db.collection('helpRequests').where('studentId', '==', ids.student).get()).empty).toBe(true)
+    expect((await db.collection('helpRequestSummaries').doc(ids.student).get()).exists).toBe(false)
+  })
+
+  it('denies a dual-role identity before request validation without writing coordination state', async () => {
+    const deniedOperationId = crypto.randomUUID()
     await db.collection('mentors').doc(ids.student).set({ id: ids.student, email: studentEmail, displayName: 'Self Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
     await db.collection('mentorProfiles').doc(ids.student).set({ userId: ids.student, biography: '', moduleIds: [moduleId], active: true })
     try {
-      await expect(create({ ...input, operationId: selfOperationId, mentorId: ids.student })).rejects.toMatchObject({ code: 'functions/invalid-argument' })
-      expect((await db.collection('helpRequestOperations').doc(ids.student).collection('operations').doc(selfOperationId).get()).exists).toBe(false)
+      // Use a distinct, eligible Mentor so this checks authorization rather than self-request validation.
+      await expect(create({ ...input, operationId: deniedOperationId })).rejects.toMatchObject({ code: 'functions/permission-denied' })
+      expect((await db.collection('helpRequestOperations').doc(ids.student).collection('operations').doc(deniedOperationId).get()).exists).toBe(false)
       expect((await db.collection('helpRequests').where('studentId', '==', ids.student).get()).empty).toBe(true)
+      expect((await db.collection('pendingHelpRequestKeys').doc(tupleHash()).get()).exists).toBe(false)
+      expect((await db.collection('helpRequestSummaries').doc(ids.student).get()).exists).toBe(false)
+      expect((await db.collection('users').doc(ids.student).get()).data()).toMatchObject({ role: 'STUDENT', status: 'ACTIVE' })
+      expect((await db.collection('mentors').doc(ids.student).get()).data()).toMatchObject({ role: 'MENTOR', status: 'ACTIVE' })
     } finally {
       await db.collection('mentorProfiles').doc(ids.student).delete()
       await db.collection('mentors').doc(ids.student).delete()
