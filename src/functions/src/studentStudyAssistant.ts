@@ -38,6 +38,7 @@ const auditRetentionMs = 30 * 24 * 60 * 60 * 1000
 const operationLeaseMs = 30 * 1000
 const rateWindowMs = 60 * 1000
 const defaultRequestsPerWindow = 20
+const defaultReplaysPerWindow = 60
 const historyMessageLimit = 12
 const historyCharacterLimit = 16_000
 const retrievalLimit = 4
@@ -56,11 +57,24 @@ export const studentStudyAssistantExpiryCleanupPolicy = Object.freeze({
   investigateAfterHours: 72,
 })
 
+export const studentStudyAssistantAuditCleanupPolicy = Object.freeze({
+  collection: 'studentStudyAssistantAuditEvents',
+  field: 'expiresAt',
+  retentionDays: 30,
+})
+
+export const studentStudyAssistantDeleteOperationCleanupPolicy = Object.freeze({
+  collectionGroup: 'studentStudyAssistantDeleteOperations',
+  field: 'expiresAt',
+  retentionDays: 30,
+})
+
 export interface StudentStudyAssistantDependencies {
   provider: StudentStudyAssistantProvider
   retriever: StudentStudyAssistantRetriever
   enabled: boolean
   requestsPerWindow: number
+  replaysPerWindow: number
   providerTimeoutMs: number
   now: () => Timestamp
   newLeaseToken: () => string
@@ -115,8 +129,14 @@ export function createStudentStudyAssistantDependencies(
   return {
     provider: createStudentStudyAssistantProvider(emulator),
     retriever: createStudentStudyAssistantRetriever(emulator),
-    enabled: process.env.STUDENT_STUDY_ASSISTANT_ENABLED !== 'false',
+    // Emulators are usable by default with synthetic fixtures. Production is
+    // fail-closed until the provider, corpus, retention jobs, and secret are
+    // reviewed and an administrator explicitly enables the feature.
+    enabled: emulator
+      ? process.env.STUDENT_STUDY_ASSISTANT_ENABLED !== 'false'
+      : process.env.STUDENT_STUDY_ASSISTANT_ENABLED === 'true',
     requestsPerWindow: integerSetting(process.env.STUDENT_STUDY_ASSISTANT_REQUESTS_PER_MINUTE, defaultRequestsPerWindow),
+    replaysPerWindow: integerSetting(process.env.STUDENT_STUDY_ASSISTANT_REPLAYS_PER_MINUTE, defaultReplaysPerWindow),
     providerTimeoutMs: Math.min(integerSetting(process.env.STUDENT_STUDY_ASSISTANT_PROVIDER_TIMEOUT_MS, 15_000), 30_000),
     now: Timestamp.now,
     newLeaseToken: randomUUID,
@@ -230,6 +250,28 @@ function auditRecord(event: string, actor: AuthorizedUser, now: Timestamp, metad
   }
 }
 
+function safeErrorReason(error: unknown): string {
+  if (error instanceof HttpsError) {
+    const reason = (error.details as { reason?: unknown } | undefined)?.reason
+    return typeof reason === 'string' ? reason.slice(0, 80) : error.code.toLocaleUpperCase('en')
+  }
+  return 'INTERNAL'
+}
+
+async function recordAuditBestEffort(
+  db: Firestore,
+  event: string,
+  actor: AuthorizedUser,
+  now: Timestamp,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await db.collection('studentStudyAssistantAuditEvents').doc().set(auditRecord(event, actor, now, metadata))
+  } catch {
+    // Operational logging must never broaden access or replace the safe error.
+  }
+}
+
 async function claimSend(
   input: StudentStudyAssistInput,
   actor: AuthorizedUser,
@@ -266,6 +308,19 @@ async function claimSend(
         parseStoredConversation(conversation, actor, now)
         const output = callableSchemas.studentStudyAssist.output.safeParse(saved.output)
         if (!output.success) return failIntegrity()
+        const rateData = rate.data()
+        const sameReplayWindow = rate.exists && rateData?.replayWindowStartedAt instanceof Timestamp &&
+          now.toMillis() - rateData.replayWindowStartedAt.toMillis() < rateWindowMs
+        const replayCount = sameReplayWindow && Number.isSafeInteger(rateData?.replayCount) ? rateData.replayCount as number : 0
+        if (replayCount >= dependencies.replaysPerWindow) {
+          throw new HttpsError('resource-exhausted', 'Too many Study assistant retries. Try again shortly.', { reason: 'REPLAY_RATE_LIMITED' })
+        }
+        transaction.set(rateRef, {
+          ...(rateData ?? {}),
+          replayWindowStartedAt: sameReplayWindow ? rateData.replayWindowStartedAt : now,
+          replayCount: replayCount + 1,
+          updatedAt: now,
+        })
         return { conversationId, leaseToken, replay: { ...output.data, replayed: true } }
       }
       if (saved.state !== 'PENDING' || !(saved.leaseExpiresAt instanceof Timestamp)) return failIntegrity()
@@ -284,6 +339,7 @@ async function claimSend(
       throw new HttpsError('resource-exhausted', 'Too many Study assistant requests. Try again shortly.', { reason: 'RATE_LIMITED' })
     }
     transaction.set(rateRef, {
+      ...(rateData ?? {}),
       windowStartedAt: sameWindow ? rateData.windowStartedAt : now,
       count: count + 1,
       updatedAt: now,
@@ -343,6 +399,7 @@ async function finalizeSend(
   corpusGeneration: string,
   db: Firestore,
   dependencies: StudentStudyAssistantDependencies,
+  providerLatencyMs: number,
 ): Promise<StudentStudyAssistOutput> {
   const now = dependencies.now()
   const expiresAt = Timestamp.fromMillis(now.toMillis() + conversationRetentionMs)
@@ -430,6 +487,8 @@ async function finalizeSend(
       outcome: output.kind,
       citationSourceIds: citations.map((citation) => citation.sourceId),
       corpusGeneration,
+      providerStatus: output.kind === 'grounded' ? 'GROUNDED' : 'INSUFFICIENT_CONTEXT',
+      providerLatencyMs,
     }))
     return callableSchemas.studentStudyAssist.output.parse(output)
   })
@@ -444,13 +503,35 @@ export async function studentStudyAssistHandler(
   const actor = await requireRole(request, 'STUDENT')
   requireEnabled(dependencies)
   if (hasInvisibleControl(input.userMessage)) {
+    await recordAuditBestEffort(db, 'VALIDATION_REJECTED', actor, dependencies.now(), {
+      requestId: input.requestId,
+      conversationId: input.conversationId,
+      reason: 'UNSAFE_TEXT_CONTROL',
+    })
     throw new HttpsError('invalid-argument', 'The message contains unsupported invisible control characters.', {
       reason: 'UNSAFE_TEXT_CONTROL',
     })
   }
-  const claim = await claimSend(input, actor, db, dependencies)
-  if (claim.replay) return callableSchemas.studentStudyAssist.output.parse(claim.replay)
+  let claim: SendClaim
+  try {
+    claim = await claimSend(input, actor, db, dependencies)
+  } catch (error) {
+    await recordAuditBestEffort(db, 'REQUEST_REJECTED', actor, dependencies.now(), {
+      requestId: input.requestId,
+      conversationId: input.conversationId,
+      reason: safeErrorReason(error),
+    })
+    throw error
+  }
+  if (claim.replay) {
+    await recordAuditBestEffort(db, 'MESSAGE_REPLAYED', actor, dependencies.now(), {
+      requestId: input.requestId,
+      conversationId: claim.conversationId,
+    })
+    return callableSchemas.studentStudyAssist.output.parse(claim.replay)
+  }
 
+  const providerStartedAt = Date.now()
   try {
     const [retrieval, history] = await Promise.all([
       dependencies.retriever.retrieve(input.userMessage, retrievalLimit),
@@ -475,9 +556,18 @@ export async function studentStudyAssistHandler(
     const citations = providerResult.kind === 'grounded'
       ? selectedChunks.map((chunk) => citationFromChunk(chunk!))
       : []
-    return await finalizeSend(input, actor, claim, providerResult, citations, retrieval.corpusGeneration, db, dependencies)
+    return await finalizeSend(
+      input, actor, claim, providerResult, citations, retrieval.corpusGeneration,
+      db, dependencies, Math.max(0, Date.now() - providerStartedAt),
+    )
   } catch (error) {
     await releaseSendClaim(input, actor, claim, db)
+    await recordAuditBestEffort(db, 'MESSAGE_FAILED', actor, dependencies.now(), {
+      requestId: input.requestId,
+      conversationId: claim.conversationId,
+      reason: safeErrorReason(error),
+      providerLatencyMs: Math.max(0, Date.now() - providerStartedAt),
+    })
     if (error instanceof HttpsError) throw error
     throw new HttpsError('unavailable', 'The Study assistant could not answer right now. Try again.', { reason: 'PROVIDER_FAILURE' })
   }
@@ -567,7 +657,7 @@ export async function deleteStudentStudyAssistantConversationHandler(
   const auditRef = db.collection('studentStudyAssistantAuditEvents').doc()
   const fingerprint = digest([input.conversationId])
 
-  const output = await db.runTransaction(async (transaction) => {
+  const deletion = await db.runTransaction(async (transaction) => {
     const [user, conversation, operation, tombstone] = await Promise.all([
       transaction.get(userRef), transaction.get(conversationRef), transaction.get(operationRef), transaction.get(tombstoneRef),
     ])
@@ -577,30 +667,57 @@ export async function deleteStudentStudyAssistantConversationHandler(
       if (saved?.ownerId !== actor.uid || saved.fingerprint !== fingerprint) {
         throw new HttpsError('invalid-argument', 'This request ID was used for another deletion.', { reason: 'REQUEST_ID_REUSED' })
       }
-      return callableSchemas.deleteStudentStudyAssistantConversation.output.parse(saved.output)
+      return {
+        output: callableSchemas.deleteStudentStudyAssistantConversation.output.parse(saved.output),
+        shouldPurge: conversation.exists,
+      }
     }
     if (!conversation.exists && !tombstone.exists) return denyConversation()
+    if (tombstone.exists && (!conversation.exists || conversation.data()?.deletedAt instanceof Timestamp)) {
+      return {
+        output: callableSchemas.deleteStudentStudyAssistantConversation.output.parse({
+          kind: 'already_deleted',
+          conversationId: input.conversationId,
+        }),
+        shouldPurge: conversation.exists,
+      }
+    }
     if (conversation.exists) {
       const data = conversation.data()
       if (data?.ownerId !== actor.uid) return denyConversation()
-      transaction.set(conversationRef, { ...data, deletedAt: now, title: '', preview: '', contentDeletedAt: null })
+      transaction.set(conversationRef, {
+        ...data,
+        deletedAt: now,
+        expiresAt: now,
+        title: '',
+        preview: '',
+        contentDeletedAt: null,
+      })
     }
     const result = callableSchemas.deleteStudentStudyAssistantConversation.output.parse({
       kind: tombstone.exists ? 'already_deleted' : 'deleted',
       conversationId: input.conversationId,
     })
     if (!tombstone.exists) transaction.create(tombstoneRef, { ownerId: actor.uid, conversationId: input.conversationId, deletedAt: now })
-    transaction.create(operationRef, { ownerId: actor.uid, fingerprint, output: result, createdAt: now })
+    transaction.create(operationRef, {
+      ownerId: actor.uid,
+      fingerprint,
+      output: result,
+      createdAt: now,
+      expiresAt: Timestamp.fromMillis(now.toMillis() + auditRetentionMs),
+    })
     transaction.create(auditRef, auditRecord('CONVERSATION_DELETED', actor, now, { conversationId: input.conversationId }))
-    return result
+    return { output: result, shouldPurge: true }
   })
 
-  try {
-    await purgeStudentStudyAssistantConversationContent(ownerRef, conversationRef, input.conversationId, db, dependencies.now())
-  } catch {
-    throw new HttpsError('unavailable', 'The conversation is hidden, but content cleanup is still pending. Retry shortly.', { reason: 'DELETION_CLEANUP_PENDING' })
+  if (deletion.shouldPurge) {
+    try {
+      await purgeStudentStudyAssistantConversationContent(ownerRef, conversationRef, input.conversationId, db, dependencies.now())
+    } catch {
+      throw new HttpsError('unavailable', 'The conversation is hidden, but content cleanup is still pending. Retry shortly.', { reason: 'DELETION_CLEANUP_PENDING' })
+    }
   }
-  return callableSchemas.deleteStudentStudyAssistantConversation.output.parse(output)
+  return callableSchemas.deleteStudentStudyAssistantConversation.output.parse(deletion.output)
 }
 
 async function purgeStudentStudyAssistantConversationContent(
@@ -620,7 +737,9 @@ async function purgeStudentStudyAssistantConversationContent(
     await batch.commit()
     if (receipts.size < 200) break
   }
-  await conversationRef.set({ title: '', preview: '', contentDeletedAt: completedAt }, { merge: true })
+  // update() intentionally fails if the document was removed concurrently. It
+  // must never recreate a tombstoned conversation shell during cleanup.
+  await conversationRef.update({ title: '', preview: '', contentDeletedAt: completedAt })
 }
 
 /**
@@ -666,4 +785,44 @@ export async function cleanupExpiredStudentStudyAssistantConversations(
     cleaned += 1
   }
   return cleaned
+}
+
+/** Bounded maintenance seam for metadata-only audit records past 30 days. */
+export async function cleanupExpiredStudentStudyAssistantAuditEvents(
+  db: Firestore,
+  now = Timestamp.now(),
+  limit = 200,
+): Promise<number> {
+  const boundedLimit = Math.max(1, Math.min(limit, 500))
+  const expired = await db.collection(studentStudyAssistantAuditCleanupPolicy.collection)
+    .where(studentStudyAssistantAuditCleanupPolicy.field, '<=', now)
+    .limit(boundedLimit)
+    .get()
+  if (expired.empty) return 0
+  const batch = db.batch()
+  for (const event of expired.docs) batch.delete(event.ref)
+  await batch.commit()
+  return expired.size
+}
+
+/** Bounded maintenance seam for expired delete-idempotency receipts. */
+export async function cleanupExpiredStudentStudyAssistantDeleteOperations(
+  db: Firestore,
+  now = Timestamp.now(),
+  limit = 200,
+): Promise<number> {
+  const boundedLimit = Math.max(1, Math.min(limit, 500))
+  const expired = await db.collectionGroup(studentStudyAssistantDeleteOperationCleanupPolicy.collectionGroup)
+    .where(studentStudyAssistantDeleteOperationCleanupPolicy.field, '<=', now)
+    .limit(boundedLimit)
+    .get()
+  const deletable = expired.docs.filter((operation) => {
+    const value = operation.data().expiresAt
+    return value instanceof Timestamp && value.toMillis() <= now.toMillis()
+  })
+  if (deletable.length === 0) return 0
+  const batch = db.batch()
+  for (const operation of deletable) batch.delete(operation.ref)
+  await batch.commit()
+  return deletable.length
 }

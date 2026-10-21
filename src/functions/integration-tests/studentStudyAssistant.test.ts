@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { deleteApp, initializeApp } from 'firebase/app'
-import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, getIdToken, signOut } from 'firebase/auth'
+import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, getIdToken, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { collection, connectFirestoreEmulator, doc, getDocs, getFirestore as getClientFirestore, setDoc } from 'firebase/firestore'
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
 import { deleteApp as deleteAdminApp, initializeApp as initializeAdminApp } from 'firebase-admin/app'
@@ -140,6 +140,81 @@ describe('Student Study Assistant emulator integration', () => {
     await expect(getDocs(collection(clientDb, 'studentStudyAssistantAuditEvents')))
       .rejects.toMatchObject({ code: 'permission-denied' })
   }, 30_000)
+
+  it('denies every callable to unauthenticated, wrong-role, inactive, malformed, mismatched, and unverified callers', async () => {
+    const inputs = () => ({
+      send: { requestId: crypto.randomUUID(), conversationId, userMessage: 'Explain BFS.' },
+      list: { limit: 20 },
+      read: { conversationId, limit: 50 },
+      remove: { requestId: crypto.randomUUID(), conversationId },
+    })
+    const expectDenied = async (
+      invocations: (input: ReturnType<typeof inputs>) => Array<() => Promise<unknown>>,
+      code: string,
+    ) => {
+      const request = inputs()
+      for (const invocation of invocations(request)) {
+        await expect(invocation()).rejects.toMatchObject({ code })
+      }
+    }
+    const callsFor = (role: Role) => (input: ReturnType<typeof inputs>) => [
+      () => send(role)(input.send),
+      () => list(role)(input.list),
+      () => read(role)(input.read),
+      () => remove(role)(input.remove),
+    ]
+
+    const guest = initializeApp({ apiKey: 'fake-api-key', projectId, appId: 'student-study-assistant-guest' }, 'student-study-assistant-guest')
+    const guestFunctions = getFunctions(guest, 'asia-southeast1')
+    connectFunctionsEmulator(guestFunctions, '127.0.0.1', 5001)
+    const guestCalls = (input: ReturnType<typeof inputs>) => [
+      () => httpsCallable(guestFunctions, 'studentStudyAssist')(input.send),
+      () => httpsCallable(guestFunctions, 'listStudentStudyAssistantConversations')(input.list),
+      () => httpsCallable(guestFunctions, 'readStudentStudyAssistantConversation')(input.read),
+      () => httpsCallable(guestFunctions, 'deleteStudentStudyAssistantConversation')(input.remove),
+    ]
+    try {
+      await expectDenied(guestCalls, 'functions/unauthenticated')
+    } finally {
+      await deleteApp(guest)
+    }
+    await expectDenied(callsFor('mentor'), 'functions/failed-precondition')
+
+    const profile = adminDb.collection('users').doc(ids.student)
+    const original = (await profile.get()).data()!
+    for (const [change, code] of [
+      [{ status: 'SUSPENDED' }, 'functions/permission-denied'],
+      [{ id: `wrong-${ids.student}` }, 'functions/permission-denied'],
+      [{ role: 'MENTOR' }, 'functions/permission-denied'],
+      [{ email: `stale-${crypto.randomUUID()}@example.test` }, 'functions/permission-denied'],
+    ] as const) {
+      await profile.update(change)
+      try {
+        await expectDenied(callsFor('student'), code)
+      } finally {
+        await profile.set(original)
+      }
+    }
+
+    const studentAuth = getAuth(apps.student)
+    const originalEmail = studentAuth.currentUser!.email!
+    const unverifiedEmail = `study-unverified-${crypto.randomUUID()}@integration.invalid`
+    await adminAuth.updateUser(ids.student, { email: unverifiedEmail, emailVerified: false })
+    await profile.update({ email: unverifiedEmail })
+    await signInWithEmailAndPassword(studentAuth, unverifiedEmail, 'Synthetic-123!')
+    try {
+      await expectDenied(callsFor('student'), 'functions/failed-precondition')
+    } finally {
+      await adminAuth.updateUser(ids.student, { email: originalEmail, emailVerified: true })
+      await profile.update({ email: originalEmail })
+      await signInWithEmailAndPassword(studentAuth, originalEmail, 'Synthetic-123!')
+    }
+
+    const messages = await adminDb.collection('studentStudyAssistantUsers').doc(ids.student)
+      .collection('studentStudyAssistantConversations').doc(conversationId)
+      .collection('studentStudyAssistantMessages').get()
+    expect(messages.size).toBe(4)
+  }, 60_000)
 
   it('deletes content, persists a tombstone, and prevents retry resurrection', async () => {
     const deleted = deleteStudentStudyAssistantConversationOutputSchema.parse((await remove('student')({

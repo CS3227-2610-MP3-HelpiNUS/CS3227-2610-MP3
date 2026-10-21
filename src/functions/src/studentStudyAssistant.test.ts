@@ -2,7 +2,10 @@ import { Timestamp, type Firestore } from 'firebase-admin/firestore'
 import type { CallableRequest } from 'firebase-functions/v2/https'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StudentStudyAssistantDependencies } from './studentStudyAssistant.js'
-import type { StudentStudyAssistantProvider } from './studentStudyAssistantProvider.js'
+import type {
+  StudentStudyAssistantProvider,
+  StudentStudyAssistantProviderInput,
+} from './studentStudyAssistantProvider.js'
 
 const actor = vi.hoisted(() => ({
   uid: 'student-one', email: 'student@example.test', displayName: 'Student One',
@@ -11,8 +14,12 @@ const actor = vi.hoisted(() => ({
 vi.mock('./auth.js', () => ({ requireRole: vi.fn(async () => actor) }))
 
 import {
+  cleanupExpiredStudentStudyAssistantAuditEvents,
   cleanupExpiredStudentStudyAssistantConversations,
+  cleanupExpiredStudentStudyAssistantDeleteOperations,
+  createStudentStudyAssistantDependencies,
   deleteStudentStudyAssistantConversationHandler,
+  listStudentStudyAssistantConversationsHandler,
   readStudentStudyAssistantConversationHandler,
   studentStudyAssistHandler,
 } from './studentStudyAssistant.js'
@@ -114,6 +121,11 @@ class MemoryDocumentRef {
     const previous = this.db.store.get(this.path)
     this.db.store.set(this.path, options?.merge ? { ...previous, ...value } : value)
   }
+  async update(value: StoredEntry) {
+    const previous = this.db.store.get(this.path)
+    if (!previous) throw new Error(`missing document: ${this.path}`)
+    this.db.store.set(this.path, { ...previous, ...value })
+  }
 }
 
 class MemoryTransaction {
@@ -187,6 +199,7 @@ function dependencies(overrides: Partial<StudentStudyAssistantDependencies> = {}
     })) },
     enabled: true,
     requestsPerWindow: 20,
+    replaysPerWindow: 60,
     providerTimeoutMs: 1000,
     now: () => fixedNow,
     newLeaseToken: () => 'lease-one',
@@ -195,6 +208,22 @@ function dependencies(overrides: Partial<StudentStudyAssistantDependencies> = {}
 }
 
 beforeEach(() => vi.clearAllMocks())
+
+describe('Student Study Assistant runtime policy', () => {
+  it('enables synthetic emulators by default but keeps production fail-closed', () => {
+    const previous = process.env.STUDENT_STUDY_ASSISTANT_ENABLED
+    delete process.env.STUDENT_STUDY_ASSISTANT_ENABLED
+    try {
+      expect(createStudentStudyAssistantDependencies(true).enabled).toBe(true)
+      expect(createStudentStudyAssistantDependencies(false).enabled).toBe(false)
+      process.env.STUDENT_STUDY_ASSISTANT_ENABLED = 'true'
+      expect(createStudentStudyAssistantDependencies(false).enabled).toBe(true)
+    } finally {
+      if (previous === undefined) delete process.env.STUDENT_STUDY_ASSISTANT_ENABLED
+      else process.env.STUDENT_STUDY_ASSISTANT_ENABLED = previous
+    }
+  })
+})
 
 describe('Student Study Assistant send persistence', () => {
   it('persists a grounded first turn, safe citations, and a metadata-only audit', async () => {
@@ -226,6 +255,151 @@ describe('Student Study Assistant send persistence', () => {
     expect(replay).toEqual({ ...first, replayed: true })
     expect(provider.answer).toHaveBeenCalledOnce()
     expect([...db.store.keys()].filter((path) => path.includes('/studentStudyAssistantMessages/'))).toHaveLength(2)
+  })
+
+  it('rate-limits completed-result replay egress without duplicating messages', async () => {
+    const db = database()
+    const provider = { answer: vi.fn(async () => ({ kind: 'grounded' as const, content: 'BFS uses a queue.', citationChunkIds: ['chunk-1'] })) }
+    const deps = dependencies({ provider, replaysPerWindow: 1 })
+    const input = { requestId: '12121212-1212-4212-8212-121212121212', conversationId: null, userMessage: 'Explain BFS.' }
+    await studentStudyAssistHandler(input, request, db as unknown as Firestore, deps)
+    await expect(studentStudyAssistHandler(input, request, db as unknown as Firestore, deps)).resolves.toMatchObject({ replayed: true })
+    await expect(studentStudyAssistHandler(input, request, db as unknown as Firestore, deps)).rejects.toMatchObject({
+      code: 'resource-exhausted', details: { reason: 'REPLAY_RATE_LIMITED' },
+    })
+    expect(provider.answer).toHaveBeenCalledOnce()
+    expect([...db.store.keys()].filter((path) => path.includes('/studentStudyAssistantMessages/'))).toHaveLength(2)
+  })
+
+  it('rejects changed content under a completed request ID', async () => {
+    const db = database()
+    const deps = dependencies()
+    const requestId = '18181818-1818-4818-8818-181818181818'
+    await studentStudyAssistHandler({ requestId, conversationId: null, userMessage: 'Explain BFS.' }, request, db as unknown as Firestore, deps)
+    await expect(studentStudyAssistHandler({
+      requestId, conversationId: null, userMessage: 'Different text.',
+    }, request, db as unknown as Firestore, deps)).rejects.toMatchObject({
+      code: 'invalid-argument', details: { reason: 'REQUEST_ID_REUSED' },
+    })
+  })
+
+  it('rejects a concurrent duplicate while one provider call holds the lease', async () => {
+    const db = database()
+    let releaseProvider!: () => void
+    const waiting = new Promise<void>((resolve) => { releaseProvider = resolve })
+    const provider = { answer: vi.fn(async () => {
+      await waiting
+      return { kind: 'grounded' as const, content: 'BFS uses a queue.', citationChunkIds: ['chunk-1'] }
+    }) }
+    const deps = dependencies({ provider })
+    const input = { requestId: '19191919-1919-4919-8919-191919191919', conversationId: null, userMessage: 'Explain BFS.' }
+    const first = studentStudyAssistHandler(input, request, db as unknown as Firestore, deps)
+    await vi.waitFor(() => expect(provider.answer).toHaveBeenCalledOnce())
+    await expect(studentStudyAssistHandler(input, request, db as unknown as Firestore, deps)).rejects.toMatchObject({
+      code: 'aborted', details: { reason: 'REQUEST_IN_PROGRESS' },
+    })
+    releaseProvider()
+    await expect(first).resolves.toMatchObject({ kind: 'grounded' })
+  })
+
+  it('enforces the new-send request rate without calling the provider again', async () => {
+    const db = database()
+    const provider = { answer: vi.fn(async () => ({ kind: 'grounded' as const, content: 'BFS uses a queue.', citationChunkIds: ['chunk-1'] })) }
+    const deps = dependencies({ provider, requestsPerWindow: 1 })
+    await studentStudyAssistHandler({
+      requestId: '20202020-2020-4020-8020-202020202020', conversationId: null, userMessage: 'Explain BFS.',
+    }, request, db as unknown as Firestore, deps)
+    await expect(studentStudyAssistHandler({
+      requestId: '21212121-2121-4121-8121-212121212121', conversationId: null, userMessage: 'Explain queues.',
+    }, request, db as unknown as Firestore, deps)).rejects.toMatchObject({
+      code: 'resource-exhausted', details: { reason: 'RATE_LIMITED' },
+    })
+    expect(provider.answer).toHaveBeenCalledOnce()
+  })
+
+  it('rolls expiry forward and excludes expired content from list, read, and replay', async () => {
+    const db = database()
+    const firstDeps = dependencies()
+    const firstInput = { requestId: '23232323-2323-4323-8323-232323232323', conversationId: null, userMessage: 'Explain BFS.' }
+    const first = await studentStudyAssistHandler(firstInput, request, db as unknown as Firestore, firstDeps)
+    const later = Timestamp.fromMillis(fixedNow.toMillis() + 24 * 60 * 60 * 1000)
+    const continued = await studentStudyAssistHandler({
+      requestId: '24242424-2424-4424-8424-242424242424', conversationId: first.conversation.id, userMessage: 'Explain queues.',
+    }, request, db as unknown as Firestore, dependencies({ now: () => later }))
+    expect(Date.parse(continued.conversation.expiresAt) - later.toMillis()).toBe(14 * 24 * 60 * 60 * 1000)
+
+    const afterExpiry = Timestamp.fromMillis(Date.parse(continued.conversation.expiresAt) + 1)
+    const expiredDeps = dependencies({ now: () => afterExpiry })
+    await expect(readStudentStudyAssistantConversationHandler({
+      conversationId: first.conversation.id, limit: 50,
+    }, request, db as unknown as Firestore, expiredDeps)).rejects.toMatchObject({ code: 'failed-precondition' })
+    await expect(studentStudyAssistHandler(firstInput, request, db as unknown as Firestore, expiredDeps))
+      .rejects.toMatchObject({ code: 'failed-precondition' })
+    await expect(listStudentStudyAssistantConversationsHandler({ limit: 20 }, request, db as unknown as Firestore, expiredDeps))
+      .resolves.toEqual({ conversations: [], nextCursor: null })
+  })
+
+  it('uses stable bounded cursors for conversation and message pages', async () => {
+    const db = database()
+    const deps = dependencies({ requestsPerWindow: 20 })
+    const conversationIds: string[] = []
+    for (const [index, requestId] of [
+      '25252525-2525-4525-8525-252525252525',
+      '26262626-2626-4626-8626-262626262626',
+      '27272727-2727-4727-8727-272727272727',
+    ].entries()) {
+      const result = await studentStudyAssistHandler({
+        requestId, conversationId: null, userMessage: `Explain BFS ${index}.`,
+      }, request, db as unknown as Firestore, dependencies({
+        requestsPerWindow: 20,
+        now: () => Timestamp.fromMillis(fixedNow.toMillis() + index),
+      }))
+      conversationIds.push(result.conversation.id)
+    }
+    const firstPage = await listStudentStudyAssistantConversationsHandler({ limit: 2 }, request, db as unknown as Firestore, deps)
+    expect(firstPage.conversations.map(({ id }) => id)).toEqual([conversationIds[2], conversationIds[1]])
+    expect(firstPage.nextCursor).toEqual(expect.any(String))
+    const secondPage = await listStudentStudyAssistantConversationsHandler({
+      limit: 2, cursor: firstPage.nextCursor!,
+    }, request, db as unknown as Firestore, deps)
+    expect(secondPage.conversations.map(({ id }) => id)).toEqual([conversationIds[0]])
+
+    const conversationId = conversationIds[0]!
+    const firstMessages = await readStudentStudyAssistantConversationHandler({
+      conversationId, limit: 1,
+    }, request, db as unknown as Firestore, deps)
+    expect(firstMessages.messages.map(({ role }) => role)).toEqual(['ASSISTANT'])
+    expect(firstMessages.nextCursor).toEqual(expect.any(String))
+    const secondMessages = await readStudentStudyAssistantConversationHandler({
+      conversationId, limit: 1, cursor: firstMessages.nextCursor!,
+    }, request, db as unknown as Firestore, deps)
+    expect(secondMessages.messages.map(({ role }) => role)).toEqual(['STUDENT'])
+  })
+
+  it('bounds recent provider history by messages and characters without summaries', async () => {
+    const db = database()
+    let lastProviderInput: StudentStudyAssistantProviderInput | undefined
+    const provider: StudentStudyAssistantProvider = { answer: vi.fn(async (input) => {
+      lastProviderInput = input
+      return { kind: 'grounded' as const, content: 'BFS uses a queue.', citationChunkIds: ['chunk-1'] }
+    }) }
+    const deps = dependencies({ provider, requestsPerWindow: 20 })
+    let conversationId: string | null = null
+    const requestIds = [
+      '30303030-3030-4030-8030-303030303030', '31313131-3131-4131-8131-313131313131',
+      '32323232-3232-4232-8232-323232323232', '33333333-3333-4333-8333-333333333330',
+      '34343434-3434-4434-8434-343434343434', '35353535-3535-4535-8535-353535353535',
+      '36363636-3636-4636-8636-363636363636', '37373737-3737-4737-8737-373737373737',
+    ]
+    for (const [index, requestId] of requestIds.entries()) {
+      const result = await studentStudyAssistHandler({
+        requestId, conversationId, userMessage: `${index} ${'bfs '.repeat(600)}`,
+      }, request, db as unknown as Firestore, deps)
+      conversationId = result.conversation.id
+    }
+    expect(lastProviderInput?.history.length).toBeLessThanOrEqual(12)
+    expect(lastProviderInput?.history.reduce((sum: number, message) => sum + message.content.length, 0)).toBeLessThanOrEqual(16_000)
+    expect(lastProviderInput?.history.some((message) => message.content.startsWith('0 '))).toBe(false)
   })
 
   it('loads the newest page in chronological display order with grounded citations preserved', async () => {
@@ -322,6 +496,64 @@ describe('Student Study Assistant send persistence', () => {
     await expect(studentStudyAssistHandler(sendInput, request, db as unknown as Firestore, deps)).rejects.toMatchObject({ code: 'permission-denied' })
   })
 
+  it('marks failed deletion cleanup immediately eligible for maintenance retry', async () => {
+    const db = database()
+    const deps = dependencies()
+    const sent = await studentStudyAssistHandler({
+      requestId: '13131313-1313-4313-8313-131313131313', conversationId: null, userMessage: 'Explain BFS.',
+    }, request, db as unknown as Firestore, deps)
+    const recursiveDelete = db.recursiveDelete.bind(db)
+    db.recursiveDelete = vi.fn(async () => { throw new Error('transient cleanup failure') })
+    await expect(deleteStudentStudyAssistantConversationHandler({
+      requestId: '14141414-1414-4414-8414-141414141414', conversationId: sent.conversation.id,
+    }, request, db as unknown as Firestore, deps)).rejects.toMatchObject({
+      code: 'unavailable', details: { reason: 'DELETION_CLEANUP_PENDING' },
+    })
+    const conversationPath = `studentStudyAssistantUsers/${actor.uid}/studentStudyAssistantConversations/${sent.conversation.id}`
+    expect(db.store.get(conversationPath)).toMatchObject({ deletedAt: fixedNow, expiresAt: fixedNow, contentDeletedAt: null })
+    db.recursiveDelete = recursiveDelete
+    await expect(cleanupExpiredStudentStudyAssistantConversations(
+      db as unknown as Firestore, fixedNow, 10,
+    )).resolves.toBe(1)
+    expect([...db.store.keys()].some((path) => path.includes('/studentStudyAssistantMessages/'))).toBe(false)
+  })
+
+  it('does not accumulate receipts or audits for fresh request IDs after deletion', async () => {
+    const db = database()
+    const deps = dependencies()
+    const sent = await studentStudyAssistHandler({
+      requestId: '15151515-1515-4515-8515-151515151515', conversationId: null, userMessage: 'Explain BFS.',
+    }, request, db as unknown as Firestore, deps)
+    await deleteStudentStudyAssistantConversationHandler({
+      requestId: '16161616-1616-4616-8616-161616161616', conversationId: sent.conversation.id,
+    }, request, db as unknown as Firestore, deps)
+    const operationsBefore = [...db.store.keys()].filter((path) => path.includes('/studentStudyAssistantDeleteOperations/'))
+    const auditsBefore = [...db.store.keys()].filter((path) => path.startsWith('studentStudyAssistantAuditEvents/'))
+    await expect(deleteStudentStudyAssistantConversationHandler({
+      requestId: '17171717-1717-4717-8717-171717171717', conversationId: sent.conversation.id,
+    }, request, db as unknown as Firestore, deps)).resolves.toEqual({
+      kind: 'already_deleted', conversationId: sent.conversation.id,
+    })
+    expect([...db.store.keys()].filter((path) => path.includes('/studentStudyAssistantDeleteOperations/'))).toEqual(operationsBefore)
+    expect([...db.store.keys()].filter((path) => path.startsWith('studentStudyAssistantAuditEvents/'))).toEqual(auditsBefore)
+  })
+
+  it('does not recreate a conversation shell when only its tombstone remains', async () => {
+    const db = database()
+    const deps = dependencies()
+    const conversationId = 'tombstone-only-conversation'
+    db.store.set(`studentStudyAssistantDeletionTombstones/${actor.uid}/studentStudyAssistantConversations/${conversationId}`, {
+      ownerId: actor.uid, conversationId, deletedAt: fixedNow,
+    })
+    await expect(deleteStudentStudyAssistantConversationHandler({
+      requestId: '18181818-1818-4818-8818-181818181818', conversationId,
+    }, request, db as unknown as Firestore, deps)).resolves.toEqual({
+      kind: 'already_deleted', conversationId,
+    })
+    expect(db.store.has(`studentStudyAssistantUsers/${actor.uid}/studentStudyAssistantConversations/${conversationId}`)).toBe(false)
+    expect([...db.store.keys()].some((path) => path.includes('/studentStudyAssistantDeleteOperations/'))).toBe(false)
+  })
+
   it('physically cleans expired message content and receipts in a bounded maintenance batch', async () => {
     const db = database()
     const conversationId = 'expired-conversation'
@@ -344,5 +576,35 @@ describe('Student Study Assistant send persistence', () => {
     expect(db.store.get(conversationPath)).toMatchObject({ title: '', preview: '', deletedAt: fixedNow, contentDeletedAt: fixedNow })
     expect(db.store.get(`studentStudyAssistantDeletionTombstones/${actor.uid}/studentStudyAssistantConversations/${conversationId}`))
       .toMatchObject({ ownerId: actor.uid, reason: 'EXPIRED' })
+  })
+
+  it('removes metadata-only audit events after their 30-day expiry', async () => {
+    const db = database()
+    db.store.set('studentStudyAssistantAuditEvents/expired', {
+      featureId: 'S2-D1-F03', event: 'MESSAGE_COMPLETED', expiresAt: Timestamp.fromMillis(1),
+    })
+    db.store.set('studentStudyAssistantAuditEvents/current', {
+      featureId: 'S2-D1-F03', event: 'MESSAGE_COMPLETED', expiresAt: Timestamp.fromMillis(fixedNow.toMillis() + 1),
+    })
+    await expect(cleanupExpiredStudentStudyAssistantAuditEvents(
+      db as unknown as Firestore, fixedNow, 10,
+    )).resolves.toBe(1)
+    expect(db.store.has('studentStudyAssistantAuditEvents/expired')).toBe(false)
+    expect(db.store.has('studentStudyAssistantAuditEvents/current')).toBe(true)
+  })
+
+  it('removes expired delete-idempotency receipts after 30 days', async () => {
+    const db = database()
+    db.store.set(`studentStudyAssistantUsers/${actor.uid}/studentStudyAssistantDeleteOperations/expired`, {
+      ownerId: actor.uid, expiresAt: Timestamp.fromMillis(1),
+    })
+    db.store.set(`studentStudyAssistantUsers/${actor.uid}/studentStudyAssistantDeleteOperations/current`, {
+      ownerId: actor.uid, expiresAt: Timestamp.fromMillis(fixedNow.toMillis() + 1),
+    })
+    await expect(cleanupExpiredStudentStudyAssistantDeleteOperations(
+      db as unknown as Firestore, fixedNow, 10,
+    )).resolves.toBe(1)
+    expect(db.store.has(`studentStudyAssistantUsers/${actor.uid}/studentStudyAssistantDeleteOperations/expired`)).toBe(false)
+    expect(db.store.has(`studentStudyAssistantUsers/${actor.uid}/studentStudyAssistantDeleteOperations/current`)).toBe(true)
   })
 })

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  clearStudentStudyAssistantRetryForSession,
   loadStudentStudyAssistantRetry,
   saveStudentStudyAssistantRetry,
   type StudentStudyAssistantRetry,
@@ -23,6 +24,18 @@ describe('Student Study Assistant retry storage', () => {
     saveStudentStudyAssistantRetry(item)
     expect(loadStudentStudyAssistantRetry(item.uid)).toEqual(item)
     expect(loadStudentStudyAssistantRetry('student-two')).toBeNull()
+  })
+
+  it('removes prompt recovery on sign-out or account change', () => {
+    const item = retry()
+    saveStudentStudyAssistantRetry(item)
+    clearStudentStudyAssistantRetryForSession(item.uid, 'student-two', true)
+    expect(sessionStorage.getItem('student-study-assistant-send')).toBeNull()
+    expect(sessionStorage.getItem('student-study-assistant-send-owner')).toBeNull()
+
+    saveStudentStudyAssistantRetry(item)
+    clearStudentStudyAssistantRetryForSession(item.uid, null, false)
+    expect(loadStudentStudyAssistantRetry(item.uid)).toBeNull()
   })
 
   it('refuses changed text under an existing request ID', () => {

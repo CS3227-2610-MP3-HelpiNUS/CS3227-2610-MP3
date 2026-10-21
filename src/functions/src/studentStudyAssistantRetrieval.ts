@@ -79,6 +79,8 @@ const hasCorpusInvisibleControl = (value: string) => Array.from(value).some((cha
     (codePoint >= 0x2060 && codePoint <= 0x206f) || codePoint === 0xfeff
 })
 const corpusInjectionPattern = /(?:ignore|disregard|override).{0,48}(?:instruction|system|prompt)|(?:reveal|repeat).{0,32}system prompt|<\s*(?:script|img|iframe)\b|javascript\s*:/iu
+const boundedText = (value: unknown, maximum: number): value is string => typeof value === 'string' &&
+  value.trim().length > 0 && value.length <= maximum && !hasCorpusInvisibleControl(value) && !corpusInjectionPattern.test(value)
 
 function isPrivateOrInternalHost(hostname: string): boolean {
   const host = hostname.toLocaleLowerCase('en').replace(/^\[|\]$/gu, '')
@@ -112,7 +114,8 @@ function urlMatchesPrefix(url: URL, prefix: URL): boolean {
 }
 
 function validateGeneration(candidate: StudentStudyAssistantCorpusGeneration): void {
-  if (!candidate.generation || candidate.chunks.length > 5000 || candidate.allowedUrlPrefixes.length > 100) {
+  if (!boundedText(candidate.generation, 128) || candidate.chunks.length > 5000 || candidate.allowedUrlPrefixes.length > 100 ||
+      candidate.allowedUrlPrefixes.some((prefix) => prefix.length > 2048)) {
     throw new HttpsError('failed-precondition', 'The Study assistant corpus generation is invalid.')
   }
   const allowedPrefixes = candidate.allowedUrlPrefixes.map(parseApprovedPrefix)
@@ -120,7 +123,11 @@ function validateGeneration(candidate: StudentStudyAssistantCorpusGeneration): v
   for (const chunk of candidate.chunks) {
     let url: URL
     try { url = new URL(chunk.canonicalUrl) } catch { throw new HttpsError('failed-precondition', 'The Study assistant corpus generation is invalid.') }
-    if (!chunk.chunkId || !chunk.sourceId || chunkIds.has(chunk.chunkId) || url.protocol !== 'https:' ||
+    const modelBoundMetadata = [chunk.chunkId, chunk.sourceId, chunk.title, chunk.version, chunk.section ?? '']
+    if (!boundedText(chunk.chunkId, 128) || !boundedText(chunk.sourceId, 128) || !boundedText(chunk.title, 200) ||
+        !boundedText(chunk.version, 100) || (chunk.section !== null && !boundedText(chunk.section, 160)) ||
+        modelBoundMetadata.some((value) => value && (hasCorpusInvisibleControl(value) || corpusInjectionPattern.test(value))) ||
+        !boundedText(chunk.approvedBy, 128) || chunkIds.has(chunk.chunkId) || chunk.canonicalUrl.length > 2048 || url.protocol !== 'https:' ||
         url.username || url.password || url.search || url.hash || isPrivateOrInternalHost(url.hostname) ||
         !allowedPrefixes.some((prefix) => urlMatchesPrefix(url, prefix)) ||
         chunk.content.length < 1 || chunk.content.length > 4000 || chunk.keywords.length > 100 ||
@@ -128,7 +135,8 @@ function validateGeneration(candidate: StudentStudyAssistantCorpusGeneration): v
         chunk.contentHash !== studentStudyAssistantContentHash(chunk.content) || !chunk.approvedBy ||
         !Number.isFinite(Date.parse(chunk.approvedAt)) || chunk.accessClassification !== 'ALL_ACTIVE_STUDENTS' ||
         (chunk.reviewState !== 'APPROVED' && chunk.reviewState !== 'QUARANTINED') ||
-        chunk.keywords.some((keyword) => normalize(keyword).length !== 1 || normalize(keyword)[0] !== keyword)) {
+        chunk.keywords.some((keyword) => typeof keyword !== 'string' || keyword.length > 64 ||
+          normalize(keyword).length !== 1 || normalize(keyword)[0] !== keyword)) {
       throw new HttpsError('failed-precondition', 'The Study assistant corpus generation is invalid.')
     }
     chunkIds.add(chunk.chunkId)
@@ -145,7 +153,15 @@ export class VersionedStudentStudyAssistantCorpus implements StudentStudyAssista
     for (const generation of generations) {
       validateGeneration(generation)
       if (this.generations.has(generation.generation)) throw new HttpsError('failed-precondition', 'Duplicate corpus generation.')
-      this.generations.set(generation.generation, generation)
+      const snapshot: StudentStudyAssistantCorpusGeneration = Object.freeze({
+        generation: generation.generation,
+        allowedUrlPrefixes: Object.freeze([...generation.allowedUrlPrefixes]),
+        chunks: Object.freeze(generation.chunks.map((chunk) => Object.freeze({
+          ...chunk,
+          keywords: Object.freeze([...chunk.keywords]),
+        }))),
+      })
+      this.generations.set(snapshot.generation, snapshot)
     }
     if (!this.generations.has(activeGeneration)) throw new HttpsError('failed-precondition', 'The active corpus generation is unavailable.')
     this.activeGeneration = activeGeneration

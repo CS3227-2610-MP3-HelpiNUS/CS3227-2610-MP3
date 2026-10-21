@@ -44,11 +44,16 @@ function formatDate(value: string) {
 
 function sendFailure(error: unknown): { message: string; uncertain: boolean } {
   const code = String((error as { code?: unknown })?.code ?? '').toLocaleLowerCase()
+  const reason = String((error as { details?: { reason?: unknown } })?.details?.reason ?? '').toLocaleUpperCase()
   if (code.includes('invalid-argument')) return { message: 'This question could not be accepted. Review the text and send a new message.', uncertain: false }
   if (code.includes('permission-denied') || code.includes('unauthenticated')) return { message: 'Your Study assistant access may have changed. Refresh your account before trying again.', uncertain: false }
   if (code.includes('failed-precondition')) return { message: 'The Study assistant is not available for this request. Try a new message later.', uncertain: false }
   if (code.includes('not-found') || code.includes('already-exists') || code.includes('conflict')) return { message: 'This conversation changed before the message could be accepted. Reload it before sending again.', uncertain: false }
   if (code.includes('resource-exhausted') || code.includes('rate-limited')) return { message: 'The Study assistant is receiving too many requests. Wait a moment, then send a new request.', uncertain: false }
+  if (code.includes('deadline-exceeded')) return { message: 'The Study assistant timed out. Retry to safely check the same request.', uncertain: true }
+  if (['FEATURE_DISABLED', 'PROVIDER_CONTRACT_PENDING', 'PROVIDER_FAILURE', 'INVALID_PROVENANCE'].includes(reason)) {
+    return { message: 'The Study assistant provider is unavailable right now. Your message was not saved; try a new request later.', uncertain: false }
+  }
   if (typeof navigator !== 'undefined' && !navigator.onLine) return { message: 'You appear to be offline. Reconnect, then retry this message.', uncertain: true }
   return { message: 'We could not confirm whether this message was answered. Retry to safely check the same request.', uncertain: true }
 }

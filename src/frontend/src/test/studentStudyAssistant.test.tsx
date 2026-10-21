@@ -152,6 +152,27 @@ describe('Student Study Assistant', () => {
     expect(screen.getByLabelText('Ask a question')).toHaveFocus()
   })
 
+  it('distinguishes provider unavailability from an uncertain lost response', async () => {
+    const send = vi.fn(async () => {
+      throw Object.assign(new Error('provider unavailable'), {
+        code: 'functions/unavailable', details: { reason: 'PROVIDER_CONTRACT_PENDING' },
+      })
+    })
+    const services = servicesWith({
+      listStudentStudyAssistantConversations: async () => emptyList(),
+      studentStudyAssist: send,
+    })
+    const user = userEvent.setup()
+    mount(services)
+
+    await user.type(await screen.findByLabelText('Ask a question'), 'Explain queues')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    expect(await screen.findByText('The Study assistant provider is unavailable right now. Your message was not saved; try a new request later.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry message' })).not.toBeInTheDocument()
+    expect(sessionStorage.getItem('student-study-assistant-send')).toBeNull()
+  })
+
   it('loads history, confirms deletion, and restores focus after deleting', async () => {
     const saved = conversation()
     const readMessages = [studentMessage('student-old', 'What is BFS?'), assistantMessage('assistant-old', 'It explores a graph by distance.', 1)]

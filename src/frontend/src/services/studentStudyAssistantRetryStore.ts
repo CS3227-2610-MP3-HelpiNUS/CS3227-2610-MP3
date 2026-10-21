@@ -16,6 +16,18 @@ export function clearStudentStudyAssistantRetry() {
   } catch { /* Best effort when private browser storage is unavailable. */ }
 }
 
+export function clearStudentStudyAssistantRetryForSession(
+  previousUid: string | null,
+  nextUid: string | null,
+  active: boolean,
+) {
+  let owner: string | null = null
+  try { owner = sessionStorage.getItem(ownerKey) } catch { /* Treat unavailable storage as empty. */ }
+  if ((previousUid && (!active || previousUid !== nextUid)) || (owner && (!active || owner !== nextUid))) {
+    clearStudentStudyAssistantRetry()
+  }
+}
+
 export function saveStudentStudyAssistantRetry(item: StudentStudyAssistantRetry) {
   const currentOwner = sessionStorage.getItem(ownerKey)
   if (currentOwner && currentOwner !== item.uid) {
