@@ -109,3 +109,18 @@ Verification for A–C must include focused unit/mock tests, Firebase emulator a
 | E | Later quality refinement and release preparation; after D. | Provider real-data terms, minimization and participant notice/consent, successful D evidence and separate release approval before any real-user enablement. |
 
 External gates remain open: actual key entitlement and operator, model catalog/ID/limits, approved origin, project isolation, exact test UIDs, Developer 1 shared-file response, provider request/token budget, C numeric per-user/aggregate/flight thresholds and reset rule, audit retention mechanism, provider data handling terms, participant policy, D verification, and release approval. This design records where each is needed and fails closed when runtime configuration is absent. It does not invent their values or mark any gate passed.
+
+## 9. Final architecture reconciliation — 2026-10-22
+
+`studentStudyAssistantProvider.ts` constructs a separate Student SoCLaaS provider rather than using `aiGateway.ts`; the proposed two-handler integration in §§2/5 did not land.
+
+The §8 sequence placed S3-D2-02 after C, but historical S3-D2-02 synthetic checks occurred before C was implemented. That ordering is a recorded deviation, not evidence that C was completed.
+
+Sections 2–8 above preserve the approved design. Final source differs in these material ways:
+
+- `soclaasConnectivityPrivate.ts` exports a development-only authenticated callable for the A path; the proposed operator-only HTTP entry in §5 is historical design, not current architecture.
+- `mentorSummaryCallable.ts` gates the B3 callable to configured `helpinus-dev` and allowed UIDs. `aiTestCapacity.ts` stores one cross-instance active lease but no longer checks/increments the historical `attemptsUsed` count. The planned ten-attempt cap and C shared daily/aggregate budgets are absent.
+- `mentorConsultationSummary.ts` rechecks access after generation and returns `{brief, partialHistory}` without persisting the brief. Its parser accepts bounded fenced JSON, ordered sectioned text, and limited null/string-array variants; it is broader than the strict bare-object parser described in §3. `ConversationPages.tsx` renders the four sections as read-only paragraphs; no editing control remains.
+- No shared Student/Mentor quota or `aiAuditEvents` writer/30-day retention mechanism is present for this Mentor flow. Content-free timing/diagnostic logging is implemented in `mentorSummaryCallable.ts`; it is not the proposed persistent audit.
+
+These differences are final implementation facts, not new design approval. Historical controlled local-preview success and mock evidence do not prove the current hosted UI or C readiness.

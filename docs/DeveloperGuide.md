@@ -204,7 +204,8 @@ erDiagram
 
 | Collection | Required document information |
 | --- | --- |
-| `users/{uid}` | `id`, `displayName`, `email`, `role`, `status`, `createdAt` |
+| `users/{uid}` | Authoritative Student identity: `id`, `displayName`, `email`, `role`, `status`, `createdAt`; may retain a legacy Mentor copy |
+| `mentors/{uid}` | Authoritative Mentor identity with the same account fields |
 | `mentorProfiles/{uid}` | `userId`, `biography`, `moduleIds`, `active` |
 | `modules/{moduleId}` | `id`, `code`, `title`, `active` |
 | `helpRequests/{helpRequestId}` | Server-generated ID, Student/Mentor/module ownership, historical display names, content, F01 status and timestamps |
@@ -215,7 +216,7 @@ erDiagram
 | `conversations/{helpRequestId}/messages/{messageId}` | authenticated sender, normalized plain text, server timestamp, nullable recipient acknowledgement timestamp |
 | `availabilitySlots/{slotId}` | Mentor, start/end, withdrawal state, creation time |
 | `appointments/{appointmentId}` | slot, Student, Mentor, topic, status, timestamps |
-| `aiAuditEvents/{eventId}` | actor, role, feature, outcome, prompt hash, timestamp |
+| `aiAuditEvents/{eventId}` | Reserved domain scaffold; the Mentor summary path does not write these records |
 
 Firestore stores native timestamps. The shared network/application contract
 represents timestamps as ISO 8601 strings. Adapters normalize native
@@ -282,7 +283,7 @@ appointment functions remain scaffolds.
 | Respond/complete appointment | Denied | Allowed | Denied |
 | Cancel involved appointment | Allowed | Allowed | Denied |
 | Student study assistant | Allowed | Denied | Denied |
-| Mentor consultation summary | Denied | Designated development-test Mentor only while B3 gate is enabled | Denied |
+| Mentor consultation summary | Denied | Designated development-test Mentor only while the B3 project, isolation, and exact-UID gates are enabled | Denied |
 
 Functions validate input before executing handlers, then verify authentication,
 the authoritative profile, ACTIVE status, email equality, verified email, role,
@@ -313,7 +314,7 @@ accepts only that ID. Other dormant domain contracts retain their existing
 | `cancelAppointment` | Involved Student or Mentor | Cancel an eligible appointment |
 | `completeAppointment` | Mentor | Mark a confirmed consultation complete |
 | `studentStudyAssist` | Student | Private source-grounded Study Assistant callable |
-| `mentorConsultationSummary` | Designated development-test Mentor with an accepted conversation | Gated development callable; one controlled real-provider brief passed through the local preview, while full B3 acceptance remains open |
+| `mentorConsultationSummary` | Designated development-test Mentor with an accepted conversation | Gated development callable returning a four-section, ephemeral brief; current page renders the fields as read-only text |
 
 F01/F02 execute both branches of `respondToHelpRequest` with the real
 conversation provisioner. Existing unrelated callables retain their own
@@ -485,7 +486,9 @@ field grammar before accepted terminal replay. A missing or corrupt pair is
 never silently repaired.
 
 `sendMessage` and `acknowledgeMessage` independently recheck current Auth and
-`users/{uid}` eligibility, the accepted request, matching conversation, and
+eligibility from the current authoritative role profile (`users/{uid}` for
+Students or `mentors/{uid}` for Mentors), the accepted request, matching
+conversation, and
 target message inside a transaction. Sends trim outer whitespace and count
 Unicode code points from 1 to 4,000. The message UUID is the idempotency key:
 same sender/body at the same path returns the saved message; changed content
@@ -606,7 +609,7 @@ read or write Firestore directly. The three Singapore-region callables are:
 
 The strict shared schemas reject a client-supplied target UID, role, status,
 `active`, extra fields, malformed document IDs, or a biography longer than
-1,000 characters. Each handler uses the authoritative `users/{uid}` record and
+1,000 characters. Each handler uses the authoritative `mentors/{uid}` record and
 current Firebase Auth account, including disabled, email, and verified-email
 checks. The synthetic `@example.test` verification exception applies only
 when Functions run in the emulator. The save transaction rechecks the account
@@ -776,7 +779,9 @@ Before running the command, have the Mentor choose **Continue with Google** once
 using the same email address. The script refuses to provision a missing,
 disabled, unverified, non-Google, or email-mismatched Firebase identity. It
 never creates an identity, password, reset link, or verification link. The
-trusted `users/{uid}` record remains the sole role and status authority.
+trusted `mentors/{uid}` record is the current Mentor role and status authority;
+`users/{uid}` remains authoritative for Students. A legacy Mentor copy in
+`users/{uid}` cannot establish a simultaneous Student role.
 
 Never commit the credential used by Application Default Credentials.
 
@@ -1173,7 +1178,7 @@ Passing structural tests does not establish real-model safety; the semantic
 rubric remains blocked until an approved corpus and authorized real-provider
 evaluation exist.
 
-## 18. SoCLaaS gateway and Mentor consultation draft (S3-D2-01 Part B)
+## 18. SoCLaaS gateway and Mentor consultation draft (S3-D2-01 and S3-D2-02)
 
 Sprint 1 reserved the AI callable names. S3-D2-01 has since implemented the
 shared gateway and Mentor path **locally**, using synthetic tests. The separate
@@ -1182,7 +1187,9 @@ by Developer 2 for a genuine authenticated, key-visible `/models` catalog
 request; its inference flag was unset. That catalog result does not approve a
 chat model or verify context/output limits. The B3 Mentor callable was
 deployed to `helpinus-dev`, and a controlled synthetic real-provider brief
-passed through a local preview; the hosted UI has not yet shown that control.
+passed through a local preview. That historical preview included editing;
+the current `ConversationPages.tsx` renders the fields as read-only text.
+The hosted UI has not yet shown that control.
 The Student Study Assistant callable is implemented independently as described
 above; a Student-shaped gateway test is not a test of that handler. General-user
 enablement of the Mentor draft remains a separate gate.
@@ -1226,22 +1233,28 @@ and 12,000 body characters, further reduced by the verified model allowance,
 then sends them chronologically with a deterministic document-ID tie break.
 Each selected row must match the saved-message schema and the accepted pair.
 Zero messages return `EMPTY_HISTORY` without provider use; omitted earlier
-messages set `partialHistory=true`. Trusted task instructions request bare
-four-field JSON and mark stored text as untrusted data. The model gets no
-application tools. Output must parse as exactly four trimmed, nonempty strings
-(`summary`, `unresolvedQuestions`, `teachingApproaches`, `limitations`) within
-8,000 combined characters; invalid output returns a safe `AI_RESPONSE` error.
-The handler does not write a message or other business record.
+messages set `partialHistory=true`. Fixed server instructions request bare
+four-field JSON and mark sender-labelled, JSON-framed conversation text as
+untrusted data. The model gets no application tools or credentials. The parser
+accepts bare or fenced JSON, or four recognized sections in the required order.
+For JSON fields it normalizes nonempty string arrays; null or empty arrays in
+the three non-summary fields become an explicit none-identified statement.
+The resulting `summary`, `unresolvedQuestions`, `teachingApproaches`, and
+`limitations` must all be nonempty plain-text strings within 8,000 combined
+characters. Other invalid output returns safe `AI_RESPONSE`. These boundaries
+limit what the application sends and accepts; they do not prove the live model
+will always ignore malicious instructions or produce faithful prose. The
+handler writes no message or other business record.
 
 `src/functions/src/aiTestCapacity.ts` supplies B3's backend-only Firestore
 reservation at `soclaasTestScope/mentorSummary`. An operator must precreate
-`{attemptsUsed: 0, active: null}` in the verified test project. Transactions
-admit at most ten **attempted** provider calls total and one active lease across
-instances. A failed or uncertain attempt is not refunded; a crash lease
-expires only after 70 seconds, beyond the 40-second Function limit and
-25-second provider deadline. Missing or corrupt state fails closed. There is
-no automatic reset. These B3 limits are not the later C per-user/aggregate
-daily quota or 30-day audit system.
+the state document with `active: null` in the verified test project.
+Transactions admit one active lease across instances. A crash lease expires
+after 70 seconds, beyond the 40-second Function limit and 25-second provider
+deadline; missing or corrupt state fails closed. The historical `attemptsUsed`
+field is ignored by the current code. Consequently, the approved ten-attempt
+total cap is **not implemented**. This lease is also not the planned C
+per-user/aggregate daily quota or 30-day audit system.
 
 ### Frontend and safe local setup
 
@@ -1250,7 +1263,7 @@ The Mentor conversation detail in `ConversationPages.tsx` invokes the typed
 Conversation**. A pending call disables duplicate clicks. The page shows
 separate loading, empty, support, access-loss, capacity, timeout, invalid
 output, configuration, and provider states. A successful brief is a private,
-editable, plain-text four-field draft with a partial-history notice when
+read-only, plain-text four-field draft with a partial-history notice when
 needed. It stays in page state and is neither sent nor saved. Account,
 conversation, and navigation changes clear it and discard late results; the
 chat remains available if generation fails.
@@ -1274,15 +1287,16 @@ runtime project.
 
 ### Verification and remaining gates
 
-The approved SDD package is copied into
-`docs/mission-brief/S3-D2-01-shared-soclaas-mentor-summary.md` and
-`docs/features/S3-D2-01/`. Its exact SHA-256 values match the local draft,
-worktree, and dated backup recorded in
-`workflow/handoffs/royden/S3-D2-01.md`. No SDD or implementation commit was
-made at the original feature handoff; the files' older header status describes
-earlier planning gates, while the ledger records the later package approval and
-local implementation authorization. A later authorized merge of local `master`
-created merge commit `6ebd73a`; the feature files remain uncommitted.
+The S3-D2-01 and S3-D2-02 handoffs record the approved SDD snapshot hashes
+and their matching local backups **at the time of approval**. The final
+reconciliation notes now appended to those worktree artifacts change their
+bytes; they must not be represented as matching the approved snapshot hashes
+or as newly approved. The older status headers and original requirements retain
+their historical meaning. The revised SDD needs Developer 2 review and approval
+before it can be published as an approved snapshot. No SDD or implementation
+commit was made at the original S3-D2-01 handoff. A later authorized merge of
+local `master` created merge commit `6ebd73a`; the current documentation edits
+remain uncommitted.
 
 On 2026-10-20 with Node 22.23.3, B1's gateway tests passed 24/24 and shared
 contracts 13/13 in independent focused runs. B2's synthetic Auth/Firestore
@@ -1301,9 +1315,11 @@ npm run verify:deploy-package --workspace src/functions
 
 Run `integration-tests/mentorConsultationSummary.test.ts` and
 `integration-tests/mentorSummaryCallable.test.ts` under local Auth/Firestore
-Emulators with a synthetic demo project. The S3-D2-02 adversarial rerun passed
-25/25 across those suites, with mocked SoCLaaS; its focused frontend test
-passed 7/7, and root `npm run check` passed. See
+Emulators with a synthetic demo project. The S3-D2-02 adversarial rerun was
+recorded as passing 25/25 across those suites, with mocked SoCLaaS; its focused
+frontend test was recorded as passing 7/7, and root `npm run check` passed.
+Those historical results do not establish the current read-only fields as
+editable. See
 `verification-evidence/S3-D2-02-prompt-injection-tests-2026-10-21.md` for the
 seven attack/discussion cases, review findings, and model-dependent limits.
 The original managed browser journey used
@@ -1322,18 +1338,23 @@ and audit, real-model prompt-injection behavior, provider handling for real
 data, and release approval remain separate gates.
 
 After merging local `master` on 2026-10-21, full Functions integration passed
-128/128. A full frontend run timed out on one still-valid Mentor draft UI test.
+128/128. The first full frontend run timed out on a Mentor draft UI test that
+was later removed.
 The managed Mentor browser run failed when the `helpinus-dev` Functions emulator
 rejected its dotenv setup before loading the callable. Inspection found the
 local B3 gate enabled, making the browser test's expected `AI_CONFIG` response
 invalid for that setup. The browser journey was narrowed to action visibility
-and no automatic generation, without activating the provider. Neither failed
-verification nor the revised browser journey was rerun; see
+and no automatic generation, without activating the provider. The later
+recorded rerun passed root `npm run check` (frontend 317/317, Functions source
+103/103, shared 15/15) and the focused action-only browser journey 1/1 after
+the dotenv alias and popup-readiness fixes. It did not restore or rerun the
+removed draft-editing test; see
 `verification-evidence/S3-D2-merge-2026-10-21.md`.
 
 ## 19. Deferred work
 
-- Complete help-request, conversation, booking, and availability workflows.
+- Complete booking and availability workflows, and close outstanding
+  verification gaps for the implemented help-request and conversation flows.
 - Complete the approved Student corpus, semantic evaluation, retention
   scheduler, and controlled SoCLaaS smoke test for S2-D1-F03.
 - Complete shared quotas and audit, outstanding Mentor B3 acceptance checks,

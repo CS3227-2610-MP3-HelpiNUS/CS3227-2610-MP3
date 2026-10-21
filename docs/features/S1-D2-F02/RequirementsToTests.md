@@ -226,3 +226,7 @@ Feature verification is complete only after implementation authorization and cod
 ## 8. Independent consistency review
 
 Read-only comparison with the approved PRD/TDD found all FR-01–08, NFR-01–05, AC-01–25, SC-01–05 main paths and their listed extensions mapped above. Negative and recovery paths include wrong role, no list permission, invalid callable/module data, empty-with-cursor pages, duplicate IDs, nonadvancing cursor, partial/full metadata failure, retry, stale async results, and unavailable mutation. Expected outcomes follow loaded-only filtering, selected-ID persistence during degradation, and the TDD's first-record-wins/one-expanded-card rules. The case catalogue uses route/service/adapter interfaces rather than page internals, groups related assertions, reuses existing backend security tests, and reserves responsive/assistive-technology judgment for manual evidence. No unresolved test-planning ambiguity or new product decision was found. The Mission Brief approval-metadata gate identified in §1 was resolved by the owner's subsequent approval on 2026-10-14.
+
+## 9. Final cross-feature traceability — 2026-10-22
+
+This matrix describes the original S1-D2-F02 verification plan. Its placeholder/unavailable help-request expectation is historical for that feature and was superseded by S2-D2-F01's implemented request flow. It is not a current negative acceptance criterion for the application. Existing execution evidence remains historical; no test was rerun or newly marked passed for this documentation revision.

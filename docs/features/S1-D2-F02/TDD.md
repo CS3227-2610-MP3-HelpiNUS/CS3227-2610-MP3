@@ -167,3 +167,7 @@ There are no unresolved product decisions or proposed shared/backend contract ch
 | NFR-05 | 4, 8–9 | AC-19 |
 
 All AC-01 through AC-25 appear above and have behavior or verification treatment in sections 3–9. The approved interface is limited to the existing typed callable and one module get; implementation requires no shared/backend changes. `docs/features/S1-D2-F02/RequirementsToTests.md` has since been completed and approved, and the Mission Brief approval metadata has been reconciled. This document does not authorize implementation, test execution, commit, or push.
+
+## 12. Final cross-feature disposition — 2026-10-22
+
+The discovery architecture remains the relevant S1-D2-F02 design. The help-request placeholder described here was superseded by the later S2-D2-F01 request implementation in the final worktree. This is a cross-feature progression, not a retrospective change to the original design approval.

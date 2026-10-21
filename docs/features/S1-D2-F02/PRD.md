@@ -219,3 +219,7 @@ The TDD may decide the frontend service interface shape, authorized module-resol
 ## 10. Handoff boundary
 
 The next conversation should produce a feature TDD under `docs/features/S1-D2-F02/`, using this PRD and the existing Sprint 1 contracts. It should resolve the smallest frontend service shape for `discoverMentors` and authorized module resolution, component state boundaries, mock fixture design, and error/retry mechanics. The TDD must retain the approved loaded-only semantics and identify any proposed shared backend contract change for separate owner approval. No implementation, test execution, Requirements-to-Tests artifact, commit, or push is part of this PRD step.
+
+## 11. Final cross-feature disposition — 2026-10-22
+
+FR-06's help-request initiation placeholder was accurate for this Sprint 1 scope. In the final worktree, S2-D2-F01 implements Student help-request creation and tracking. Do not interpret the original placeholder requirement as the current application behavior. Discovery and loaded-only filtering remain implemented. This note preserves the approved PRD and records later delivery without asserting new verification.
