@@ -79,21 +79,26 @@ describe('Student Study Assistant emulator integration', () => {
   let firstRequestId = ''
   let firstInput: StudentStudyAssistInput
 
-  it('creates on first accepted send, grounds from synthetic data, and replays without duplicates', async () => {
+  it('creates on first accepted send, grounds from approved module data, and replays without duplicates', async () => {
     expect(listStudentStudyAssistantConversationsOutputSchema.parse((await list('student')({ limit: 20 })).data).conversations).toEqual([])
     firstRequestId = crypto.randomUUID()
-    firstInput = { requestId: firstRequestId, conversationId: null, userMessage: 'Explain breadth-first search and its queue.' }
+    firstInput = {
+      requestId: firstRequestId,
+      conversationId: null,
+      userMessage: 'In CS2030S, why does immutability help with aliasing?',
+    }
     const first = studentStudyAssistOutputSchema.parse((await send('student')(firstInput)).data)
+    conversationId = first.conversation.id
+    expect(conversationId).not.toBe('')
     expect(first.kind).toBe('grounded')
     expect(first.replayed).toBe(false)
     expect(first.assistantMessage).toMatchObject({ role: 'ASSISTANT', grounding: 'GROUNDED' })
     if (first.assistantMessage.grounding !== 'GROUNDED') throw new Error('Expected grounded fixture response.')
     expect(first.assistantMessage.citations).toEqual([expect.objectContaining({
-      sourceId: 'synthetic-algorithms-notes',
-      canonicalUrl: 'https://example.test/helpinus-synthetic/algorithms',
-      version: 'synthetic-v1',
+      sourceId: 'cs2030s-2021-s2-immutability',
+      canonicalUrl: 'https://nus-cs2030s.github.io/2021-s2/25-immutability.html',
+      version: '2021 Semester 2',
     })])
-    conversationId = first.conversation.id
 
     const replay = studentStudyAssistOutputSchema.parse((await send('student')(firstInput)).data)
     expect(replay).toEqual({ ...first, replayed: true })
@@ -104,7 +109,7 @@ describe('Student Study Assistant emulator integration', () => {
   }, 30_000)
 
   it('persists citation provenance, continues multi-turn state, and keeps other roles and owners out', async () => {
-    await expect(send('mentor')({ requestId: crypto.randomUUID(), conversationId: null, userMessage: 'Explain BFS.' }))
+    await expect(send('mentor')({ requestId: crypto.randomUUID(), conversationId: null, userMessage: 'Explain CS2030S immutability.' }))
       .rejects.toMatchObject({ code: 'functions/failed-precondition' })
     await expect(read('otherStudent')({ conversationId, limit: 50 }))
       .rejects.toMatchObject({ code: 'functions/permission-denied' })
@@ -112,7 +117,7 @@ describe('Student Study Assistant emulator integration', () => {
       .rejects.toMatchObject({ code: 'functions/permission-denied' })
 
     const continuation = studentStudyAssistOutputSchema.parse((await send('student')({
-      requestId: crypto.randomUUID(), conversationId, userMessage: 'What base case does recursion need?',
+      requestId: crypto.randomUUID(), conversationId, userMessage: 'Why does that matter?',
     })).data)
     expect(continuation.kind).toBe('grounded')
     const loaded = readStudentStudyAssistantConversationOutputSchema.parse((await read('student')({ conversationId, limit: 50 })).data)
@@ -143,7 +148,7 @@ describe('Student Study Assistant emulator integration', () => {
 
   it('denies every callable to unauthenticated, wrong-role, inactive, malformed, mismatched, and unverified callers', async () => {
     const inputs = () => ({
-      send: { requestId: crypto.randomUUID(), conversationId, userMessage: 'Explain BFS.' },
+      send: { requestId: crypto.randomUUID(), conversationId, userMessage: 'Explain CS2030S immutability.' },
       list: { limit: 20 },
       read: { conversationId, limit: 50 },
       remove: { requestId: crypto.randomUUID(), conversationId },
