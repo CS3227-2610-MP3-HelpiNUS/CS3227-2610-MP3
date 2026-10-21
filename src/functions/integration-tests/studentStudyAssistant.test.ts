@@ -175,6 +175,8 @@ describe('Student Study Assistant emulator integration', () => {
     ]
     try {
       await expectDenied(guestCalls, 'functions/unauthenticated')
+      await expect(httpsCallable(guestFunctions, 'studentStudyAssist')({ userMessage: 'private malformed audit sentinel' }))
+        .rejects.toMatchObject({ code: 'functions/invalid-argument' })
     } finally {
       await deleteApp(guest)
     }
@@ -214,6 +216,14 @@ describe('Student Study Assistant emulator integration', () => {
       .collection('studentStudyAssistantConversations').doc(conversationId)
       .collection('studentStudyAssistantMessages').get()
     expect(messages.size).toBe(4)
+    const auditDocuments = await adminDb.collection('studentStudyAssistantAuditEvents').get()
+    const auditData = auditDocuments.docs.map((snapshot) => snapshot.data())
+    expect(auditData).toEqual(expect.arrayContaining([
+      expect.objectContaining({ event: 'VALIDATION_REJECTED', operation: 'studentStudyAssist', actorId: null }),
+      expect.objectContaining({ event: 'AUTHENTICATION_REJECTED', operation: 'studentStudyAssist', actorId: null }),
+      expect.objectContaining({ event: 'AUTHORIZATION_REJECTED', actorId: ids.student }),
+    ]))
+    expect(JSON.stringify(auditData)).not.toContain('private malformed audit sentinel')
   }, 60_000)
 
   it('deletes content, persists a tombstone, and prevents retry resurrection', async () => {

@@ -8,6 +8,7 @@ import {
   type QueryDocumentSnapshot,
 } from 'firebase-admin/firestore'
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https'
+import { ZodError } from 'zod'
 import {
   callableSchemas,
   studentStudyAssistantConversationSchema,
@@ -238,16 +239,20 @@ async function withProviderTimeout<Result>(work: Promise<Result>, timeoutMs: num
   }
 }
 
-function auditRecord(event: string, actor: AuthorizedUser, now: Timestamp, metadata: Record<string, unknown>) {
+function auditRecordForActor(event: string, actorId: string | null, now: Timestamp, metadata: Record<string, unknown>) {
   return {
     featureId: 'S2-D1-F03',
     feature: 'STUDENT_STUDY_ASSISTANT',
     event,
-    actorId: actor.uid,
+    actorId,
     occurredAt: now,
     expiresAt: Timestamp.fromMillis(now.toMillis() + auditRetentionMs),
     ...metadata,
   }
+}
+
+function auditRecord(event: string, actor: AuthorizedUser, now: Timestamp, metadata: Record<string, unknown>) {
+  return auditRecordForActor(event, actor.uid, now, metadata)
 }
 
 function safeErrorReason(error: unknown): string {
@@ -270,6 +275,44 @@ async function recordAuditBestEffort(
   } catch {
     // Operational logging must never broaden access or replace the safe error.
   }
+}
+
+async function recordAuditForActorBestEffort(
+  db: Firestore,
+  event: string,
+  actorId: string | null,
+  now: Timestamp,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await db.collection('studentStudyAssistantAuditEvents').doc().set(auditRecordForActor(event, actorId, now, metadata))
+  } catch {
+    // Audit storage failure must not broaden access or replace the safe error.
+  }
+}
+
+export async function recordStudentStudyAssistantBoundaryAudit(
+  db: Firestore,
+  request: CallableRequest<unknown>,
+  operation: string,
+  phase: 'validation' | 'handler',
+  error: unknown,
+  now = Timestamp.now(),
+): Promise<void> {
+  const code = error instanceof HttpsError ? error.code : 'internal'
+  const event = phase === 'validation'
+    ? 'VALIDATION_REJECTED'
+    : code === 'unauthenticated'
+      ? 'AUTHENTICATION_REJECTED'
+      : code === 'permission-denied' || code === 'failed-precondition'
+        ? 'AUTHORIZATION_REJECTED'
+        : 'CALLABLE_REJECTED'
+  await recordAuditForActorBestEffort(db, event, request.auth?.uid ?? null, now, {
+    operation,
+    phase,
+    code,
+    reason: safeErrorReason(error),
+  })
 }
 
 async function claimSend(
@@ -562,10 +605,11 @@ export async function studentStudyAssistHandler(
     )
   } catch (error) {
     await releaseSendClaim(input, actor, claim, db)
-    await recordAuditBestEffort(db, 'MESSAGE_FAILED', actor, dependencies.now(), {
+    const providerOutputRejected = error instanceof ZodError
+    await recordAuditBestEffort(db, providerOutputRejected ? 'OUTPUT_VALIDATION_REJECTED' : 'MESSAGE_FAILED', actor, dependencies.now(), {
       requestId: input.requestId,
       conversationId: claim.conversationId,
-      reason: safeErrorReason(error),
+      reason: providerOutputRejected ? 'PROVIDER_OUTPUT_INVALID' : safeErrorReason(error),
       providerLatencyMs: Math.max(0, Date.now() - providerStartedAt),
     })
     if (error instanceof HttpsError) throw error
@@ -782,6 +826,10 @@ export async function cleanupExpiredStudentStudyAssistantConversations(
     })
     if (!markedForCleanup) continue
     await purgeStudentStudyAssistantConversationContent(ownerRef, conversation.ref, conversation.id, db, now)
+    await recordAuditForActorBestEffort(db, 'CONVERSATION_EXPIRED', ownerId, now, {
+      conversationId: conversation.id,
+      reason: 'RETENTION_EXPIRED',
+    })
     cleaned += 1
   }
   return cleaned

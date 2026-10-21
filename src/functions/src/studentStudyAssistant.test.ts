@@ -1,5 +1,5 @@
 import { Timestamp, type Firestore } from 'firebase-admin/firestore'
-import type { CallableRequest } from 'firebase-functions/v2/https'
+import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StudentStudyAssistantDependencies } from './studentStudyAssistant.js'
 import type {
@@ -21,6 +21,7 @@ import {
   deleteStudentStudyAssistantConversationHandler,
   listStudentStudyAssistantConversationsHandler,
   readStudentStudyAssistantConversationHandler,
+  recordStudentStudyAssistantBoundaryAudit,
   studentStudyAssistHandler,
 } from './studentStudyAssistant.js'
 
@@ -245,6 +246,34 @@ describe('Student Study Assistant send persistence', () => {
     expect(JSON.stringify(audit)).not.toContain('BFS uses a queue')
   })
 
+  it('records schema and authorization boundary failures without request content', async () => {
+    const db = database()
+    await recordStudentStudyAssistantBoundaryAudit(
+      db as unknown as Firestore,
+      { auth: { uid: actor.uid } } as CallableRequest<unknown>,
+      'studentStudyAssist',
+      'validation',
+      new HttpsError('invalid-argument', 'Do not persist this payload.'),
+      fixedNow,
+    )
+    await recordStudentStudyAssistantBoundaryAudit(
+      db as unknown as Firestore,
+      request,
+      'readStudentStudyAssistantConversation',
+      'handler',
+      new HttpsError('unauthenticated', 'Do not persist this auth message.'),
+      fixedNow,
+    )
+    const audits = [...db.store.entries()]
+      .filter(([path]) => path.startsWith('studentStudyAssistantAuditEvents/'))
+      .map(([, value]) => value)
+    expect(audits).toEqual(expect.arrayContaining([
+      expect.objectContaining({ event: 'VALIDATION_REJECTED', actorId: actor.uid, operation: 'studentStudyAssist' }),
+      expect.objectContaining({ event: 'AUTHENTICATION_REJECTED', actorId: null, operation: 'readStudentStudyAssistantConversation' }),
+    ]))
+    expect(JSON.stringify(audits)).not.toContain('Do not persist')
+  })
+
   it('replays a completed request without calling the provider or adding messages', async () => {
     const db = database()
     const provider = { answer: vi.fn(async () => ({ kind: 'grounded' as const, content: 'BFS uses a queue.', citationChunkIds: ['chunk-1'] })) }
@@ -451,6 +480,19 @@ describe('Student Study Assistant send persistence', () => {
     expect([...db.store.keys()].some((path) => path.includes('/studentStudyAssistantMessages/'))).toBe(false)
   })
 
+  it('audits malformed provider output without persisting its content', async () => {
+    const db = database()
+    const provider = { answer: vi.fn(async () => ({ kind: 'grounded', content: 'private malformed output', citationChunkIds: [42] })) }
+    await expect(studentStudyAssistHandler({
+      requestId: '19191919-1919-4919-8919-191919191919', conversationId: null, userMessage: 'Explain BFS.',
+    }, request, db as unknown as Firestore, dependencies({ provider: provider as unknown as StudentStudyAssistantProvider })))
+      .rejects.toMatchObject({ code: 'unavailable', details: { reason: 'PROVIDER_FAILURE' } })
+    const audit = [...db.store.entries()]
+      .find(([, value]) => value.event === 'OUTPUT_VALIDATION_REJECTED')?.[1]
+    expect(audit).toMatchObject({ reason: 'PROVIDER_OUTPUT_INVALID' })
+    expect(JSON.stringify(audit)).not.toContain('private malformed output')
+  })
+
   it('maps a provider timeout safely and releases the idempotency lease for retry', async () => {
     const db = database()
     const provider = { answer: vi.fn(() => new Promise<never>(() => undefined)) }
@@ -576,6 +618,9 @@ describe('Student Study Assistant send persistence', () => {
     expect(db.store.get(conversationPath)).toMatchObject({ title: '', preview: '', deletedAt: fixedNow, contentDeletedAt: fixedNow })
     expect(db.store.get(`studentStudyAssistantDeletionTombstones/${actor.uid}/studentStudyAssistantConversations/${conversationId}`))
       .toMatchObject({ ownerId: actor.uid, reason: 'EXPIRED' })
+    expect([...db.store.values()]).toContainEqual(expect.objectContaining({
+      event: 'CONVERSATION_EXPIRED', actorId: actor.uid, conversationId, reason: 'RETENTION_EXPIRED',
+    }))
   })
 
   it('removes metadata-only audit events after their 30-day expiry', async () => {

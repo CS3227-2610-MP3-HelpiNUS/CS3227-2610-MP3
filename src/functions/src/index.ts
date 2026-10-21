@@ -17,6 +17,7 @@ import {
   deleteStudentStudyAssistantConversationHandler,
   listStudentStudyAssistantConversationsHandler,
   readStudentStudyAssistantConversationHandler,
+  recordStudentStudyAssistantBoundaryAudit,
   studentStudyAssistHandler,
 } from './studentStudyAssistant.js'
 
@@ -71,14 +72,30 @@ export const respondToAppointment = notImplemented('respondToAppointment', 'MENT
 export const cancelAppointment = notImplemented('cancelAppointment')
 export const completeAppointment = notImplemented('completeAppointment', 'MENTOR')
 const studentStudyAssistantDependencies = createStudentStudyAssistantDependencies()
-export const studentStudyAssist = callable(callableSchemas.studentStudyAssist.input, (input, request) =>
-  studentStudyAssistHandler(input, request, db, studentStudyAssistantDependencies))
-export const listStudentStudyAssistantConversations = callable(callableSchemas.listStudentStudyAssistantConversations.input, (input, request) =>
-  listStudentStudyAssistantConversationsHandler(input, request, db, studentStudyAssistantDependencies))
-export const readStudentStudyAssistantConversation = callable(callableSchemas.readStudentStudyAssistantConversation.input, (input, request) =>
-  readStudentStudyAssistantConversationHandler(input, request, db, studentStudyAssistantDependencies))
-export const deleteStudentStudyAssistantConversation = callable(callableSchemas.deleteStudentStudyAssistantConversation.input, (input, request) =>
-  deleteStudentStudyAssistantConversationHandler(input, request, db, studentStudyAssistantDependencies))
+export const studentStudyAssist = callable(
+  callableSchemas.studentStudyAssist.input,
+  (input, request) => studentStudyAssistHandler(input, request, db, studentStudyAssistantDependencies),
+  {},
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(db, request, 'studentStudyAssist', phase, error),
+)
+export const listStudentStudyAssistantConversations = callable(
+  callableSchemas.listStudentStudyAssistantConversations.input,
+  (input, request) => listStudentStudyAssistantConversationsHandler(input, request, db, studentStudyAssistantDependencies),
+  {},
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(db, request, 'listStudentStudyAssistantConversations', phase, error),
+)
+export const readStudentStudyAssistantConversation = callable(
+  callableSchemas.readStudentStudyAssistantConversation.input,
+  (input, request) => readStudentStudyAssistantConversationHandler(input, request, db, studentStudyAssistantDependencies),
+  {},
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(db, request, 'readStudentStudyAssistantConversation', phase, error),
+)
+export const deleteStudentStudyAssistantConversation = callable(
+  callableSchemas.deleteStudentStudyAssistantConversation.input,
+  (input, request) => deleteStudentStudyAssistantConversationHandler(input, request, db, studentStudyAssistantDependencies),
+  {},
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(db, request, 'deleteStudentStudyAssistantConversation', phase, error),
+)
 export const mentorConsultationSummary = callable(
   callableSchemas.mentorConsultationSummary.input,
   async (_input, request) => {
