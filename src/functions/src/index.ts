@@ -12,6 +12,13 @@ import { readOwnMentorProfileHandler, updateOwnMentorProfileHandler } from './me
 import { searchMentorModulesHandler } from './mentorModuleSearch.js'
 import { createHelpRequestHandler, respondToHelpRequestHandler } from './helpRequests.js'
 import { acknowledgeMessageHandler, provisionForAcceptedRequest, sendMessageHandler } from './conversations.js'
+import {
+  createStudentStudyAssistantDependencies,
+  deleteStudentStudyAssistantConversationHandler,
+  listStudentStudyAssistantConversationsHandler,
+  readStudentStudyAssistantConversationHandler,
+  studentStudyAssistHandler,
+} from './studentStudyAssistant.js'
 
 initializeApp()
 const db = getFirestore()
@@ -63,7 +70,15 @@ export const reserveAppointment = notImplemented('reserveAppointment', 'STUDENT'
 export const respondToAppointment = notImplemented('respondToAppointment', 'MENTOR')
 export const cancelAppointment = notImplemented('cancelAppointment')
 export const completeAppointment = notImplemented('completeAppointment', 'MENTOR')
-export const studentStudyAssist = notImplemented('studentStudyAssist', 'STUDENT')
+const studentStudyAssistantDependencies = createStudentStudyAssistantDependencies()
+export const studentStudyAssist = callable(callableSchemas.studentStudyAssist.input, (input, request) =>
+  studentStudyAssistHandler(input, request, db, studentStudyAssistantDependencies))
+export const listStudentStudyAssistantConversations = callable(callableSchemas.listStudentStudyAssistantConversations.input, (input, request) =>
+  listStudentStudyAssistantConversationsHandler(input, request, db, studentStudyAssistantDependencies))
+export const readStudentStudyAssistantConversation = callable(callableSchemas.readStudentStudyAssistantConversation.input, (input, request) =>
+  readStudentStudyAssistantConversationHandler(input, request, db, studentStudyAssistantDependencies))
+export const deleteStudentStudyAssistantConversation = callable(callableSchemas.deleteStudentStudyAssistantConversation.input, (input, request) =>
+  deleteStudentStudyAssistantConversationHandler(input, request, db, studentStudyAssistantDependencies))
 export const mentorConsultationSummary = callable(
   callableSchemas.mentorConsultationSummary.input,
   async (_input, request) => {

@@ -146,12 +146,32 @@ export const studentStudyAssistantCitationSchema = z.object({
   version: z.string().trim().min(1).max(100),
   section: z.string().trim().min(1).max(160).nullable(),
 }).strict()
-export const studentStudyAssistantMessageSchema = z.object({
+const studentStudyAssistantMessageBaseSchema = z.object({
   id: canonicalDocumentIdSchema,
-  role: z.enum(['STUDENT', 'ASSISTANT']),
   content: z.string().min(1).max(8000),
   createdAt: studyAssistantDateTimeSchema,
+})
+export const studentStudyAssistantStudentMessageSchema = studentStudyAssistantMessageBaseSchema.extend({
+  role: z.literal('STUDENT'),
 }).strict()
+export const studentStudyAssistantGroundedMessageSchema = studentStudyAssistantMessageBaseSchema.extend({
+  role: z.literal('ASSISTANT'),
+  grounding: z.literal('GROUNDED'),
+  citations: z.array(studentStudyAssistantCitationSchema).min(1).max(8),
+}).strict()
+export const studentStudyAssistantInsufficientMessageSchema = studentStudyAssistantMessageBaseSchema.extend({
+  role: z.literal('ASSISTANT'),
+  grounding: z.literal('INSUFFICIENT_CONTEXT'),
+  citations: z.array(studentStudyAssistantCitationSchema).length(0),
+}).strict()
+export const studentStudyAssistantAssistantMessageSchema = z.discriminatedUnion('grounding', [
+  studentStudyAssistantGroundedMessageSchema,
+  studentStudyAssistantInsufficientMessageSchema,
+])
+export const studentStudyAssistantMessageSchema = z.union([
+  studentStudyAssistantStudentMessageSchema,
+  studentStudyAssistantAssistantMessageSchema,
+])
 export const studentStudyAssistantConversationSchema = z.object({
   id: canonicalDocumentIdSchema,
   title: z.string().trim().min(1).max(120),
@@ -167,18 +187,17 @@ export const studentStudyAssistInputSchema = z.object({
 }).strict()
 const studentStudyAssistResultBase = z.object({
   conversation: studentStudyAssistantConversationSchema,
-  userMessage: studentStudyAssistantMessageSchema,
-  assistantMessage: studentStudyAssistantMessageSchema,
+  userMessage: studentStudyAssistantStudentMessageSchema,
   replayed: z.boolean(),
 })
 export const studentStudyAssistOutputSchema = z.discriminatedUnion('kind', [
   studentStudyAssistResultBase.extend({
     kind: z.literal('grounded'),
-    citations: z.array(studentStudyAssistantCitationSchema).min(1).max(8),
+    assistantMessage: studentStudyAssistantGroundedMessageSchema,
   }).strict(),
   studentStudyAssistResultBase.extend({
     kind: z.literal('insufficient_context'),
-    citations: z.array(studentStudyAssistantCitationSchema).length(0),
+    assistantMessage: studentStudyAssistantInsufficientMessageSchema,
   }).strict(),
 ])
 

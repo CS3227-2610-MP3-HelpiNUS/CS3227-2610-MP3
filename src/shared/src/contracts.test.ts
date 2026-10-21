@@ -219,12 +219,14 @@ describe('shared contracts', () => {
 
     const conversation = { id: 'conversation-1', title: 'Breadth-first search', preview: 'Queues visit nodes by level.', lastActivityAt: '2026-10-21T08:00:00.000Z', expiresAt: '2026-11-04T08:00:00.000Z' }
     const userMessage = { id: 'user-1', role: 'STUDENT', content: 'Explain breadth-first search.', createdAt: conversation.lastActivityAt }
-    const assistantMessage = { id: 'assistant-1', role: 'ASSISTANT', content: 'Breadth-first search explores one level at a time.', createdAt: conversation.lastActivityAt }
     const citation = { sourceId: 'soc-bfs', title: 'Synthetic SoC algorithms guide', canonicalUrl: 'https://example.test/soc/bfs', version: 'fixture-v1', section: 'Traversal' }
-    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage, citations: [citation], replayed: false }).success).toBe(true)
-    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage, citations: [], replayed: false }).success).toBe(false)
-    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'insufficient_context', conversation, userMessage, assistantMessage, citations: [citation], replayed: false }).success).toBe(false)
-    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage, citations: [{ ...citation, canonicalUrl: 'javascript:alert(1)' }], replayed: false }).success).toBe(false)
+    const groundedAssistantMessage = { id: 'assistant-1', role: 'ASSISTANT', grounding: 'GROUNDED', content: 'Breadth-first search explores one level at a time.', createdAt: conversation.lastActivityAt, citations: [citation] }
+    const insufficientAssistantMessage = { id: 'assistant-2', role: 'ASSISTANT', grounding: 'INSUFFICIENT_CONTEXT', content: 'I could not find enough approved context.', createdAt: conversation.lastActivityAt, citations: [] }
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage: groundedAssistantMessage, replayed: false }).success).toBe(true)
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'insufficient_context', conversation, userMessage, assistantMessage: insufficientAssistantMessage, replayed: false }).success).toBe(true)
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage: { ...groundedAssistantMessage, citations: [] }, replayed: false }).success).toBe(false)
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'insufficient_context', conversation, userMessage, assistantMessage: { ...insufficientAssistantMessage, citations: [citation] }, replayed: false }).success).toBe(false)
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage: { ...groundedAssistantMessage, citations: [{ ...citation, canonicalUrl: 'javascript:alert(1)' }] }, replayed: false }).success).toBe(false)
   })
 
   it('bounds Student Study Assistant list, read, and delete operations', () => {
