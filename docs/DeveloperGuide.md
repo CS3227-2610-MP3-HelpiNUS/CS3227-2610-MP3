@@ -1061,8 +1061,14 @@ fails closed. The provider can cite only retrieved chunk IDs; the server
 reconstructs public source metadata so a provider cannot mint a URL. Output is
 strictly schema checked and React renders it as plain text.
 
-Production uses an empty retriever and the server-only
-`SoclaasStudentStudyAssistantProvider`. The adapter calls the documented
+All environments use the immutable
+`nus-cs2030s-2021-s2_cs2103-ay2526s1-v1` corpus. Its concise reviewed chunks
+cover the selected public CS2030S 2021 Semester 2 notes and CS2103/T AY2025/26
+Semester 1 software-engineering textbook. Canonical citations are restricted to
+`https://nus-cs2030s.github.io/2021-s2/` and
+`https://nus-cs2103-ay2526s1.github.io/website/se-book-adapted/`; the runtime
+never crawls either site. The server-only
+`SoclaasStudentStudyAssistantProvider` calls the documented
 OpenAI-compatible `POST /v1/chat/completions` endpoint with Bearer
 authentication, `model: "default"`, bounded system/history/source messages,
 and `reasoning_effort: "none"`. It reads `SOCLAAS_API_KEY_STUDENT` lazily from a
@@ -1075,10 +1081,13 @@ bounded backoff, maps provider failures to safe application errors, limits the
 raw response size, and validates both the Chat Completions envelope and strict
 grounded/insufficient-context JSON before persistence.
 
-The local Functions emulator continues to use
-`FakeStudentStudyAssistantProvider` and a labelled synthetic BFS/recursion
-corpus, so local and CI tests never require or transmit a real key. Before
-enabling a deployed environment, a human must:
+The local Functions emulator uses `FakeStudentStudyAssistantProvider` with the
+same approved CS2030S/CS2103 corpus, so local and CI tests never require or
+transmit a real key. The emulator cannot opt into the real adapter. Provider
+credentials remain server-only and must never be put in a `VITE_` variable or
+browser code.
+
+Before enabling a deployed environment, a human must:
 
 1. create the `SOCLAAS_API_KEY_STUDENT` Firebase secret for that Firebase project and
    ensure only the Functions runtime can access it;
@@ -1090,13 +1099,12 @@ enabling a deployed environment, a human must:
 5. explicitly approve deployment and a real-provider smoke test.
 
 Production is disabled by default; the local emulator is enabled by default for
-synthetic verification. Development staging (`helpinus-dev`) is enabled through
+isolated verification. Development staging (`helpinus-dev`) is enabled through
 the committed non-secret `src/functions/deploy/.env.helpinus-dev` configuration;
 that file pins the public base URL and `default` model but never contains the
-API key. Its production-empty retriever still returns insufficient context
-until a real corpus generation is approved and supplied. A future source
-importer must remain a separately
-reviewed trusted process and enforce content-type and size bounds, bounded
+API key. Retrieval returns insufficient context when a question does not match
+the approved CS2030S/CS2103 material. A future source importer must remain a
+separately reviewed trusted process and enforce content-type and size bounds, bounded
 same-allowlist redirects, DNS/IP checks against loopback, private, link-local,
 metadata-service and internal destinations, deterministic Unicode
 normalization/chunking, and human approval before generation activation. The

@@ -239,11 +239,18 @@ Assistant output is displayed as plain text. It may still be inaccurate, so
 check the cited source and your course requirements. Use it to understand and
 work through material; do not submit generated work as your own.
 
-In the local emulator, answers and links come from a small labelled synthetic
-BFS/recursion corpus and a deterministic fake provider. The deployed SoCLaaS
-adapter remains disabled until an administrator configures its server-side
-secret, approves a real corpus, completes semantic evaluation, and approves the
-retention settings and controlled provider smoke test.
+The Study assistant is limited to CS2030S Programming Methodology II and CS2103
+Software Engineering. Its approved static corpus contains concise material
+selected from the CS2030S 2021 Semester 2 notes and the CS2103/T AY2025/26
+Semester 1 textbook, and every grounded answer links back to the relevant
+public source page. It does not browse the web or answer from arbitrary module
+material during a conversation.
+
+In the local emulator, the deterministic fake provider uses the same approved
+CS2030S/CS2103 corpus. Local and automated tests never need a real provider key.
+Deployed environments use the server-only SoCLaaS adapter only when an
+administrator configures the environment's secret and explicitly enables the
+feature. The key is never exposed to the browser.
 
 ## 6. Mentor access
 
