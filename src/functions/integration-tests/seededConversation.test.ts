@@ -41,7 +41,7 @@ afterAll(async () => {
   for (const email of ['student@example.test', 'mentor@example.test', 'jamie.tan@example.test', 'aisha@example.test']) {
     const user = await getAdminAuth(admin).getUserByEmail(email)
     await db.collection('mentorProfiles').doc(user.uid).delete()
-    await db.collection('users').doc(user.uid).delete()
+    await db.collection('mentors').doc(user.uid).delete()
     await getAdminAuth(admin).deleteUser(user.uid)
   }
   for (const id of ['cs2103t', 'cs2040s', 'cs3230']) await db.collection('modules').doc(id).delete()

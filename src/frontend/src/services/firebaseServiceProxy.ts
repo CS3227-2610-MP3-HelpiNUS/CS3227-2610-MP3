@@ -7,10 +7,13 @@ async function loadFirebaseServices() {
 export const firebaseServiceProxy: HelpiNUSServices = {
   session: {
     async getCurrent() { return (await loadFirebaseServices()).session.getCurrent() },
+    async selectRole(role) { return (await loadFirebaseServices()).session.selectRole(role) },
     subscribe(listener, onError) { let unsubscribe = () => {}; let cancelled = false; void loadFirebaseServices().then((services) => { if (cancelled) return; unsubscribe = services.session.subscribe(listener, onError) }).catch(onError); return () => { cancelled = true; unsubscribe() } },
-    async signInWithGoogle() { return (await loadFirebaseServices()).session.signInWithGoogle() },
+    async signInWithGoogle(role) { return (await loadFirebaseServices()).session.signInWithGoogle(role) },
     async registerStudentWithGoogle() { return (await loadFirebaseServices()).session.registerStudentWithGoogle() },
+    async registerMentorWithGoogle() { return (await loadFirebaseServices()).session.registerMentorWithGoogle() },
     async retryStudentProfile(displayName) { return (await loadFirebaseServices()).session.retryStudentProfile(displayName) },
+    async retryMentorProfile(displayName) { return (await loadFirebaseServices()).session.retryMentorProfile(displayName) },
     async signOut() { return (await loadFirebaseServices()).session.signOut() },
   },
   dashboard: {

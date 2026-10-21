@@ -22,7 +22,7 @@ beforeAll(async () => {
   await env.clearFirestore()
   await env.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
-    for (const person of people) await setDoc(doc(db, `users/${person.uid}`), { id: person.uid, role: person.role, status: 'ACTIVE', email: person.email })
+    for (const person of people) await setDoc(doc(db, `${person.role === 'MENTOR' ? 'mentors' : 'users'}/${person.uid}`), { id: person.uid, role: person.role, status: 'ACTIVE', email: person.email })
     for (const [id, status] of [['pending', 'PENDING'], ['rejected', 'REJECTED'], ['accepted', 'ACCEPTED']] as const) {
       await setDoc(doc(db, `helpRequests/${id}`), parent(id, status))
       // Hostile pre-existing pairs make the parent gate observable on reads.

@@ -45,7 +45,7 @@ beforeAll(async () => {
   await getIdToken(student, true)
   ids.mentor = `f01-content-mentor-${crypto.randomUUID()}`
   await db.collection('users').doc(ids.student).set({ id: ids.student, email, displayName: 'Content Student', role: 'STUDENT', status: 'ACTIVE', createdAt: Timestamp.now() })
-  await db.collection('users').doc(ids.mentor).set({ id: ids.mentor, email: 'mentor@example.test', displayName: 'Content Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
+  await db.collection('mentors').doc(ids.mentor).set({ id: ids.mentor, email: 'mentor@example.test', displayName: 'Content Mentor', role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
   await db.collection('mentorProfiles').doc(ids.mentor).set({ userId: ids.mentor, biography: '', moduleIds: [moduleId], active: true })
   await db.collection('modules').doc(moduleId).set({ id: moduleId, code: 'CS3227', title: 'Content boundary', active: true })
 }, 30000)
@@ -66,7 +66,7 @@ afterAll(async () => {
   await db.collection('modules').doc(moduleId).delete()
   if (ids.mentor) {
     await db.collection('mentorProfiles').doc(ids.mentor).delete()
-    await db.collection('users').doc(ids.mentor).delete()
+    await db.collection('mentors').doc(ids.mentor).delete()
   }
   await deleteApp(app)
   await deleteAdminApp(admin)

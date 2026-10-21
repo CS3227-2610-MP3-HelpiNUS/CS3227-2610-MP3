@@ -32,7 +32,7 @@ beforeAll(async () => {
     await getAdminAuth(admin).updateUser(user.uid, { emailVerified: true })
     await user.reload()
     await getIdToken(user, true)
-    await db.collection('users').doc(user.uid).set({ id: user.uid, email, displayName: role, role: role === 'mentor' ? 'MENTOR' : 'STUDENT', status: 'ACTIVE', createdAt: Timestamp.now() })
+    await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(user.uid).set({ id: user.uid, email, displayName: role, role: role === 'mentor' ? 'MENTOR' : 'STUDENT', status: 'ACTIVE', createdAt: Timestamp.now() })
   }
   const batch = db.batch()
   for (const [index, id] of requestIds.entries()) {
@@ -59,7 +59,7 @@ afterAll(async () => {
   await batch.commit()
   for (const role of roles) {
     if (ids[role]) {
-      await db.collection('users').doc(ids[role]).delete()
+      await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).delete()
       await getAdminAuth(admin).deleteUser(ids[role])
     }
     await signOut(getAuth(apps[role]))

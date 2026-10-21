@@ -6,7 +6,7 @@ import {
   type DiscoverMentorsOutput,
   type DiscoverMentorsParsedInput,
 } from '@helpinus/shared'
-import { requireActiveUser } from './auth.js'
+import { requireRole } from './auth.js'
 
 const scanBatchSize = 100
 const maxScanBatches = 5
@@ -24,7 +24,7 @@ export async function discoverMentorsHandler(
   request: CallableRequest<unknown>,
   db: Firestore,
 ): Promise<DiscoverMentorsOutput> {
-  await requireActiveUser(request)
+  await requireRole(request, 'STUDENT')
   const eligible: Array<{
     cursor: string
     mentor: DiscoverMentorsOutput['mentors'][number]
@@ -48,7 +48,7 @@ export async function discoverMentorsHandler(
     }
 
     const users = await db.getAll(
-      ...profiles.docs.map((profile) => db.collection('users').doc(profile.id)),
+      ...profiles.docs.map((profile) => db.collection('mentors').doc(profile.id)),
     )
 
     for (const [index, profile] of profiles.docs.entries()) {

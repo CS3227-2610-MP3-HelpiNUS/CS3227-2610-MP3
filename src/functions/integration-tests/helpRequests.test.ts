@@ -25,7 +25,7 @@ beforeAll(async () => {
     connectFunctionsEmulator(getFunctions(app, 'asia-southeast1'), '127.0.0.1', 5001)
     const email = `f01-${role}-${crypto.randomUUID()}@example.test`
     ids[role] = (await createUserWithEmailAndPassword(auth, email, 'Synthetic-123!')).user.uid
-    await db.collection('users').doc(ids[role]).set({ id: ids[role], email, displayName: role === 'student' ? 'Student Name' : `${role} Mentor`, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: new Date() })
+    await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).set({ id: ids[role], email, displayName: role === 'student' ? 'Student Name' : `${role} Mentor`, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: new Date() })
   }
   await db.collection('mentorProfiles').doc(ids.mentor).set({ userId: ids.mentor, biography: '', moduleIds: ['f01-module'], active: true })
   await db.collection('mentorProfiles').doc(ids.other).set({ userId: ids.other, biography: '', moduleIds: ['f01-module'], active: true })
@@ -47,7 +47,7 @@ afterAll(async () => {
     await db.collection('helpRequestSummaries').doc(ids.student).delete()
     await db.collection('modules').doc('f01-module').delete()
     for (const role of clients) {
-      await db.collection('users').doc(ids[role]).delete()
+      await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).delete()
       await getAdminAuth(admin).deleteUser(ids[role])
     }
   }
@@ -65,7 +65,7 @@ describe('F01 callable persistence and authorization', () => {
     await expect(httpsCallable(functions, 'createHelpRequest')(input())).rejects.toMatchObject({ code: 'functions/unauthenticated' })
     await deleteApp(unauthed)
     await expect(create({ ...input(), studentId: ids.other } as never)).rejects.toMatchObject({ code: 'functions/invalid-argument' })
-    await expect(httpsCallable(getFunctions(apps.mentor, 'asia-southeast1'), 'createHelpRequest')(input())).rejects.toMatchObject({ code: 'functions/permission-denied' })
+    await expect(httpsCallable(getFunctions(apps.mentor, 'asia-southeast1'), 'createHelpRequest')(input())).rejects.toMatchObject({ code: 'functions/failed-precondition' })
   })
 
   it('serializes distinct concurrent operations and replays the same operation', async () => {
@@ -99,7 +99,7 @@ describe('F01 callable persistence and authorization', () => {
     const own = { operationId: crypto.randomUUID(), helpRequestId: ids.request, response: 'REJECTED' as const }
     const before = (await db.collection('helpRequests').doc(ids.request).get()).data()!
     await expect(httpsCallable(getFunctions(apps.other, 'asia-southeast1'), 'respondToHelpRequest')(own)).rejects.toMatchObject({ code: 'functions/permission-denied' })
-    await expect(httpsCallable(getFunctions(apps.student, 'asia-southeast1'), 'respondToHelpRequest')(own)).rejects.toMatchObject({ code: 'functions/permission-denied' })
+    await expect(httpsCallable(getFunctions(apps.student, 'asia-southeast1'), 'respondToHelpRequest')(own)).rejects.toMatchObject({ code: 'functions/failed-precondition' })
     const first = respondToHelpRequestOutputSchema.parse((await decide(own)).data)
     expect(first.kind).toBe('decided')
     const repeated = respondToHelpRequestOutputSchema.parse((await decide({ ...own, operationId: crypto.randomUUID() })).data)
@@ -143,9 +143,9 @@ describe('F01 callable persistence and authorization', () => {
     await db.collection('users').doc(ids.student).update({ status: 'SUSPENDED' })
     await expect(create(input(ids.createdOperationId))).rejects.toMatchObject({ code: 'functions/permission-denied' })
     await db.collection('users').doc(ids.student).update({ status: 'ACTIVE' })
-    await db.collection('users').doc(ids.mentor).update({ status: 'SUSPENDED' })
+    await db.collection('mentors').doc(ids.mentor).update({ status: 'SUSPENDED' })
     await expect(decide({ operationId: crypto.randomUUID(), helpRequestId: ids.next, response: 'REJECTED' })).rejects.toMatchObject({ code: 'functions/permission-denied' })
-    await db.collection('users').doc(ids.mentor).update({ status: 'ACTIVE' })
+    await db.collection('mentors').doc(ids.mentor).update({ status: 'ACTIVE' })
     expect((await db.collection('helpRequests').where('studentId', '==', ids.student).get()).size).toBe(before)
     expect((await db.collection('helpRequests').doc(ids.next).get()).data()?.status).toBe('ACCEPTED')
   }, 20000)

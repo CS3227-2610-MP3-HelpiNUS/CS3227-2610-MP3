@@ -32,7 +32,7 @@ beforeAll(async () => {
     connectFunctionsEmulator(getFunctions(app, 'asia-southeast1'), '127.0.0.1', 5001)
     const email = `f01-verification-${role}-${crypto.randomUUID()}@example.test`
     ids[role] = (await createUserWithEmailAndPassword(auth, email, 'Synthetic-123!')).user.uid
-    await db.collection('users').doc(ids[role]).set({ id: ids[role], email, displayName: role, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: new Date() })
+    await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).set({ id: ids[role], email, displayName: role, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: new Date() })
   }
   await db.collection('mentorProfiles').doc(ids.mentor).set({ userId: ids.mentor, biography: '', moduleIds: modules, active: true })
   for (const id of modules) await db.collection('modules').doc(id).set({ id, code: 'CS3227', title: id, active: true })
@@ -51,7 +51,7 @@ afterAll(async () => {
   if (ids.mentor) await db.collection('mentorProfiles').doc(ids.mentor).delete()
   for (const role of roles) {
     if (ids[role]) {
-      await db.collection('users').doc(ids[role]).delete()
+      await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).delete()
       await getAdminAuth(admin).deleteUser(ids[role])
     }
     await signOut(getAuth(apps[role]))
@@ -94,7 +94,7 @@ describe('F01 standalone callable verification', () => {
     }
     const moduleRef = db.collection('modules').doc(moduleId)
     const profileRef = db.collection('mentorProfiles').doc(ids.mentor)
-    const mentorRef = db.collection('users').doc(ids.mentor)
+    const mentorRef = db.collection('mentors').doc(ids.mentor)
     await moduleRef.update({ active: false }); await denied(); await moduleRef.update({ active: true })
     await moduleRef.delete(); await denied(); await moduleRef.set({ id: moduleId, code: 'CS3227', title: moduleId, active: true })
     await profileRef.update({ active: false }); await denied(); await profileRef.update({ active: true })

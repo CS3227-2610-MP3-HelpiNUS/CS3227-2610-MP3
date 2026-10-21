@@ -51,7 +51,10 @@ describe('F02 bounded history DOM states (TC-018)', () => {
     const cursors: Array<ChatCursor | null> = []
     const view = mount((_id, cursor, onData) => { cursors.push(cursor); pending.set(cursor?.id ?? 'first', onData); return () => {} })
     expect(await within(view.container).findByText('Loading messages…')).toBeInTheDocument()
-    act(() => pending.get('first')?.(newest.slice(0, 20), firstCursor))
+    await waitFor(() => expect(pending.has('first')).toBe(true))
+    const firstPage = pending.get('first')
+    expect(firstPage).toBeDefined()
+    act(() => firstPage!(newest.slice(0, 20), firstCursor))
     await waitFor(() => expect(within(view.container).getAllByRole('group', { name: /message/i })).toHaveLength(20))
     const user = userEvent.setup()
     await user.click(within(view.container).getByRole('button', { name: 'Load earlier messages' }))

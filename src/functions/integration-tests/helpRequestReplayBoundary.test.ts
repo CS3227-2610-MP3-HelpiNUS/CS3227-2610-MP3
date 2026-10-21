@@ -80,7 +80,7 @@ beforeAll(async () => {
   ids.mentorA = `f01-replay-mentor-a-${crypto.randomUUID()}`
   ids.mentorB = `f01-replay-mentor-b-${crypto.randomUUID()}`
   for (const [mentorId, suffix] of [[ids.mentorA, 'A'], [ids.mentorB, 'B']] as const) {
-    await db.collection('users').doc(mentorId).set({ id: mentorId, email: `mentor-${suffix}@example.test`, displayName: `Replay Mentor ${suffix}`, role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
+    await db.collection('mentors').doc(mentorId).set({ id: mentorId, email: `mentor-${suffix}@example.test`, displayName: `Replay Mentor ${suffix}`, role: 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
     await db.collection('mentorProfiles').doc(mentorId).set({ userId: mentorId, biography: '', moduleIds: [moduleA, moduleB], active: true })
   }
   await db.collection('modules').doc(moduleA).set({ id: moduleA, code: 'TC011A', title: 'Replay A', active: true })
@@ -102,7 +102,7 @@ afterAll(async () => {
   }
   for (const mentorId of [ids.mentorA, ids.mentorB]) if (mentorId) {
     await db.collection('mentorProfiles').doc(mentorId).delete()
-    await db.collection('users').doc(mentorId).delete()
+    await db.collection('mentors').doc(mentorId).delete()
   }
   await db.collection('modules').doc(moduleA).delete()
   await db.collection('modules').doc(moduleB).delete()

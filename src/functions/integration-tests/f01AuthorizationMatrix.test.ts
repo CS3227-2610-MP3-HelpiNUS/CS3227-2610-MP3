@@ -57,7 +57,7 @@ async function denial(promise: Promise<unknown>, code: string) {
 }
 
 async function restore(role: Role, storedUser: FirebaseFirestore.DocumentData, originalAuthEmail: string) {
-  await db.collection('users').doc(ids[role]).set(storedUser)
+  await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).set(storedUser)
   await adminAuth.updateUser(ids[role], { disabled: false, email: originalAuthEmail, emailVerified: true })
   if (!auth(role).currentUser) await signInWithEmailAndPassword(auth(role), originalAuthEmail, password)
   await auth(role).currentUser!.reload()
@@ -75,7 +75,7 @@ beforeAll(async () => {
     await adminAuth.updateUser(ids[role], { emailVerified: true })
     await clientAuth.currentUser!.reload()
     await getIdToken(clientAuth.currentUser!, true)
-    await db.collection('users').doc(ids[role]).set({ id: ids[role], email: emails[role], displayName: `Authorization ${role}`, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
+    await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).set({ id: ids[role], email: emails[role], displayName: `Authorization ${role}`, role: role === 'student' ? 'STUDENT' : 'MENTOR', status: 'ACTIVE', createdAt: Timestamp.now() })
   }
   await db.collection('mentorProfiles').doc(ids.mentor).set({ userId: ids.mentor, biography: '', moduleIds: [moduleId], active: true })
   await db.collection('modules').doc(moduleId).set({ id: moduleId, code: 'CS3227', title: 'Authorization module', active: true })
@@ -100,7 +100,7 @@ afterAll(async () => {
   await db.collection('modules').doc(moduleId).delete()
   if (ids.mentor) await db.collection('mentorProfiles').doc(ids.mentor).delete()
   for (const role of roles) {
-    if (ids[role]) { await db.collection('users').doc(ids[role]).delete(); await adminAuth.deleteUser(ids[role]) }
+    if (ids[role]) { await db.collection(role.toLowerCase().includes('student') ? 'users' : 'mentors').doc(ids[role]).delete(); await adminAuth.deleteUser(ids[role]) }
     await signOut(auth(role))
     await deleteApp(apps[role])
   }
@@ -183,14 +183,14 @@ describe('F01 current authority and explicit IDs on production callables', () =>
 
   it('denies pending decisions and terminal replay after Mentor revocation, then restores eligible continuation (TC-027/039)', async () => {
     const baseline = await coordination()
-    const storedUser = (await db.collection('users').doc(ids.mentor).get()).data()!
+    const storedUser = (await db.collection('mentors').doc(ids.mentor).get()).data()!
     const variants = [
       { name: 'signed out', code: 'functions/unauthenticated', change: () => signOut(auth('mentor')) },
-      { name: 'wrong role', code: 'functions/permission-denied', change: () => db.collection('users').doc(ids.mentor).update({ role: 'STUDENT' }) },
-      { name: 'inactive', code: 'functions/permission-denied', change: () => db.collection('users').doc(ids.mentor).update({ status: 'SUSPENDED' }) },
+      { name: 'wrong role', code: 'functions/permission-denied', change: () => db.collection('mentors').doc(ids.mentor).update({ role: 'STUDENT' }) },
+      { name: 'inactive', code: 'functions/permission-denied', change: () => db.collection('mentors').doc(ids.mentor).update({ status: 'SUSPENDED' }) },
       { name: 'disabled', code: 'functions/permission-denied', change: () => adminAuth.updateUser(ids.mentor, { disabled: true }) },
       { name: 'unverified', code: 'functions/failed-precondition', change: async () => { await adminAuth.updateUser(ids.mentor, { emailVerified: false }); await getIdToken(auth('mentor').currentUser!, true) } },
-      { name: 'stored email drift', code: 'functions/permission-denied', change: () => db.collection('users').doc(ids.mentor).update({ email: `drift-${crypto.randomUUID()}@integration.invalid` }) },
+      { name: 'stored email drift', code: 'functions/permission-denied', change: () => db.collection('mentors').doc(ids.mentor).update({ email: `drift-${crypto.randomUUID()}@integration.invalid` }) },
     ]
     const decide = callable<RespondToHelpRequestInput>('mentor', 'respondToHelpRequest')
     for (const variant of variants) {
