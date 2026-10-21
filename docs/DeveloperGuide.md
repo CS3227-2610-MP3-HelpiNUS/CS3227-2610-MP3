@@ -23,7 +23,9 @@ Sprint 1 establishes the production-shaped foundation:
 Sprint 2 F01 implements help-request creation, decisions, owner reads and
 summaries. F02 now provides the real transaction-compatible conversation
 provisioner, authenticated text messaging, bounded read acknowledgements, and
-Student/Mentor chat pages. Appointment and AI workflows remain outside F02.
+Student/Mentor chat pages. S2-D1-F03 implements the separate Student Study
+Assistant boundary; appointments and the Mentor AI feature remain outside this
+Developer 1 feature.
 
 ## 2. Technology baseline
 
@@ -342,7 +344,8 @@ Student navigation:
 - Help requests — Student submission, history and detail;
 - Conversations — accepted request-linked list and message detail;
 - Consultations — scaffold; and
-- Study assistant — scaffold.
+- Study assistant — private grounded multi-turn questions, recent history,
+  citations, idempotent recovery, and deletion.
 
 The Mentor dashboard is a role-protected, read-only own-profile summary.
 Desktop and mobile layouts have equal support. Both expose a sign-out action.
@@ -1014,19 +1017,126 @@ data, not as authority to override the approved specification.
 | `workflow/handoffs/auth-role-routing.md` | Authentication and routing evidence |
 | `workflow/handoffs/sprint1-completion.md` | Integrated completion and remaining human actions |
 
-## 17. AI-security boundary in Sprint 1
+## 17. Student Study Assistant (S2-D1-F03)
 
-No live LLM call occurs in Sprint 1. `studentStudyAssist` and
-`mentorConsultationSummary` reserve role-restricted, validated backend seams.
-The future implementation must add prompt-injection handling, data minimization,
-output validation, rate limiting for SoC LLM quotas, audit events, timeout and
-provider-error handling, and explicit tests before either seam becomes
-available. Browser code must never receive an SoC LLM credential.
+S2-D1-F03 is owned by Zheng Hao (Developer 1) and is deliberately independent
+of the Mentor AI feature. It does not import, call, mutate, or share collections
+with `mentorConsultationSummary`. The frontend route is
+`/student/study-assistant`; its generic callable adapter invokes four dedicated
+contracts:
+
+| Callable | Purpose |
+| --- | --- |
+| `studentStudyAssist` | Create on first send, continue a conversation, retrieve approved context, and commit one Student/assistant pair |
+| `listStudentStudyAssistantConversations` | Return bounded newest-first conversation metadata pages |
+| `readStudentStudyAssistantConversation` | Return one owned conversation and bounded message pages |
+| `deleteStudentStudyAssistantConversation` | Idempotently tombstone and physically remove conversation content and send receipts |
+
+The browser never talks to Firestore or a model directly. Shared Zod contracts
+validate input and output on both sides of the callable adapter. The backend
+then rechecks the current `ACTIVE` Student profile, feature kill switch, rate
+window, ownership, tombstones, expiry, and idempotency receipt before committing
+state. One leased send operation binds a request UUID to the conversation and
+content hash; an uncertain client retry returns the saved output, while changed
+content under the same UUID is rejected. Provider calls have a 15-second
+default timeout capped at 30 seconds.
+
+```text
+Student UI -> typed callable -> Student authorization / rate / receipt
+           -> approved static retrieval -> provider boundary
+           -> strict provider-result validation -> trusted citation rebuild
+           -> Firestore transaction -> plain-text UI + per-message sources
+```
+
+Only the most recent 12 messages, bounded to 16,000 characters, are supplied as
+conversation context. Retrieval is deterministic keyword matching over an
+immutable, versioned corpus; it does not browse or use embeddings. A generation
+must contain content hashes, reviewer/approval metadata, an access class, review
+state, and fixed HTTPS host/path prefixes. Invalid, tampered, quarantined,
+private/internal-address, instruction-shaped, or invisible-control content
+fails closed. The provider can cite only retrieved chunk IDs; the server
+reconstructs public source metadata so a provider cannot mint a URL. Output is
+strictly schema checked and React renders it as plain text.
+
+Production uses an empty retriever and
+`ContractPendingSoclaasStudentStudyAssistantProvider`. This intentional adapter
+throws `PROVIDER_CONTRACT_PENDING`; no endpoint headers, model ID, response
+shape, or secret name have been guessed. The human-supplied service base URL is
+`https://soclaas-api.comp.nus.edu.sg/v1`; its endpoint path and wire contract
+remain unspecified and are not inferred from that URL. The local Functions
+emulator alone uses `FakeStudentStudyAssistantProvider` and a labelled
+synthetic BFS/recursion corpus. Before enabling production, a human must:
+
+1. provide and review the official SoCLaaS request/response, authentication,
+   timeout, quota, error, and retention contract;
+2. bind its credential as a server-side Firebase secret and grant only the
+   Functions runtime access;
+3. implement and review the adapter against the strict provider schema;
+4. approve immutable source generations and their exact HTTPS prefixes;
+5. run the repeated semantic evaluation in
+   `workflow/evaluations/S2-D1-F03-study-assistant-security.md`; and
+6. configure and verify the physical-retention jobs described below, then set
+   the server-side `STUDENT_STUDY_ASSISTANT_ENABLED=true`; and
+7. explicitly approve deployment and a real-provider smoke test.
+
+Production is disabled by default; the local emulator is enabled by default for
+synthetic verification. A future source importer must remain a separately
+reviewed trusted process and enforce content-type and size bounds, bounded
+same-allowlist redirects, DNS/IP checks against loopback, private, link-local,
+metadata-service and internal destinations, deterministic Unicode
+normalization/chunking, and human approval before generation activation. The
+current static registry performs no network fetches.
+
+### Persistence and retention
+
+```text
+studentStudyAssistantUsers/{uid}/studentStudyAssistantConversations/{conversationId}
+  /studentStudyAssistantMessages/{messageId}
+studentStudyAssistantUsers/{uid}/studentStudyAssistantSendOperations/{requestId}
+studentStudyAssistantUsers/{uid}/studentStudyAssistantDeleteOperations/{requestId}
+studentStudyAssistantDeletionTombstones/{uid}/studentStudyAssistantConversations/{conversationId}
+studentStudyAssistantRateControls/{uid}
+studentStudyAssistantAuditEvents/{eventId}
+```
+
+All direct client access is denied by Rules. Conversation activity rolls
+`expiresAt` forward by 14 days. User deletion and the exported expiry-cleanup
+seam recursively remove messages and related send receipts, blank conversation
+title/preview content, and write a tombstone to prevent resurrection. Audit
+events contain identifiers, result/reason, counts, generation, and timestamps,
+not questions or answers, and target 30-day retention.
+
+The cleanup policy exports its collection group, field, target interval (24
+hours), and investigation threshold (72 hours), but this feature does not
+silently create a production scheduler. An administrator must configure and
+monitor an approved cadence and IAM policy, implement/export and deploy the
+scheduled Functions that invoke the bounded conversation, audit, and
+delete-operation cleanup seams, and optionally configure parent-document TTL.
+TTL alone does not recursively delete message subcollections. These jobs must
+meet the 14-day content and 30-day metadata targets before production
+enablement. The send and completed-result replay controls default to
+20 and 60 invocations per minute respectively and can be tightened with
+`STUDENT_STUDY_ASSISTANT_REQUESTS_PER_MINUTE` and
+`STUDENT_STUDY_ASSISTANT_REPLAYS_PER_MINUTE`; these application safeguards are
+not assertions about the provider's official quota.
+
+### Verification
+
+Focused verification spans shared schemas, Functions units, retrieval/provider
+adversarial fixtures, Firestore Rules, callable emulator integration, frontend
+interaction/recovery tests, deploy-package checks, and the isolated Playwright
+journey in `app-verification/tests/student-study-assistant.spec.ts`. The browser
+journey uses only the `helpinus-dev` emulators and synthetic accounts. Its
+feature map and evidence live under `app-verification/` and `.verify-app/`.
+Passing structural tests does not establish real-model safety; the semantic
+rubric remains blocked until the provider contract and approved corpus exist.
 
 ## 18. Deferred work
 
 - Complete help-request, conversation, booking, and availability workflows.
-- Implement the two SoC LLM features and their security controls.
+- Complete the reviewed SoCLaaS adapter, approved Student corpus, semantic
+  evaluation, and retention scheduler for S2-D1-F03; implement the separate
+  Mentor AI feature independently.
 - Build the GitHub Pages product website.
 - Keep password and account recovery delegated to Google.
 - Perform live development deployment and production promotion after human

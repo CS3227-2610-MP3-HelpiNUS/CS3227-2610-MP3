@@ -12,7 +12,9 @@ role-based access, Mentor discovery, and Mentor profile management. Sprint 2
 F01 adds Student help-request submission and history, a persisted Student
 request summary, and a Mentor request inbox. The local F02 implementation adds
 atomic Mentor acceptance and private request-linked text conversations for
-the Student and addressed Mentor. Consultations and AI actions remain scaffolds.
+the Student and addressed Mentor. S2-D1-F03 adds a private Student Study
+Assistant with approved-source citations, recent conversation history, and
+explicit insufficient-context responses. Consultations remain scaffolds.
 
 ## 2. Supported users and devices
 
@@ -82,7 +84,7 @@ the header.
 | Help requests | Submit, review, and track your own requests |
 | Conversations | Open accepted request conversations, read saved history, send messages and see sender-side read status |
 | Consultations | Route and interface scaffold |
-| Study assistant | Route and interface scaffold; no live LLM call |
+| Study assistant | Private source-grounded questions, multi-turn history, citations, safe retry, and deletion |
 
 Use **Skip to content** when navigating by keyboard to bypass repeated
 navigation. The HelpiNUS brand returns to the dashboard for the authenticated
@@ -192,6 +194,51 @@ message recovery; signing out or changing accounts clears it.
 The official app acknowledges an incoming saved message when it enters the
 foreground conversation viewport. Read does not prove the recipient paid
 attention: a modified client can acknowledge early or withhold acknowledgement.
+
+### Use the Study assistant
+
+1. Choose **Study assistant** in Student navigation. The initial **New
+   conversation** exists only in this browser view; nothing is saved until you
+   send the first message.
+2. Enter a plain-text question of up to 4,000 characters and choose **Send
+   message**. The assistant searches only its approved source collection. A
+   supported answer includes a per-message **Sources** list with the source
+   title, section, and version. Open a source to verify the answer.
+3. Continue asking questions in the same conversation. Only a bounded amount
+   of recent conversation context is sent for each answer. Choose a conversation
+   under **History** to reload its saved messages and citations, and **Load
+   earlier messages** when available.
+4. If the approved sources do not contain enough relevant information, the
+   answer is labelled **Not enough approved context** and has no citation. Try a
+   narrower question or consult your course materials; the app does not invent
+   a source to fill the gap.
+5. If delivery becomes uncertain, choose **Retry message**. The app reuses the
+   exact request ID and text so the server can return the original result
+   without creating a duplicate. Resolve or discard that recovery before
+   starting another conversation. A definitive validation or access failure is
+   not offered as a retry.
+6. Choose **Delete conversation**, review the warning, and choose **Delete** to
+   remove its saved content. This cannot be undone.
+
+Conversation access expires 14 days after its latest activity, at which point
+the content immediately disappears from lists, reads, retries, and assistant
+context. The maintenance policy targets physical removal of expired message
+content and retry receipts within 24 hours; content remaining after 72 hours is
+an operational issue. Bounded metadata-only audit records target 30-day
+retention. Those physical-retention jobs must be configured and monitored by an
+administrator before production enablement. An explicit deletion hides the
+conversation immediately and attempts physical cleanup in the same request.
+Students cannot read or write Study Assistant records directly, and Mentors
+cannot use the Student callable or route.
+
+Assistant output is displayed as plain text. It may still be inaccurate, so
+check the cited source and your course requirements. Use it to understand and
+work through material; do not submit generated work as your own.
+
+In the local emulator, answers and links come from a small labelled synthetic
+BFS/recursion corpus and a deterministic fake provider. Production SoCLaaS is
+disabled until an administrator supplies and reviews its exact API contract,
+server-side secret, approved corpus, and retention settings.
 
 ## 6. Mentor access
 
