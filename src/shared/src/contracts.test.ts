@@ -16,6 +16,11 @@ import {
   updateOwnMentorProfileInputSchema,
   updateOwnMentorProfileOutputSchema,
   messageSchema,
+  studentStudyAssistInputSchema,
+  studentStudyAssistOutputSchema,
+  listStudentStudyAssistantConversationsInputSchema,
+  readStudentStudyAssistantConversationInputSchema,
+  deleteStudentStudyAssistantConversationInputSchema,
   userSchema,
 } from './index.js'
 
@@ -198,5 +203,40 @@ describe('shared contracts', () => {
       id: 'message-1', conversationId: 'conversation-1', senderId: 'student-1', body: ' \t\n ',
       createdAt: '2026-10-13T10:00:00.000Z',
     }).success).toBe(false)
+  })
+
+  it('enforces strict Student Study Assistant send and citation boundaries', () => {
+    const requestId = 'b70f16a0-5010-4a53-95d7-718e396090a5'
+    const input = { requestId, conversationId: null, userMessage: '  Explain breadth-first search.  ' }
+    expect(studentStudyAssistInputSchema.parse(input)).toEqual({ ...input, userMessage: 'Explain breadth-first search.' })
+    for (const invalid of [
+      { ...input, requestId: 'not-a-uuid' },
+      { ...input, userMessage: '   ' },
+      { ...input, userMessage: 'x'.repeat(4001) },
+      { ...input, conversationId: ' other ' },
+      { ...input, uid: 'forged' },
+    ]) expect(studentStudyAssistInputSchema.safeParse(invalid).success).toBe(false)
+
+    const conversation = { id: 'conversation-1', title: 'Breadth-first search', preview: 'Queues visit nodes by level.', lastActivityAt: '2026-10-21T08:00:00.000Z', expiresAt: '2026-11-04T08:00:00.000Z' }
+    const userMessage = { id: 'user-1', role: 'STUDENT', content: 'Explain breadth-first search.', createdAt: conversation.lastActivityAt }
+    const assistantMessage = { id: 'assistant-1', role: 'ASSISTANT', content: 'Breadth-first search explores one level at a time.', createdAt: conversation.lastActivityAt }
+    const citation = { sourceId: 'soc-bfs', title: 'Synthetic SoC algorithms guide', canonicalUrl: 'https://example.test/soc/bfs', version: 'fixture-v1', section: 'Traversal' }
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage, citations: [citation], replayed: false }).success).toBe(true)
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage, citations: [], replayed: false }).success).toBe(false)
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'insufficient_context', conversation, userMessage, assistantMessage, citations: [citation], replayed: false }).success).toBe(false)
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage, citations: [{ ...citation, canonicalUrl: 'javascript:alert(1)' }], replayed: false }).success).toBe(false)
+  })
+
+  it('bounds Student Study Assistant list, read, and delete operations', () => {
+    expect(listStudentStudyAssistantConversationsInputSchema.parse({})).toEqual({ limit: 20 })
+    expect(readStudentStudyAssistantConversationInputSchema.parse({ conversationId: 'conversation-1' })).toEqual({ conversationId: 'conversation-1', limit: 50 })
+    expect(deleteStudentStudyAssistantConversationInputSchema.safeParse({ requestId: crypto.randomUUID(), conversationId: 'conversation-1' }).success).toBe(true)
+    for (const invalid of [
+      { cursor: '', limit: 20 },
+      { limit: 51 },
+      { uid: 'forged' },
+    ]) expect(listStudentStudyAssistantConversationsInputSchema.safeParse(invalid).success).toBe(false)
+    expect(readStudentStudyAssistantConversationInputSchema.safeParse({ conversationId: 'conversation/1' }).success).toBe(false)
+    expect(deleteStudentStudyAssistantConversationInputSchema.safeParse({ requestId: crypto.randomUUID(), conversationId: 'conversation-1', ownerUid: 'forged' }).success).toBe(false)
   })
 })
