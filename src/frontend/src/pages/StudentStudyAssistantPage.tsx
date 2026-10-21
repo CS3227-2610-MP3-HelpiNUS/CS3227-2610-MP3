@@ -32,8 +32,10 @@ function mergeConversations(current: StudentStudyAssistantConversation[], incomi
 function mergeMessages(current: StudentStudyAssistantMessage[], incoming: StudentStudyAssistantMessage[]) {
   const byId = new Map(current.map((message) => [message.id, message]))
   for (const message of incoming) byId.set(message.id, message)
-  return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt) ||
-    (a.role === b.role ? a.id.localeCompare(b.id) : a.role === 'STUDENT' ? -1 : 1))
+  // Each backend page is already ordered by the authoritative sequence. Keep
+  // insertion order when deduplicating so equal transaction timestamps never
+  // reorder messages or page boundaries.
+  return [...byId.values()]
 }
 
 function formatDate(value: string) {
@@ -127,6 +129,7 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
     const request = ++generation.current
     setSelected(conversation)
     setMessages([])
+    setEarlierLoading(false)
     setDeleteConfirm(false)
     setDeleteError('')
     setConversationState('loading')
@@ -150,22 +153,24 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
 
   async function loadEarlierMessages() {
     if (!selected || !messageCursor || earlierLoading) return
+    const request = generation.current
+    const conversationId = selected.id
     setEarlierLoading(true)
     try {
       const result = await services.callables.invoke('readStudentStudyAssistantConversation', {
-        conversationId: selected.id,
+        conversationId,
         cursor: messageCursor,
         limit: MESSAGE_PAGE_SIZE,
       })
-      if (selected.id !== result.conversation.id) return
+      if (generation.current !== request || conversationId !== result.conversation.id) return
       setMessages((current) => mergeMessages(result.messages, current))
       setMessageCursor(result.nextCursor)
       setSelected(result.conversation)
       setAnnouncement('Earlier messages loaded.')
     } catch {
-      setAnnouncement('Earlier messages could not be loaded. Try again.')
+      if (generation.current === request) setAnnouncement('Earlier messages could not be loaded. Try again.')
     } finally {
-      setEarlierLoading(false)
+      if (generation.current === request) setEarlierLoading(false)
     }
   }
 

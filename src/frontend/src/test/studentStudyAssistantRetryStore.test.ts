@@ -38,5 +38,25 @@ describe('Student Study Assistant retry storage', () => {
     sessionStorage.setItem('student-study-assistant-send', JSON.stringify({ ...item, request: { ...item.request, requestId: 'not-a-uuid' } }))
     expect(loadStudentStudyAssistantRetry(item.uid)).toBeNull()
   })
+
+  it('blocks dispatch when exact retry recovery cannot be persisted', () => {
+    const original = sessionStorage
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage')
+    const blocked = {
+      get length() { return original.length },
+      clear: () => original.clear(),
+      getItem: (key: string) => original.getItem(key),
+      key: (index: number) => original.key(index),
+      removeItem: (key: string) => original.removeItem(key),
+      setItem: () => { throw new DOMException('Storage is unavailable.', 'QuotaExceededError') },
+    } satisfies Storage
+    Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: blocked })
+    try {
+      expect(() => saveStudentStudyAssistantRetry(retry())).toThrow('Storage is unavailable.')
+    } finally {
+      if (descriptor) Object.defineProperty(globalThis, 'sessionStorage', descriptor)
+    }
+    expect(loadStudentStudyAssistantRetry('student-one')).toBeNull()
+  })
 })
 

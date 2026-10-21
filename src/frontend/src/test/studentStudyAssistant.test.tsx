@@ -179,6 +179,36 @@ describe('Student Study Assistant', () => {
     expect(screen.getByText('Local only until your first message is sent')).toBeInTheDocument()
   })
 
+  it('discards an earlier-page response after the Student opens another conversation', async () => {
+    const conversationA = { ...conversation('conversation-a'), title: 'Conversation A' }
+    const conversationB = { ...conversation('conversation-b'), title: 'Conversation B' }
+    let resolveEarlier!: (value: CallableOutput<'readStudentStudyAssistantConversation'>) => void
+    const earlier = new Promise<CallableOutput<'readStudentStudyAssistantConversation'>>((resolve) => { resolveEarlier = resolve })
+    const services = servicesWith({
+      listStudentStudyAssistantConversations: async () => ({ conversations: [conversationA, conversationB], nextCursor: null }),
+      readStudentStudyAssistantConversation: async (input) => {
+        if (input.conversationId === conversationA.id && input.cursor) return earlier
+        if (input.conversationId === conversationA.id) {
+          return { conversation: conversationA, messages: [studentMessage('a-current', 'Current A message')], nextCursor: 'earlier-a' }
+        }
+        return { conversation: conversationB, messages: [studentMessage('b-current', 'Current B message')], nextCursor: null }
+      },
+    })
+    const user = userEvent.setup()
+    mount(services)
+    const history = await screen.findByRole('complementary', { name: /history/i })
+
+    await user.click(await within(history).findByRole('button', { name: /Conversation A/ }))
+    expect(await screen.findByText('Current A message')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Load earlier messages' }))
+    await user.click(within(history).getByRole('button', { name: /Conversation B/ }))
+    expect(await screen.findByText('Current B message')).toBeInTheDocument()
+
+    resolveEarlier({ conversation: conversationA, messages: [studentMessage('a-earlier', 'Stale earlier A message')], nextCursor: null })
+    await waitFor(() => expect(screen.queryByText('Stale earlier A message')).not.toBeInTheDocument())
+    expect(screen.getByText('Current B message')).toBeInTheDocument()
+  })
+
   it('renders unsupported and hostile-looking model text as safe plain text', async () => {
     const unsafe = '<img src=x onerror="window.hacked=true"> Approved sources do not cover this.'
     const services = servicesWith({
