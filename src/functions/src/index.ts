@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
+import { defineSecret } from 'firebase-functions/params'
 import { callable, singaporeRegion } from './callable.js'
 import { requireActiveUser, requireRole } from './auth.js'
 import { callableSchemas } from '@helpinus/shared'
@@ -12,9 +13,18 @@ import { readOwnMentorProfileHandler, updateOwnMentorProfileHandler } from './me
 import { searchMentorModulesHandler } from './mentorModuleSearch.js'
 import { createHelpRequestHandler, respondToHelpRequestHandler } from './helpRequests.js'
 import { acknowledgeMessageHandler, provisionForAcceptedRequest, sendMessageHandler } from './conversations.js'
+import {
+  createStudentStudyAssistantDependencies,
+  deleteStudentStudyAssistantConversationHandler,
+  listStudentStudyAssistantConversationsHandler,
+  readStudentStudyAssistantConversationHandler,
+  recordStudentStudyAssistantBoundaryAudit,
+  studentStudyAssistHandler,
+} from './studentStudyAssistant.js'
 
 initializeApp()
 const db = getFirestore()
+const studentSoclaasApiKey = defineSecret('SOCLAAS_API_KEY_STUDENT')
 
 export const testAuthenticated = callable(
   // The shared initialization schema keeps runtime parsing consistent without inventing a domain contract.
@@ -63,7 +73,34 @@ export const reserveAppointment = notImplemented('reserveAppointment', 'STUDENT'
 export const respondToAppointment = notImplemented('respondToAppointment', 'MENTOR')
 export const cancelAppointment = notImplemented('cancelAppointment')
 export const completeAppointment = notImplemented('completeAppointment', 'MENTOR')
-export const studentStudyAssist = notImplemented('studentStudyAssist', 'STUDENT')
+const studentStudyAssistantDependencies = createStudentStudyAssistantDependencies(
+  process.env.FUNCTIONS_EMULATOR === 'true',
+  () => studentSoclaasApiKey.value(),
+)
+export const studentStudyAssist = callable(
+  callableSchemas.studentStudyAssist.input,
+  (input, request) => studentStudyAssistHandler(input, request, db, studentStudyAssistantDependencies),
+  { secrets: [studentSoclaasApiKey] },
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(request, 'studentStudyAssist', phase, error),
+)
+export const listStudentStudyAssistantConversations = callable(
+  callableSchemas.listStudentStudyAssistantConversations.input,
+  (input, request) => listStudentStudyAssistantConversationsHandler(input, request, db, studentStudyAssistantDependencies),
+  {},
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(request, 'listStudentStudyAssistantConversations', phase, error),
+)
+export const readStudentStudyAssistantConversation = callable(
+  callableSchemas.readStudentStudyAssistantConversation.input,
+  (input, request) => readStudentStudyAssistantConversationHandler(input, request, db, studentStudyAssistantDependencies),
+  {},
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(request, 'readStudentStudyAssistantConversation', phase, error),
+)
+export const deleteStudentStudyAssistantConversation = callable(
+  callableSchemas.deleteStudentStudyAssistantConversation.input,
+  (input, request) => deleteStudentStudyAssistantConversationHandler(input, request, db, studentStudyAssistantDependencies),
+  {},
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(request, 'deleteStudentStudyAssistantConversation', phase, error),
+)
 export const mentorConsultationSummary = callable(
   callableSchemas.mentorConsultationSummary.input,
   async (_input, request) => {

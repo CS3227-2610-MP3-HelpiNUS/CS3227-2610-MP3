@@ -32,6 +32,16 @@ beforeEach(async () => {
     await setDoc(doc(db, 'conversations/chat/messages/old'), { senderId: 'mentor', body: 'Hi', createdAt: new Date() })
     await setDoc(doc(db, 'availabilitySlots/slot'), { mentorId: 'mentor', withdrawn: false, startsAt: new Date(Date.now() + 60 * 60 * 1000) })
     await setDoc(doc(db, 'appointments/appointment'), { studentId: 'student', mentorId: 'mentor', status: 'PENDING' })
+    await setDoc(doc(db, 'studentStudyAssistantUsers/student'), { ownerUid: 'student' })
+    await setDoc(doc(db, 'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation'), { ownerUid: 'student', state: 'ACTIVE' })
+    await setDoc(doc(db, 'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation/studentStudyAssistantMessages/message'), { role: 'STUDENT', content: 'Private study question' })
+    await setDoc(doc(db, 'studentStudyAssistantUsers/student/studentStudyAssistantSendOperations/operation'), { state: 'COMPLETED' })
+    await setDoc(doc(db, 'studentStudyAssistantUsers/student/studentStudyAssistantDeleteOperations/operation'), { state: 'COMPLETED' })
+    await setDoc(doc(db, 'studentStudyAssistantCorpus/generation/studyChunks/chunk'), { sourceId: 'synthetic-source' })
+    await setDoc(doc(db, 'studentStudyAssistantConfig/runtime'), { enabled: true })
+    await setDoc(doc(db, 'studentStudyAssistantRateControls/student'), { count: 1 })
+    await setDoc(doc(db, 'studentStudyAssistantDeletionTombstones/student/studentStudyAssistantConversations/conversation'), { deletedAt: new Date() })
+    await setDoc(doc(db, 'studentStudyAssistantAuditEvents/event'), { featureId: 'S2-D1-F03' })
   })
 })
 
@@ -173,6 +183,47 @@ describe('approved direct access matrix', () => {
     await assertFails(setDoc(doc(db, 'availabilitySlots/new'), { mentorId: 'mentor', withdrawn: false }))
     await assertFails(updateDoc(doc(db, 'appointments/appointment'), { status: 'CONFIRMED' }))
     await assertFails(getDoc(doc(db, 'aiAuditEvents/event')))
+  })
+
+  it('keeps every Student Study Assistant namespace callable-only for every identity', async () => {
+    const databases = [
+      env.unauthenticatedContext().firestore(),
+      env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore(),
+      env.authenticatedContext('mentor', { email: 'mentor@example.test', email_verified: true }).firestore(),
+      env.authenticatedContext('suspended', { email: 'suspended@example.test', email_verified: true }).firestore(),
+    ]
+    const documents = [
+      'studentStudyAssistantUsers/student',
+      'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation',
+      'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation/studentStudyAssistantMessages/message',
+      'studentStudyAssistantUsers/student/studentStudyAssistantSendOperations/operation',
+      'studentStudyAssistantUsers/student/studentStudyAssistantDeleteOperations/operation',
+      'studentStudyAssistantCorpus/generation/studyChunks/chunk',
+      'studentStudyAssistantConfig/runtime',
+      'studentStudyAssistantRateControls/student',
+      'studentStudyAssistantDeletionTombstones/student/studentStudyAssistantConversations/conversation',
+      'studentStudyAssistantAuditEvents/event',
+    ]
+    const collections = [
+      'studentStudyAssistantUsers',
+      'studentStudyAssistantUsers/student/studentStudyAssistantConversations',
+      'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation/studentStudyAssistantMessages',
+      'studentStudyAssistantUsers/student/studentStudyAssistantSendOperations',
+      'studentStudyAssistantUsers/student/studentStudyAssistantDeleteOperations',
+      'studentStudyAssistantCorpus/generation/studyChunks',
+      'studentStudyAssistantConfig',
+      'studentStudyAssistantRateControls',
+      'studentStudyAssistantDeletionTombstones/student/studentStudyAssistantConversations',
+      'studentStudyAssistantAuditEvents',
+    ]
+    for (const db of databases) {
+      for (const path of documents) {
+        await assertFails(getDoc(doc(db, path)))
+        await assertFails(setDoc(doc(db, path), { forged: true }))
+        await assertFails(deleteDoc(doc(db, path)))
+      }
+      for (const path of collections) await assertFails(getDocs(collection(db, path)))
+    }
   })
 })
 

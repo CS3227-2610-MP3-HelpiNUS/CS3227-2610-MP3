@@ -5,6 +5,7 @@ import { WorkspacePage } from '../pages/WorkspacePage'
 import { MentorDiscoveryPage } from '../pages/MentorDiscoveryPage'
 import { MentorProfilePage } from '../pages/MentorProfilePage'
 import { MentorDashboard } from '../pages/MentorDashboard'
+import { StudentStudyAssistantPage } from '../pages/StudentStudyAssistantPage'
 import { MentorRequestsPage, RequestDetailPage, RequestHelpPage, StudentRequestsPage } from '../pages/HelpRequestPages'
 import { ConversationDetailPage, ConversationListPage } from '../pages/ConversationPages'
 import { AccountAccessPage, ForgotPasswordPage, LoginPage, RegisterPage } from '../pages/AuthPages'
@@ -27,7 +28,7 @@ export const appRoutes: RouteObject[] = [
     { path: '/student/conversations', element: <ConversationListPage role="student" /> },
     { path: '/student/conversations/:requestId', element: <ConversationDetailPage role="student" /> },
     { path: '/student/consultations', element: <WorkspacePage /> },
-    { path: '/student/study-assistant', element: <WorkspacePage /> },
+    { path: '/student/study-assistant', element: <StudentStudyAssistantPage /> },
   ] }] },
   { element: <ProtectedRoute role="MENTOR" />, errorElement: <ErrorPage />, children: [{ element: <AppShell />, children: [
     { path: '/mentor/dashboard', element: <MentorDashboard /> },

@@ -83,5 +83,13 @@ service cloud.firestore {
     match /availabilitySlots/{id} { allow read: if activeAccount() && resource.data.withdrawn == false && resource.data.startsAt > request.time && activeMentor(resource.data.mentorId); allow write: if false; }
     match /appointments/{id} { allow read: if (activeStudent() && resource.data.studentId == request.auth.uid) || (activeMentor(request.auth.uid) && resource.data.mentorId == request.auth.uid); allow write: if false; }
     match /aiAuditEvents/{id} { allow read, write: if false; }
+    // S2-D1-F03 is callable-only. Keeping every Student Study Assistant root
+    // private also prevents accidental coupling to Mentor AI features.
+    match /studentStudyAssistantUsers/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantCorpus/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantConfig/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantRateControls/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantDeletionTombstones/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantAuditEvents/{document=**} { allow read, write: if false; }
   }
 }

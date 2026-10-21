@@ -17,5 +17,6 @@ test-results/
 .env
 .env.*
 !.env.example
+!src/functions/deploy/.env.helpinus-dev
 *.tsbuildinfo
 .DS_Store
