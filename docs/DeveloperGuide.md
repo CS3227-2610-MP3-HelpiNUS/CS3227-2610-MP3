@@ -1049,7 +1049,10 @@ Student UI -> typed callable -> Student authorization / rate / receipt
 ```
 
 Only the most recent 12 messages, bounded to 16,000 characters, are supplied as
-conversation context. Retrieval is deterministic keyword matching over an
+conversation context. Retrieval first searches the current question so an
+explicit topic change wins; when that finds no approved chunk, it retries with
+the bounded recent history only for a context-dependent follow-up. It is
+deterministic keyword matching over an
 immutable, versioned corpus; it does not browse or use embeddings. A generation
 must contain content hashes, reviewer/approval metadata, an access class, review
 state, and fixed HTTPS host/path prefixes. Invalid, tampered, quarantined,
@@ -1125,16 +1128,21 @@ not create one Firestore document per public rejection, avoiding a pre-rate-
 limit write-amplification path. Durable Firestore audits are reserved for
 bounded feature lifecycle events such as completed/replayed/failed sends,
 deletion, provider-output rejection, and expiry cleanup.
-Rate-limit rejections are durably coalesced to one deterministic metadata event
-per Student, minute window, and reason so repeated over-limit retries cannot
-grow the audit collection.
+Handler-level validation, ownership, concurrency, and rate-limit rejections are
+durably coalesced to one deterministic metadata event per Student, minute
+window, event, and reason. Repeated invalid-control, nonexistent-conversation,
+or over-limit attempts therefore cannot grow the audit collection without
+bound.
 
 The cleanup policy exports its collection group, field, target interval (24
 hours), and investigation threshold (72 hours), but this feature does not
 silently create a production scheduler. An administrator must configure and
 monitor an approved cadence and IAM policy, implement/export and deploy the
-scheduled Functions that invoke the bounded conversation, audit, and
-delete-operation cleanup seams, and optionally configure parent-document TTL.
+scheduled Functions that invoke the bounded conversation, audit,
+delete-operation, and abandoned send-claim cleanup seams, and optionally
+configure parent-document TTL. The repository declares the ascending
+collection-group indexes needed by the delete-receipt and abandoned-claim
+queries.
 TTL alone does not recursively delete message subcollections. These jobs must
 meet the 14-day content and 30-day metadata targets before production
 enablement. The send and completed-result replay controls default to
@@ -1149,7 +1157,8 @@ Focused verification spans shared schemas, Functions units, retrieval/provider
 adversarial fixtures, Firestore Rules, callable emulator integration, frontend
 interaction/recovery tests, deploy-package checks, and the isolated Playwright
 journey in `app-verification/tests/student-study-assistant.spec.ts`. The browser
-journey uses only the `helpinus-dev` emulators and synthetic accounts. Its
+journey includes a delayed-response navigation race and a history-resolved
+follow-up, and uses only the `helpinus-dev` emulators and synthetic accounts. Its
 feature map and evidence live under `app-verification/` and `.verify-app/`.
 Passing structural tests does not establish real-model safety; the semantic
 rubric remains blocked until an approved corpus and authorized real-provider

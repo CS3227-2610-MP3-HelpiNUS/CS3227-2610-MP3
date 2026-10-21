@@ -67,7 +67,7 @@ async function callAsCurrentIdentity(page: Page, name: string, data: unknown) {
 }
 
 async function clearSavedConversations(page: Page) {
-  await expect(page.locator('.study-assistant-history-loading')).toHaveCount(0)
+  await expect(page.locator('.study-assistant-history-list, .study-assistant-history-empty')).toBeVisible()
   const historyItems = page.locator('.study-assistant-history-list button')
   while (await historyItems.count()) {
     const countBeforeDelete = await historyItems.count()
@@ -155,6 +155,56 @@ test('Student study assistant denies Mentor callable access', async ({ page, dia
   })
   expect(response.status()).toBe(400)
   expect(await response.json()).toMatchObject({ error: { status: 'FAILED_PRECONDITION' } })
+  expect(diagnostics.pageErrors, 'uncaught browser errors').toEqual([])
+  expect(unexpectedConsoleErrors(diagnostics), 'unexpected browser console errors').toEqual([])
+  expect(unexpectedFailedRequests(diagnostics), 'unexpected browser failed requests').toEqual([])
+})
+
+test('Student study assistant keeps a delayed answer in its originating conversation', async ({ page, diagnostics }) => {
+  test.setTimeout(60_000)
+  await page.goto('/login')
+  await signInWithSeededGoogleAccount(page, 'student@example.test', 'Student')
+  await page.goto('/student/study-assistant')
+  await clearSavedConversations(page)
+
+  await page.getByLabel('Ask a question').fill('Explain breadth-first search.')
+  await page.getByRole('button', { name: 'Send message' }).click()
+  await expect(page.getByRole('region', { name: 'Study assistant messages' }).getByText(/Breadth-first search explores/)).toBeVisible()
+  await page.getByRole('button', { name: 'New conversation' }).click()
+  await page.getByLabel('Ask a question').fill('Explain recursion and its base case.')
+  await page.getByRole('button', { name: 'Send message' }).click()
+  await expect(page.getByRole('region', { name: 'Study assistant messages' }).getByText(/A recursive function needs a base case/)).toBeVisible()
+
+  const history = page.getByRole('complementary', { name: /history/i })
+  const conversationA = history.getByRole('button', { name: /^Explain breadth-first search\. / })
+  const conversationB = history.getByRole('button', { name: /^Explain recursion and its base case\. / })
+  await conversationA.click()
+  await expect(page.getByRole('heading', { name: 'Explain breadth-first search.' })).toBeVisible()
+
+  let releaseResponse!: () => void
+  let markServerResponse!: () => void
+  const responseGate = new Promise<void>((resolve) => { releaseResponse = resolve })
+  const serverResponded = new Promise<void>((resolve) => { markServerResponse = resolve })
+  await page.route('**/studentStudyAssist', async (route) => {
+    const response = await route.fetch()
+    markServerResponse()
+    await responseGate
+    await route.fulfill({ response })
+  })
+  await page.getByLabel('Ask a question').fill('Why does it do that?')
+  await page.getByRole('button', { name: 'Send message' }).click()
+  await serverResponded
+  await conversationB.click()
+  const messageRegion = page.getByRole('region', { name: 'Study assistant messages' })
+  await expect(messageRegion.getByText('Explain recursion and its base case.', { exact: true })).toBeVisible()
+  releaseResponse()
+
+  await expect(page.getByText('Answer saved to Explain breadth-first search.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Explain recursion and its base case.' })).toBeVisible()
+  await expect(conversationB).toHaveAttribute('aria-current', 'page')
+  await expect(messageRegion.getByText('Why does it do that?', { exact: true })).toHaveCount(0)
+  await expect(messageRegion.getByText(/Breadth-first search explores/)).toHaveCount(0)
+  await expect(page.getByLabel('Ask a question')).toHaveValue('')
   expect(diagnostics.pageErrors, 'uncaught browser errors').toEqual([])
   expect(unexpectedConsoleErrors(diagnostics), 'unexpected browser console errors').toEqual([])
   expect(unexpectedFailedRequests(diagnostics), 'unexpected browser failed requests').toEqual([])

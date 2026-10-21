@@ -82,6 +82,15 @@ content-free structured platform logs and coalesced durable rate-limit audits
 to one event per Student, minute window, and reason. Repeated over-limit calls
 therefore do not grow the Firestore audit collection.
 
+The final pre-merge issue pass confirmed and repaired five additional gaps:
+delayed answers no longer replace or merge into a conversation opened while a
+send is pending; bounded recent history now resolves retrieval for natural
+follow-ups; invisible-control and missing-conversation rejection audits are
+coalesced by Student/window/event/reason; required delete-receipt and send-claim
+collection-group indexes are versioned; and expired first-send claims without
+conversations have a bounded transactional cleanup seam that preserves live,
+renewed, or conversation-associated claims.
+
 ## Security and scope result
 
 The final local/emulator-only design is fail-closed: every callable requires a
@@ -91,8 +100,10 @@ approved retrieved chunks; model text is plain text; deletions use tombstones;
 and production is disabled until human operational gates are complete.
 
 No Developer 2 restricted artifact or owned AI implementation was accessed or
-modified. No remote push, pull request, merge, deployment, production access,
-credential access, production data access, or real SoCLaaS request occurred.
+modified. The final issue pass was authorized for commit and push to the
+existing `zh/feat-student-study-assistant` branch only. No new branch or pull
+request, merge, deployment, production access, credential access, production
+data access, or real SoCLaaS request occurred.
 
 ## Human follow-up
 

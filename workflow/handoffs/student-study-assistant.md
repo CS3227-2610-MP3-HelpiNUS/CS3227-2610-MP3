@@ -108,9 +108,11 @@ host`.
   markup, chronology issue, overflow, or unusable interaction was observed.
 
 The browser journey proves grounded BFS and recursion answers, trusted source
-links, insufficient context, lost-response retry without duplication, reload,
-keyboard activation and composer focus for New conversation, deletion,
-responsive layout, clean diagnostics, and Mentor denial.
+links, natural history-resolved follow-ups, insufficient context, lost-response
+retry without duplication, delayed answers remaining in their originating
+conversation after navigation, reload, keyboard activation and composer focus
+for New conversation, deletion, responsive layout, clean diagnostics, and
+Mentor denial.
 
 ## Independent review and repairs
 
@@ -140,6 +142,12 @@ and classified adapter output failures in the dedicated audit event. The final
 independent security and code reviews reported no remaining functional or
 security blocker for local/staging readiness.
 
+The final pre-merge repair correlated send responses with their originating
+conversation, included bounded recent history in retrieval queries, coalesced
+all handler rejection audits by Student/window/event/reason, declared the
+delete-receipt and abandoned-claim collection-group indexes, and added bounded
+transactional cleanup for expired first-send claims without conversations.
+
 ## Production gates and human actions
 
 Production remains fail-closed. The sanitized SoCLaaS guide now confirms
@@ -162,11 +170,14 @@ Before production enablement, a human must:
 3. approve the immutable production corpus and exact source allowlist;
 4. approve cadence/IAM, implement/export/deploy the scheduled cleanup
    Functions, and monitor the 14-day content, 30-day audit, and 30-day
-   delete-operation targets (parent TTL alone does not delete subcollections);
+   delete-operation and abandoned-send-claim targets (parent TTL alone does not
+   delete subcollections);
 5. run the repeated semantic adversarial evaluation and real-provider smoke
    test; and
 6. explicitly set `STUDENT_STUDY_ASSISTANT_ENABLED=true` and authorize any
    push, pull request, deployment, or production mutation.
 
-No push, pull request, merge, deployment, production access, production data,
-credential access, or real-provider request was performed in this round.
+The final issue pass was authorized for commit and push to the existing
+`zh/feat-student-study-assistant` branch only. No new branch or pull request,
+merge, deployment, production access, production data access, credential
+access, or real-provider request was performed.

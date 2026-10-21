@@ -205,9 +205,13 @@ attention: a modified client can acknowledge early or withhold acknowledgement.
    supported answer includes a per-message **Sources** list with the source
    title, section, and version. Open a source to verify the answer.
 3. Continue asking questions in the same conversation. Only a bounded amount
-   of recent conversation context is sent for each answer. Choose a conversation
-   under **History** to reload its saved messages and citations, and **Load
-   earlier messages** when available.
+   of recent conversation context is used both to find approved sources and to
+   answer, so natural follow-ups can retain their recent topic. Choose a
+   conversation under **History** to reload its saved messages and citations,
+   and **Load earlier messages** when available. If you open another
+   conversation while an answer is pending, the answer remains saved to the
+   conversation where you sent it and does not replace the conversation you
+   opened.
 4. If the approved sources do not contain enough relevant information, the
    answer is labelled **Not enough approved context** and has no citation. Try a
    narrower question or consult your course materials; the app does not invent
