@@ -85,6 +85,8 @@ test('Student study assistant completes the grounded local journey', async ({ pa
   await page.goto('/student/study-assistant')
   await expect(page).toHaveURL(/\/student\/study-assistant$/)
   await expect(page.getByRole('heading', { name: 'Study assistant', exact: true })).toBeVisible()
+  await expect(page.getByRole('note', { name: 'Supported Study assistant modules' }))
+    .toContainText('Available for CS2030S and CS2103')
   await clearSavedConversations(page)
 
   await expect(page.getByText('Local only until your first message is sent')).toBeVisible()
@@ -98,21 +100,21 @@ test('Student study assistant completes the grounded local journey', async ({ pa
     await route.abort('failed')
   })
 
-  await page.getByLabel('Ask a question').fill('Explain breadth-first search and why it uses a queue.')
+  await page.getByLabel('Ask a question').fill('In CS2030S, why does immutability help with aliasing?')
   await page.getByRole('button', { name: 'Send message' }).click()
   await expect(page.getByText('We could not confirm whether this message was answered. Retry to safely check the same request.')).toBeVisible()
   await page.getByRole('button', { name: 'Retry message' }).click()
 
   const messageRegion = page.getByRole('region', { name: 'Study assistant messages' })
-  await expect(messageRegion.getByText(/Breadth-first search explores a graph level by level using a queue/)).toBeVisible()
-  const bfsSource = page.getByRole('link', { name: 'Synthetic Algorithms Notes' })
-  await expect(bfsSource).toHaveAttribute('href', 'https://example.test/helpinus-synthetic/algorithms')
-  await expect(messageRegion.getByText('Explain breadth-first search and why it uses a queue.', { exact: true })).toHaveCount(1)
+  await expect(messageRegion.getByText(/An immutable object has no externally visible state change/)).toBeVisible()
+  const cs2030sSource = page.getByRole('link', { name: 'CS2030S Programming Methodology II' })
+  await expect(cs2030sSource).toHaveAttribute('href', 'https://nus-cs2030s.github.io/2021-s2/25-immutability.html')
+  await expect(messageRegion.getByText('In CS2030S, why does immutability help with aliasing?', { exact: true })).toHaveCount(1)
 
-  await page.getByLabel('Ask a question').fill('Now explain the base case in recursion.')
+  await page.getByLabel('Ask a question').fill('In CS2103, what is the difference between functional and non-functional requirements?')
   await page.getByRole('button', { name: 'Send message' }).click()
-  await expect(messageRegion.getByText(/A recursive function needs a base case/)).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Synthetic Programming Notes' })).toBeVisible()
+  await expect(messageRegion.getByText(/A software requirement states a need the product must fulfil/)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'CS2103/T Software Engineering Textbook' })).toBeVisible()
 
   await page.getByLabel('Ask a question').fill('What will the weather be tomorrow?')
   await page.getByRole('button', { name: 'Send message' }).click()
@@ -121,8 +123,8 @@ test('Student study assistant completes the grounded local journey', async ({ pa
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Study assistant', exact: true })).toBeVisible()
   await page.locator('.study-assistant-history-list button').first().click()
-  await expect(page.getByRole('region', { name: 'Study assistant messages' }).getByText(/A recursive function needs a base case/)).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Synthetic Programming Notes' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Study assistant messages' }).getByText(/A software requirement states a need/)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'CS2103/T Software Engineering Textbook' })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('student-study-assistant-desktop.png'), fullPage: true })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -151,7 +153,7 @@ test('Student study assistant denies Mentor callable access', async ({ page, dia
   await expect(page).toHaveURL(/\/mentor\/dashboard$/)
 
   const response = await callAsCurrentIdentity(page, 'studentStudyAssist', {
-    requestId: crypto.randomUUID(), conversationId: null, userMessage: 'Explain breadth-first search.',
+    requestId: crypto.randomUUID(), conversationId: null, userMessage: 'Explain CS2030S generics.',
   })
   expect(response.status()).toBe(400)
   expect(await response.json()).toMatchObject({ error: { status: 'FAILED_PRECONDITION' } })
@@ -167,19 +169,19 @@ test('Student study assistant keeps a delayed answer in its originating conversa
   await page.goto('/student/study-assistant')
   await clearSavedConversations(page)
 
-  await page.getByLabel('Ask a question').fill('Explain breadth-first search.')
+  await page.getByLabel('Ask a question').fill('Explain why CS2030S values immutability.')
   await page.getByRole('button', { name: 'Send message' }).click()
-  await expect(page.getByRole('region', { name: 'Study assistant messages' }).getByText(/Breadth-first search explores/)).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Study assistant messages' }).getByText(/An immutable object has no externally visible state change/)).toBeVisible()
   await page.getByRole('button', { name: 'New conversation' }).click()
-  await page.getByLabel('Ask a question').fill('Explain recursion and its base case.')
+  await page.getByLabel('Ask a question').fill('Explain CS2103 refactoring.')
   await page.getByRole('button', { name: 'Send message' }).click()
-  await expect(page.getByRole('region', { name: 'Study assistant messages' }).getByText(/A recursive function needs a base case/)).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Study assistant messages' }).getByText(/Refactoring restructures code through small steps/)).toBeVisible()
 
   const history = page.getByRole('complementary', { name: /history/i })
-  const conversationA = history.getByRole('button', { name: /^Explain breadth-first search\. / })
-  const conversationB = history.getByRole('button', { name: /^Explain recursion and its base case\. / })
+  const conversationA = history.getByRole('button', { name: /^Explain why CS2030S values immutability\. / })
+  const conversationB = history.getByRole('button', { name: /^Explain CS2103 refactoring\. / })
   await conversationA.click()
-  await expect(page.getByRole('heading', { name: 'Explain breadth-first search.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Explain why CS2030S values immutability.' })).toBeVisible()
 
   let releaseResponse!: () => void
   let markServerResponse!: () => void
@@ -196,14 +198,14 @@ test('Student study assistant keeps a delayed answer in its originating conversa
   await serverResponded
   await conversationB.click()
   const messageRegion = page.getByRole('region', { name: 'Study assistant messages' })
-  await expect(messageRegion.getByText('Explain recursion and its base case.', { exact: true })).toBeVisible()
+  await expect(messageRegion.getByText('Explain CS2103 refactoring.', { exact: true })).toBeVisible()
   releaseResponse()
 
-  await expect(page.getByText('Answer saved to Explain breadth-first search.')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Explain recursion and its base case.' })).toBeVisible()
+  await expect(page.getByText('Answer saved to Explain why CS2030S values immutability.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Explain CS2103 refactoring.' })).toBeVisible()
   await expect(conversationB).toHaveAttribute('aria-current', 'page')
   await expect(messageRegion.getByText('Why does it do that?', { exact: true })).toHaveCount(0)
-  await expect(messageRegion.getByText(/Breadth-first search explores/)).toHaveCount(0)
+  await expect(messageRegion.getByText(/An immutable object has no externally visible state change/)).toHaveCount(0)
   await expect(page.getByLabel('Ask a question')).toHaveValue('')
   expect(diagnostics.pageErrors, 'uncaught browser errors').toEqual([])
   expect(unexpectedConsoleErrors(diagnostics), 'unexpected browser console errors').toEqual([])
