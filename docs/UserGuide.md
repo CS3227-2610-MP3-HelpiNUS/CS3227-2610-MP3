@@ -236,9 +236,10 @@ check the cited source and your course requirements. Use it to understand and
 work through material; do not submit generated work as your own.
 
 In the local emulator, answers and links come from a small labelled synthetic
-BFS/recursion corpus and a deterministic fake provider. Production SoCLaaS is
-disabled until an administrator supplies and reviews its exact API contract,
-server-side secret, approved corpus, and retention settings.
+BFS/recursion corpus and a deterministic fake provider. The deployed SoCLaaS
+adapter remains disabled until an administrator configures its server-side
+secret, approves a real corpus, completes semantic evaluation, and approves the
+retention settings and controlled provider smoke test.
 
 ## 6. Mentor access
 

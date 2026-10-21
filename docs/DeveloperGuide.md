@@ -1058,26 +1058,33 @@ fails closed. The provider can cite only retrieved chunk IDs; the server
 reconstructs public source metadata so a provider cannot mint a URL. Output is
 strictly schema checked and React renders it as plain text.
 
-Production uses an empty retriever and
-`ContractPendingSoclaasStudentStudyAssistantProvider`. This intentional adapter
-throws `PROVIDER_CONTRACT_PENDING`; no endpoint headers, model ID, response
-shape, or secret name have been guessed. The human-supplied service base URL is
-`https://soclaas-api.comp.nus.edu.sg/v1`; its endpoint path and wire contract
-remain unspecified and are not inferred from that URL. The local Functions
-emulator alone uses `FakeStudentStudyAssistantProvider` and a labelled
-synthetic BFS/recursion corpus. Before enabling production, a human must:
+Production uses an empty retriever and the server-only
+`SoclaasStudentStudyAssistantProvider`. The adapter calls the documented
+OpenAI-compatible `POST /v1/chat/completions` endpoint with Bearer
+authentication, `model: "default"`, bounded system/history/source messages,
+and `reasoning_effort: "none"`. It reads `SOCLAAS_API_KEY` lazily from a
+Firebase Secret Manager binding that is attached only to `studentStudyAssist`.
+The fixed default base URL is `https://soclaas-api.comp.nus.edu.sg/v1`; an
+override must still resolve to that exact HTTPS origin and `/v1` path. The
+adapter has a 12-second network deadline inside the callable's 15-second
+deadline, retries `429` and `5xx` responses at most three total attempts with
+bounded backoff, maps provider failures to safe application errors, limits the
+raw response size, and validates both the Chat Completions envelope and strict
+grounded/insufficient-context JSON before persistence.
 
-1. provide and review the official SoCLaaS request/response, authentication,
-   timeout, quota, error, and retention contract;
-2. bind its credential as a server-side Firebase secret and grant only the
-   Functions runtime access;
-3. implement and review the adapter against the strict provider schema;
-4. approve immutable source generations and their exact HTTPS prefixes;
-5. run the repeated semantic evaluation in
+The local Functions emulator continues to use
+`FakeStudentStudyAssistantProvider` and a labelled synthetic BFS/recursion
+corpus, so local and CI tests never require or transmit a real key. Before
+enabling a deployed environment, a human must:
+
+1. create the `SOCLAAS_API_KEY` Firebase secret for that Firebase project and
+   ensure only the Functions runtime can access it;
+2. approve immutable source generations and their exact HTTPS prefixes;
+3. run the repeated semantic evaluation in
    `workflow/evaluations/S2-D1-F03-study-assistant-security.md`; and
-6. configure and verify the physical-retention jobs described below, then set
+4. configure and verify the physical-retention jobs described below, then set
    the server-side `STUDENT_STUDY_ASSISTANT_ENABLED=true`; and
-7. explicitly approve deployment and a real-provider smoke test.
+5. explicitly approve deployment and a real-provider smoke test.
 
 Production is disabled by default; the local emulator is enabled by default for
 synthetic verification. A future source importer must remain a separately
@@ -1140,14 +1147,15 @@ journey in `app-verification/tests/student-study-assistant.spec.ts`. The browser
 journey uses only the `helpinus-dev` emulators and synthetic accounts. Its
 feature map and evidence live under `app-verification/` and `.verify-app/`.
 Passing structural tests does not establish real-model safety; the semantic
-rubric remains blocked until the provider contract and approved corpus exist.
+rubric remains blocked until an approved corpus and authorized real-provider
+evaluation exist.
 
 ## 18. Deferred work
 
 - Complete help-request, conversation, booking, and availability workflows.
-- Complete the reviewed SoCLaaS adapter, approved Student corpus, semantic
-  evaluation, and retention scheduler for S2-D1-F03; implement the separate
-  Mentor AI feature independently.
+- Complete the approved Student corpus, semantic evaluation, retention
+  scheduler, and controlled SoCLaaS smoke test for S2-D1-F03; implement the
+  separate Mentor AI feature independently.
 - Build the GitHub Pages product website.
 - Keep password and account recovery delegated to Google.
 - Perform live development deployment and production promotion after human

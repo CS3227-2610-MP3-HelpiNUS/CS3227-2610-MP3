@@ -22,10 +22,23 @@ provider, private persistence, rolling expiry, tombstones, cleanup seams,
 metadata-only auditing, frontend adapters, recovery storage, the Student page,
 responsive styling, tests, guides, and an adversarial evaluation were added.
 
-The real SoCLaaS adapter remains intentionally contract-pending. The supplied
-base URL was recorded, but no endpoint path, header, secret name, model, quota,
-or response shape was invented. Production requires an explicit server-side
-enable flag and currently has an empty corpus.
+The sanitized SoCLaaS Quick Start later confirmed the Chat Completions endpoint,
+Bearer header, request/response shape, retry categories, and `default` model
+alias. A server-only adapter now binds `SOCLAAS_API_KEY` only to
+`studentStudyAssist`, applies bounded timeout/retry and response-size policies,
+validates strict grounded/insufficient-context JSON, and maps upstream failures
+without exposing their bodies. No real key or provider request was used.
+Production still requires an explicit server-side enable flag and currently has
+an empty corpus.
+
+The adapter follow-up passed the full Node 22 repository gate (frontend 323,
+Functions 99, shared 16 tests), deploy-package validation, the verify-app
+structural grader and self-test, and the final 2/2 Chromium Study Assistant
+journey at `.verify-app/runs/2026-10-21T09-59-23-482Z/`. Independent review
+found and prompted fixes for untrusted context in a system role, redirect SSRF,
+unbounded response buffering, deadline misalignment, non-success response-body
+cleanup, and output-rejection audit classification. The final re-review found
+no remaining functional or security blocker for local/staging readiness.
 
 ## Verification-driven repairs
 
@@ -77,7 +90,7 @@ credential access, production data access, or real SoCLaaS request occurred.
 
 ## Human follow-up
 
-The user must review the local branch, provide the official provider contract
-and credential setup, approve the production corpus and cleanup schedule, run
-semantic and real-provider validation, and explicitly authorize later remote
-or production actions.
+The user must review the local branch, create the `SOCLAAS_API_KEY` Firebase
+secret for the intended project, approve the production corpus and cleanup
+schedule, run semantic and real-provider validation, and explicitly authorize
+later remote or production actions.

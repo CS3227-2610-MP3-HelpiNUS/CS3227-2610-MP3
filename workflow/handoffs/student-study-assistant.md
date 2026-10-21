@@ -8,7 +8,7 @@
 
 **Baseline:** `baa1a2e99dbe574944a76d81c03b9dc6e5bca1bf` (`origin/dev-staging`)
 
-**Status:** Local/emulator implementation complete; production integration and human review pending
+**Status:** Local/emulator implementation and SoCLaaS wire adapter complete; deployed corpus, configuration, semantic evaluation, and human review pending
 
 ## Delivered behavior
 
@@ -22,6 +22,9 @@
   provider validation, persistence, auditing, deletion, and cleanup seams.
 - Deterministic Option A retrieval over an immutable, versioned, approved local
   corpus. The emulator uses labelled BFS/recursion fixtures and a fake provider.
+- Server-only SoCLaaS Chat Completions adapter using the fixed `/v1` base URL,
+  `default` model alias, Bearer secret binding, bounded timeout/retries, safe
+  error mapping, response-size limits, and strict output validation.
 - Rolling 14-day conversation content retention and 30-day metadata retention
   targets for audit and delete-operation records.
 - Direct Firestore access denied for every feature namespace.
@@ -69,6 +72,7 @@ studentStudyAssistantAuditEvents/{eventId}
 - `a29aebd` — complete schema, auth, provider-output, and expiry auditing.
 - `5464d88` — close keyboard/focus and encoded-input evidence gaps.
 - `307f759` — bound public and rate-limit rejection audit volume.
+- `51b0a6f` — connect the reviewed SoCLaaS Chat Completions provider.
 
 Documentation and this handoff are committed separately.
 
@@ -78,8 +82,12 @@ All commands below used the repository's Node 22 runtime, including the final
 isolated browser stack whose Functions emulator reported `Using node@22 from
 host`.
 
-- `npm run check` — passed: frontend 37 files / 323 tests; Functions 14 files /
-  90 tests; shared 2 files / 16 tests; lint, type checks, production builds.
+- `npm run check` under Node 22 — passed: frontend 37 files / 323 tests;
+  Functions 14 files / 99 tests; shared 2 files / 16 tests; lint, type checks,
+  and production builds.
+- Focused SoCLaaS/provider/backend suite — 3 files / 46 tests passed, including
+  request construction, secret absence, HTTP mapping, retry/cancellation,
+  deadline, streaming response bound, output validation, and safe auditing.
 - Focused Functions security suite — 3 files / 37 tests passed.
 - Focused frontend suite — 2 files / 12 tests passed.
 - Focused callable emulator integration — 1 file / 5 tests passed, including
@@ -89,9 +97,9 @@ host`.
 - Deploy package verification and its valid/stale/out-of-bound/stale-lockfile
   cases — passed.
 - `npm run verify:app:grade` — passed.
-- `npm run verify:app -- --port 5180 --grep "Student study assistant"` — 2/2
+- `npm run verify:app -- --port 5180 --grep "study assistant"` — 2/2
   Chromium tests passed. Evidence:
-  `.verify-app/runs/2026-10-21T09-12-32-555Z/`.
+  `.verify-app/runs/2026-10-21T09-59-23-482Z/`.
 - Desktop and 390-pixel mobile screenshots were visually inspected; no active
   markup, chronology issue, overflow, or unusable interaction was observed.
 
@@ -121,25 +129,33 @@ reported no critical/high correctness or isolation defect; its remaining
 audit, scheduler-documentation, evaluation, and accessibility observations
 were repaired or recorded as explicit production gates before delivery.
 
+The SoCLaaS follow-up review additionally removed system-role privilege from
+retrieved data, rejected redirects, bounded and cancelled response streams,
+aligned provider/callable deadlines, cancelled non-success response bodies,
+and classified adapter output failures in the dedicated audit event. The final
+independent security and code reviews reported no remaining functional or
+security blocker for local/staging readiness.
+
 ## Production gates and human actions
 
-Production remains fail-closed. The supplied service base URL is
-`https://soclaas-api.comp.nus.edu.sg/v1`, but the endpoint path, headers,
-authentication, model identifier, response/error schemas, quota, and retention
-contract remain unknown and were not guessed.
+Production remains fail-closed. The sanitized SoCLaaS guide now confirms
+`POST /v1/chat/completions`, Bearer authentication, the OpenAI Chat Completions
+response path, retryable `429`/`5xx` failures, and the validated `default` chat
+model alias. The adapter is implemented without exposing or accessing a real
+credential. Provider retention/privacy terms and a real-model semantic result
+remain unverified.
 
 Before production enablement, a human must:
 
 1. review and approve this branch;
-2. provide the official SoCLaaS wire contract and server-side credential;
-3. review the real adapter and bind its secret only to the Functions runtime;
-4. approve the immutable production corpus and exact source allowlist;
-5. approve cadence/IAM, implement/export/deploy the scheduled cleanup
+2. create `SOCLAAS_API_KEY` in Firebase Secret Manager for the target project;
+3. approve the immutable production corpus and exact source allowlist;
+4. approve cadence/IAM, implement/export/deploy the scheduled cleanup
    Functions, and monitor the 14-day content, 30-day audit, and 30-day
    delete-operation targets (parent TTL alone does not delete subcollections);
-6. run the repeated semantic adversarial evaluation and real-provider smoke
+5. run the repeated semantic adversarial evaluation and real-provider smoke
    test; and
-7. explicitly set `STUDENT_STUDY_ASSISTANT_ENABLED=true` and authorize any
+6. explicitly set `STUDENT_STUDY_ASSISTANT_ENABLED=true` and authorize any
    push, pull request, deployment, or production mutation.
 
 No push, pull request, merge, deployment, production access, production data,
