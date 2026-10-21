@@ -88,6 +88,7 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
   const [deletePending, setDeletePending] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const generation = useRef(0)
+  const activeConversationId = useRef<string | null>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const newConversationRef = useRef<HTMLButtonElement>(null)
   const deleteTriggerRef = useRef<HTMLButtonElement>(null)
@@ -132,6 +133,7 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
 
   async function openConversation(conversation: StudentStudyAssistantConversation) {
     const request = ++generation.current
+    activeConversationId.current = conversation.id
     setSelected(conversation)
     setMessages([])
     setEarlierLoading(false)
@@ -187,6 +189,7 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
       return
     }
     ++generation.current
+    activeConversationId.current = null
     setSelected(null)
     setMessages([])
     setMessageCursor(null)
@@ -198,19 +201,25 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
     queueMicrotask(() => composerRef.current?.focus())
   }
 
-  function acceptSend(result: StudentStudyAssistOutput) {
-    setSelected(result.conversation)
+  function acceptSend(request: StudentStudyAssistInput, result: StudentStudyAssistOutput) {
     setConversations((current) => mergeConversations(current, [result.conversation]))
-    setMessages((current) => mergeMessages(current, [result.userMessage, result.assistantMessage]))
-    setDraft('')
+    const stillViewingOrigin = activeConversationId.current === request.conversationId
+    if (stillViewingOrigin) {
+      activeConversationId.current = result.conversation.id
+      setSelected(result.conversation)
+      setMessages((current) => mergeMessages(current, [result.userMessage, result.assistantMessage]))
+      setDraft('')
+    }
     setPendingRequest(null)
     setSendState('idle')
     setSendError('')
     clearStudentStudyAssistantRetry()
-    setAnnouncement(result.kind === 'grounded'
-      ? `Answer received with ${result.assistantMessage.citations.length} ${result.assistantMessage.citations.length === 1 ? 'source' : 'sources'}.`
-      : 'The approved sources did not contain enough information to answer this question.')
-    queueMicrotask(() => composerRef.current?.focus())
+    setAnnouncement(stillViewingOrigin
+      ? result.kind === 'grounded'
+        ? `Answer received with ${result.assistantMessage.citations.length} ${result.assistantMessage.citations.length === 1 ? 'source' : 'sources'}.`
+        : 'The approved sources did not contain enough information to answer this question.'
+      : `Answer saved to ${result.conversation.title}.`)
+    if (stillViewingOrigin) queueMicrotask(() => composerRef.current?.focus())
   }
 
   async function dispatch(request: StudentStudyAssistInput) {
@@ -218,7 +227,7 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
     setSendError('')
     try {
       const result = await services.callables.invoke('studentStudyAssist', request)
-      acceptSend(result)
+      acceptSend(request, result)
     } catch (error) {
       const failure = sendFailure(error)
       setSendError(failure.message)
@@ -226,6 +235,7 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
         setSendState('uncertain')
         setAnnouncement('Message delivery is uncertain. Use Retry message to safely retry the same request.')
       } else {
+        if (activeConversationId.current === request.conversationId) setDraft(request.userMessage)
         setSendState('idle')
         setPendingRequest(null)
         clearStudentStudyAssistantRetry()
@@ -246,6 +256,7 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
     try {
       saveStudentStudyAssistantRetry({ version: 1, uid, request })
       setPendingRequest(request)
+      setDraft('')
       void dispatch(request)
     } catch {
       setSendError('This message cannot be sent because safe retry recovery is unavailable. Check private browser storage and try again.')
@@ -259,6 +270,7 @@ function StudentStudyAssistantContent({ services, uid }: { services: HelpiNUSSer
   }
 
   function discardPending() {
+    if (pendingRequest && activeConversationId.current === pendingRequest.conversationId) setDraft(pendingRequest.userMessage)
     clearStudentStudyAssistantRetry()
     setPendingRequest(null)
     setSendState('idle')
