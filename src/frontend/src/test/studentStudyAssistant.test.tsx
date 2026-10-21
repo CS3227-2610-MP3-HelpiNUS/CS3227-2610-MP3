@@ -37,7 +37,8 @@ function grounded(input: StudentStudyAssistInput, content = 'Breadth-first searc
     kind: 'grounded',
     conversation: item,
     userMessage: studentMessage(`student-${input.requestId}`, input.userMessage),
-    assistantMessage: assistantMessage(`assistant-${input.requestId}`, content, 1),
+    // The backend commits both messages with one transaction timestamp.
+    assistantMessage: assistantMessage(`assistant-${input.requestId}`, content),
     replayed: false,
   }
 }
@@ -92,6 +93,9 @@ describe('Student Study Assistant', () => {
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     expect(await screen.findByText('Breadth-first search visits vertices one layer at a time.', {}, { timeout: 3000 })).toBeInTheDocument()
+    const renderedMessages = within(screen.getByRole('region', { name: 'Study assistant messages' })).getAllByRole('article')
+    expect(renderedMessages[0]).toHaveTextContent('Explain breadth-first search')
+    expect(renderedMessages[1]).toHaveTextContent('Breadth-first search visits vertices one layer at a time.')
     expect(screen.getByRole('link', { name: 'Synthetic graph traversal notes' })).toHaveAttribute('href', 'https://example.edu/approved/bfs')
     expect(sendInputs[0]).toMatchObject({ conversationId: null, userMessage: 'Explain breadth-first search' })
 
