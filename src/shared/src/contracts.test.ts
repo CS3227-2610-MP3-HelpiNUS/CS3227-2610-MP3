@@ -16,6 +16,8 @@ import {
   updateOwnMentorProfileInputSchema,
   updateOwnMentorProfileOutputSchema,
   messageSchema,
+  mentorConsultationSummaryInputSchema,
+  mentorConsultationSummaryOutputSchema,
   studentStudyAssistInputSchema,
   studentStudyAssistOutputSchema,
   listStudentStudyAssistantConversationsInputSchema,
@@ -25,6 +27,29 @@ import {
 } from './index.js'
 
 describe('shared contracts', () => {
+  it('gives Mentor an independent strict conversation contract', () => {
+    const requestId = 'b70f16a0-5010-4a53-95d7-718e396090a5'
+    expect(mentorConsultationSummaryInputSchema.parse({ helpRequestId: 'request-1' })).toEqual({ helpRequestId: 'request-1' })
+    for (const input of [
+      { helpRequestId: 'request-1', requestId },
+      { helpRequestId: 'request-1', notes: 'forged' },
+      { helpRequestId: 'request-1', appointmentId: 'appointment-1' },
+      { helpRequestId: 'request-1', prompt: 'forged' },
+      { helpRequestId: 'request-1', transcript: 'forged' },
+      { helpRequestId: 'request-1', credential: 'forged' },
+      { helpRequestId: ' request-1 ' }, { helpRequestId: 'request/1' },
+    ]) expect(mentorConsultationSummaryInputSchema.safeParse(input).success).toBe(false)
+    const brief = { summary: 'Summary', unresolvedQuestions: 'None identified from the selected messages.', teachingApproaches: 'Discuss examples.', limitations: 'No further context.' }
+    expect(mentorConsultationSummaryOutputSchema.parse({ brief, partialHistory: false })).toEqual({ brief, partialHistory: false })
+    for (const output of [
+      { brief: { ...brief, summary: '' }, partialHistory: false },
+      { brief: { ...brief, extra: 'hidden' }, partialHistory: false },
+      { brief: { ...brief, summary: 'x'.repeat(8001) }, partialHistory: false },
+      { brief: { ...brief, summary: 'x'.repeat(7999) }, partialHistory: false },
+      { brief, partialHistory: 'false' },
+      { brief, partialHistory: false, transcript: 'private' },
+    ]) expect(mentorConsultationSummaryOutputSchema.safeParse(output).success).toBe(false)
+  })
   it('enforces strict Mentor profile read, search, and update wire shapes', () => {
     expect(readOwnMentorProfileInputSchema.safeParse({ uid: 'other' }).success).toBe(false)
     expect(readOwnMentorProfileOutputSchema.safeParse({ kind: 'ready', profile: { displayName: 'Mentor', biography: '', moduleIds: [], version: { revision: 0, updateTime: '1:000000000' }, email: 'private@example.test' }, metadata: { kind: 'ready', modules: [] } }).success).toBe(false)
