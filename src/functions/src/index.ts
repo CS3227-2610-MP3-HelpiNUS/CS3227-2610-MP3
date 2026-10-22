@@ -21,6 +21,8 @@ import {
   recordStudentStudyAssistantBoundaryAudit,
   studentStudyAssistHandler,
 } from './studentStudyAssistant.js'
+export { soclaasConnectivityCheck } from './soclaasConnectivityPrivate.js'
+export { mentorConsultationSummary } from './mentorSummaryCallable.js'
 
 initializeApp()
 const db = getFirestore()
@@ -101,12 +103,4 @@ export const deleteStudentStudyAssistantConversation = callable(
   {},
   (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(request, 'deleteStudentStudyAssistantConversation', phase, error),
 )
-export const mentorConsultationSummary = callable(
-  callableSchemas.mentorConsultationSummary.input,
-  async (_input, request) => {
-    await requireRole(request, 'MENTOR')
-    throw new HttpsError('unavailable', 'mentorConsultationSummary is not available in Sprint 1.')
-  },
-)
-
 export { singaporeRegion }

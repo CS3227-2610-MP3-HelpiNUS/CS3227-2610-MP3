@@ -15,6 +15,9 @@ atomic Mentor acceptance and private request-linked text conversations for
 the Student and addressed Mentor. S2-D1-F03 adds a private Student Study
 Assistant with approved-source citations, recent conversation history, and
 explicit insufficient-context responses. Consultations remain scaffolds.
+A local test build includes a Mentor consultation-draft control.
+A controlled development test generated a brief through that local preview;
+the hosted app does not yet offer the control.
 
 ## 2. Supported users and devices
 
@@ -363,6 +366,31 @@ as the Student view, with the Student's historical display name and question
 context. The message, history, retry and read-status behavior above applies
 to both roles.
 
+### Consultation draft in the local test build
+
+The **Consultation draft** section appears on a Mentor's accepted conversation
+page in the local Part B build. It is a test-only preview; the hosted app does
+not yet offer the control. A controlled test with synthetic conversation text
+returned a real generated four-section brief through the local preview.
+
+Local interface checks show that a Mentor can open an accepted conversation
+and choose **Summarise Conversation**. The page shows **Preparing consultation
+draft…** while the request is pending. When the service reports that drafting
+is not configured, the page says **AI drafting is not configured for this test
+account.** No draft is added; the conversation and message box remain
+available. Opening the page or receiving a new message does not start a draft
+request. A managed local browser journey verified this fail-closed behavior at
+a phone-sized viewport with Enter-key activation. A real generated brief has
+also succeeded in that later controlled test.
+
+Local simulated-response checks and the controlled development test cover the
+review screen: a successful response displays editable **Conversation summary**, **Unresolved Student
+questions**, **Suggested teaching approaches**, and **Limitations or missing
+context** fields. A **Partial history** notice appears if earlier messages
+were omitted. Edits remain on the current page and are neither sent as a
+message nor saved. Leaving the conversation or changing accounts clears the
+draft. The generated brief is for Mentor review; it is not a saved chat record.
+
 ### Manage your Mentor profile
 
 1. Choose **My profile** in the Mentor navigation. The page shows your saved
@@ -524,8 +552,9 @@ into the emulator.
 3. Confirm the Student dashboard renders sample data.
 4. Open **Find a mentor** and confirm the Sample Mentor list, search, module
    filter, details, **Ask for help** dialog, and **Request help** form work.
-   Confirm **Help requests** shows the simulated result. Open the remaining
-   Student destinations and confirm their labelled scaffolds render.
+   Confirm **Help requests** shows the simulated result. Open **Consultations**
+   and confirm its labelled scaffold renders; open **Study assistant** and
+   confirm the question and history controls render.
 5. Narrow the browser to a phone-sized viewport.
 6. Confirm bottom navigation, header branding, and mobile sign-out are usable.
 7. Use only the keyboard to reach navigation, form controls, and sign-out;

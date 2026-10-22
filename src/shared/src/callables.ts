@@ -230,13 +230,21 @@ export const deleteStudentStudyAssistantConversationOutputSchema = z.object({
   conversationId: canonicalDocumentIdSchema,
 }).strict()
 
-export const mentorConsultationSummaryInputSchema = nonEmptyInputSchema.extend({
-  appointmentId: identifierSchema,
-  notes: z.string().trim().min(1).max(8000),
-})
+export const mentorConsultationSummaryInputSchema = z.object({
+  helpRequestId: canonicalDocumentIdSchema,
+}).strict()
+export const mentorBriefSchema = z.object({
+  summary: z.string().trim().min(1).max(8000),
+  unresolvedQuestions: z.string().trim().min(1).max(8000),
+  teachingApproaches: z.string().trim().min(1).max(8000),
+  limitations: z.string().trim().min(1).max(8000),
+}).strict().refine((brief) =>
+  Object.values(brief).reduce((total, value) => total + [...value].length, 0) <= 8000,
+  'Brief exceeds the combined character limit')
 export const mentorConsultationSummaryOutputSchema = z.object({
-  summary: z.string().max(8000),
-})
+  brief: mentorBriefSchema,
+  partialHistory: z.boolean(),
+}).strict()
 
 export const callableSchemas = {
   initializeStudentProfile: {
