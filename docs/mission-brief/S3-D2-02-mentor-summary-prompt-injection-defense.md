@@ -40,3 +40,7 @@ Independent penetration campaigns for direct callable abuse, quota exhaustion, g
 ## 6. Next planning handoff
 
 The PRD should turn the four guardrails into observable requirements and the seven bounded cases. The TDD should identify existing prompt, parser, UI, and test seams without repeating completed architecture. Requirements-to-Tests should trace each case and inherited regression to mock and emulator evidence, with unverified real-model behavior identified as a limitation. After verification, reconcile S3-D2-01/S3-D2-02 documentation and consolidate evidence for final review. No S3-D2-01 artifact is changed by this brief.
+
+## Final implementation disposition — 2026-10-22
+
+The original mission and approval remain historical. Fixed server instructions, bounded authorized selection, a tool-free provider request, output validation, inert rendering, and no automatic business-state update are present in the final source. The current Mentor brief is read-only text, so the inherited edit-in-page-session requirement is **not delivered**. The seven synthetic mocked attack cases and related boundaries have recorded historical passes in `workflow/handoffs/royden/S3-D2-02.md`; a later merge removed the Mentor draft UI component test, and no current UI editing evidence remains. These results do not prove live-model obedience or authorize real-data use. This reconciliation is documentation only and does not claim a new approval or test run.

@@ -199,3 +199,21 @@ S3-D2-02 owns dedicated stored prompt-injection, leakage, unauthorized-action, m
 | Release privacy/security | Provider handling and retention terms, minimization and participant notice/consent, successful D adversarial verification, separate release approval | Real conversations and real-user production release |
 
 Developer 2 explicitly marked the external facts pending during grilling and approved this PRD with the clarifications recorded above. No value is inferred from example model names, Firebase aliases, or the mock. This approval confirms the behavior and gates above without marking missing evidence as satisfied. TDD drafting is authorized; Requirements-to-Tests and implementation remain separate gates.
+
+## 10. Final requirement disposition — 2026-10-22
+
+The Student Study Assistant uses a separate provider module. A reusable Mentor gateway exists, but the planned two-handler production integration is not delivered.
+
+FR-03 is a shared-owner approval checkpoint, not a product behavior. The technical implementation summary below does not assert that checkpoint was approved; its provenance remains in the feature handoff.
+
+The requirements and acceptance criteria above record approved intent. Final source disposition on `royden/feat-mentor-ai-summary`:
+
+| Requirement group | Final disposition |
+| --- | --- |
+| FR-01–FR-07, FR-10 | Server gateway, explicit Mentor request, current Mentor/accepted-pair checks, bounded ordered selection, fixed task instruction, safe errors, and structured brief validation are implemented. The parser also accepts bounded fenced JSON, ordered section text, and limited null/array values; the stricter bare-four-string contract in AC-17/AC-18 is superseded by implementation. Historical tests and local-preview evidence are recorded separately, not upgraded here. |
+| FR-08 / AC-20–AC-22 | Four sections and a partial-history notice can be displayed, but final `ConversationPages.tsx` uses read-only paragraphs. In-page editing is unimplemented. The displayed result is ephemeral frontend state and is not auto-sent or saved as business data. A historical local-preview edit predates the final source. |
+| FR-09 / AC-23–AC-26 | `mentorSummaryCallable.ts` restricts the callable to `helpinus-dev`, approved configuration, and allowlisted UIDs; `aiTestCapacity.ts` permits one active lease. Its `attemptsUsed` field is historical, so AC-25's ten-attempt total cap is **not implemented**. Current direct signed-in foreign-Mentor and hosted UI acceptance evidence remains outstanding in the handoff. |
+| FR-11–FR-12 / AC-31–AC-36 | Shared Student/Mentor daily and aggregate quota, common audit records, and 30-day Mentor audit retention are **not implemented**. The Student Study Assistant has its own controls; they do not satisfy this shared C requirement. |
+| FR-13 / AC-37–AC-39 | Production-path C readiness and general-user release are **not established**. Recorded S3-D2-02 synthetic mocked security checks do not prove live-model resistance or settle real-data handling and release approval. |
+
+The original approved scope has not been retrospectively changed or reapproved by this note. See [Requirements-to-Tests](RequirementsToTests.md) for evidence limits and outstanding checks.

@@ -204,7 +204,8 @@ erDiagram
 
 | Collection | Required document information |
 | --- | --- |
-| `users/{uid}` | `id`, `displayName`, `email`, `role`, `status`, `createdAt` |
+| `users/{uid}` | Authoritative Student identity: `id`, `displayName`, `email`, `role`, `status`, `createdAt`; may retain a legacy Mentor copy |
+| `mentors/{uid}` | Authoritative Mentor identity with the same account fields |
 | `mentorProfiles/{uid}` | `userId`, `biography`, `moduleIds`, `active` |
 | `modules/{moduleId}` | `id`, `code`, `title`, `active` |
 | `helpRequests/{helpRequestId}` | Server-generated ID, Student/Mentor/module ownership, historical display names, content, F01 status and timestamps |
@@ -215,7 +216,7 @@ erDiagram
 | `conversations/{helpRequestId}/messages/{messageId}` | authenticated sender, normalized plain text, server timestamp, nullable recipient acknowledgement timestamp |
 | `availabilitySlots/{slotId}` | Mentor, start/end, withdrawal state, creation time |
 | `appointments/{appointmentId}` | slot, Student, Mentor, topic, status, timestamps |
-| `aiAuditEvents/{eventId}` | actor, role, feature, outcome, prompt hash, timestamp |
+| `aiAuditEvents/{eventId}` | Reserved domain scaffold; the Mentor summary path does not write these records |
 
 Firestore stores native timestamps. The shared network/application contract
 represents timestamps as ISO 8601 strings. Adapters normalize native
@@ -282,7 +283,7 @@ appointment functions remain scaffolds.
 | Respond/complete appointment | Denied | Allowed | Denied |
 | Cancel involved appointment | Allowed | Allowed | Denied |
 | Student study assistant | Allowed | Denied | Denied |
-| Mentor consultation summary | Denied | Designated development-test Mentor only while B3 gate is enabled | Denied |
+| Mentor consultation summary | Denied | Designated development-test Mentor only while the B3 project, isolation, and exact-UID gates are enabled | Denied |
 
 Functions validate input before executing handlers, then verify authentication,
 the authoritative profile, ACTIVE status, email equality, verified email, role,
@@ -313,7 +314,7 @@ accepts only that ID. Other dormant domain contracts retain their existing
 | `cancelAppointment` | Involved Student or Mentor | Cancel an eligible appointment |
 | `completeAppointment` | Mentor | Mark a confirmed consultation complete |
 | `studentStudyAssist` | Student | Private source-grounded Study Assistant callable |
-| `mentorConsultationSummary` | Designated development-test Mentor with an accepted conversation | Gated development callable; one controlled real-provider brief passed through the local preview, while full B3 acceptance remains open |
+| `mentorConsultationSummary` | Designated development-test Mentor with an accepted conversation | Gated development callable returning a four-section, ephemeral brief; current page renders the fields as read-only text |
 
 F01/F02 execute both branches of `respondToHelpRequest` with the real
 conversation provisioner. Existing unrelated callables retain their own
@@ -485,7 +486,9 @@ field grammar before accepted terminal replay. A missing or corrupt pair is
 never silently repaired.
 
 `sendMessage` and `acknowledgeMessage` independently recheck current Auth and
-`users/{uid}` eligibility, the accepted request, matching conversation, and
+eligibility from the current authoritative role profile (`users/{uid}` for
+Students or `mentors/{uid}` for Mentors), the accepted request, matching
+conversation, and
 target message inside a transaction. Sends trim outer whitespace and count
 Unicode code points from 1 to 4,000. The message UUID is the idempotency key:
 same sender/body at the same path returns the saved message; changed content
@@ -606,7 +609,7 @@ read or write Firestore directly. The three Singapore-region callables are:
 
 The strict shared schemas reject a client-supplied target UID, role, status,
 `active`, extra fields, malformed document IDs, or a biography longer than
-1,000 characters. Each handler uses the authoritative `users/{uid}` record and
+1,000 characters. Each handler uses the authoritative `mentors/{uid}` record and
 current Firebase Auth account, including disabled, email, and verified-email
 checks. The synthetic `@example.test` verification exception applies only
 when Functions run in the emulator. The save transaction rechecks the account
@@ -776,7 +779,9 @@ Before running the command, have the Mentor choose **Continue with Google** once
 using the same email address. The script refuses to provision a missing,
 disabled, unverified, non-Google, or email-mismatched Firebase identity. It
 never creates an identity, password, reset link, or verification link. The
-trusted `users/{uid}` record remains the sole role and status authority.
+trusted `mentors/{uid}` record is the current Mentor role and status authority;
+`users/{uid}` remains authoritative for Students. A legacy Mentor copy in
+`users/{uid}` cannot establish a simultaneous Student role.
 
 Never commit the credential used by Application Default Credentials.
 
@@ -1173,177 +1178,179 @@ Passing structural tests does not establish real-model safety; the semantic
 rubric remains blocked until an approved corpus and authorized real-provider
 evaluation exist.
 
-## 18. SoCLaaS gateway and Mentor consultation draft (S3-D2-01 Part B)
+## 18. SoCLaaS gateway and Mentor consultation draft (S3-D2-01 and S3-D2-02)
 
-Sprint 1 reserved the AI callable names. S3-D2-01 has since implemented the
-shared gateway and Mentor path **locally**, using synthetic tests. The separate
-`soclaasConnectivityCheck` Milestone A callable was deployed to `helpinus-dev`
-by Developer 2 for a genuine authenticated, key-visible `/models` catalog
-request; its inference flag was unset. That catalog result does not approve a
-chat model or verify context/output limits. The B3 Mentor callable was
-deployed to `helpinus-dev`, and a controlled synthetic real-provider brief
-passed through a local preview; the hosted UI has not yet shown that control.
-The Student Study Assistant callable is implemented independently as described
-above; a Student-shaped gateway test is not a test of that handler. General-user
-enablement of the Mentor draft remains a separate gate.
+The Mentor consultation feature generates an optional, private teaching brief
+from the messages in an accepted Student–Mentor conversation. It comprises a
+reusable backend SoCLaaS gateway (S3-D2-01) and a Mentor-specific callable and
+interface, subsequently hardened against untrusted conversation content
+(S3-D2-02). It does not modify the conversation or automatically send a message.
+The Student Study Assistant in §17 is a separate implementation with its own
+provider and controls; gateway tests using Student-shaped requests do not
+verify that Student callable.
 
-### Backend boundaries and data flow
+The feature currently has a development-only, explicitly gated inference path.
+A controlled `helpinus-dev` deployment produced a real-provider brief using
+synthetic conversation data, but this is not general-user or production approval.
 
-`src/functions/src/aiGateway.ts` owns a task-neutral `generate` operation,
-`AiProvider.complete`, `AiCapacity.withAiCapacity`, a deterministic mock, and
-the SoCLaaS HTTP adapter. It accepts server-built messages, actor/feature,
-output-token bound, and absolute deadline. The adapter posts only to the fixed
-`https://soclaas-api.comp.nus.edu.sg/v1/chat/completions` origin, with a
-Firebase-bound `SOCLAAS_API_KEY` secret; redirects are rejected. Configuration
-requires an exact approved model ID other than the portal's `default` selector
-and independently verified context/output limits. The gateway checks the
-serialized outbound JSON against its byte and model allowance before capacity
-admission, bounds message count/length, response bytes and time, validates
-optional usage, and returns safe `AI_CONFIG`, `AI_CAPACITY`, `AI_TIMEOUT`,
-`AI_PROVIDER_LIMIT`, `AI_PROVIDER`, or `AI_RESPONSE` categories. Each provider
-attempt must pass an injected capacity implementation. It does not read
-conversations or contain a role-specific prompt. B3 makes no automatic retry.
+### Components and request flow
 
-`src/functions/src/mentorSummaryCallable.ts` exports the Firebase v2
-`mentorConsultationSummary` callable through `index.ts`. Its outer gate checks
-the authenticated UID, literal `helpinus-dev` runtime/approved-project values,
-explicit B3 enablement and isolation flags, and a strictly parsed exact-UID
-allowlist **before** reading the secret or Firestore or calling HTTP. This B3
-gate is stricter than Milestone A's development-only authenticated catalog
-callable. `src/functions/src/mentorConsultationSummary.ts` then verifies the
-current Firebase Auth identity and authoritative ACTIVE Mentor profile,
-accepted `helpRequests/{helpRequestId}` owner, and matching same-ID
-`conversations/{helpRequestId}` pair before reading messages. It repeats the
-identity and pair checks before returning a generated brief. Admin SDK reads
-bypass Firestore Rules, so these handler checks are mandatory.
+| Component | Responsibility |
+| --- | --- |
+| `src/functions/src/aiGateway.ts` | Task-neutral request bounds, provider abstraction, capacity admission, SoCLaaS HTTP adapter, and safe error mapping |
+| `src/functions/src/mentorSummaryCallable.ts` | Firebase v2 callable and outer development-project, enablement, isolation, and UID gates |
+| `src/functions/src/mentorConsultationSummary.ts` | Mentor authorization, accepted-conversation validation, bounded message selection, prompt construction, and output parsing |
+| `src/functions/src/aiTestCapacity.ts` | Firestore-backed single-flight reservation for controlled B3 testing |
+| `ConversationPages.tsx` | Mentor-initiated generation and private, read-only rendering of the four-part brief |
 
-The callable input is strictly `{helpRequestId}` with a canonical document ID;
-client notes, prompts, transcripts, paths, and extra keys are rejected. The
-handler counts all and `createdAt`-ordered message rows around its bounded
-query, failing with safe support guidance if ordering omits a malformed row
-or the set changes. It selects at most the 30 most recent complete messages
-and 12,000 body characters, further reduced by the verified model allowance,
-then sends them chronologically with a deterministic document-ID tie break.
-Each selected row must match the saved-message schema and the accepted pair.
-Zero messages return `EMPTY_HISTORY` without provider use; omitted earlier
-messages set `partialHistory=true`. Trusted task instructions request bare
-four-field JSON and mark stored text as untrusted data. The model gets no
-application tools. Output must parse as exactly four trimmed, nonempty strings
-(`summary`, `unresolvedQuestions`, `teachingApproaches`, `limitations`) within
-8,000 combined characters; invalid output returns a safe `AI_RESPONSE` error.
-The handler does not write a message or other business record.
+```text
+Mentor conversation page
+  -> mentorConsultationSummary callable
+  -> development and exact-UID gates
+  -> current Mentor and accepted-conversation authorization
+  -> bounded, validated conversation messages
+  -> SoCLaaS gateway and capacity reservation
+  -> validated four-field brief
+  -> private, read-only Mentor view
+```
 
-`src/functions/src/aiTestCapacity.ts` supplies B3's backend-only Firestore
-reservation at `soclaasTestScope/mentorSummary`. An operator must precreate
-`{attemptsUsed: 0, active: null}` in the verified test project. Transactions
-admit at most ten **attempted** provider calls total and one active lease across
-instances. A failed or uncertain attempt is not refunded; a crash lease
-expires only after 70 seconds, beyond the 40-second Function limit and
-25-second provider deadline. Missing or corrupt state fails closed. There is
-no automatic reset. These B3 limits are not the later C per-user/aggregate
-daily quota or 30-day audit system.
+The separate `soclaasConnectivityCheck` Milestone A callable authenticates and
+queries the key-visible `/models` catalog in `helpinus-dev`. This proves the
+configured credential can reach the catalog, **not** that a specific chat model,
+its token limits, or Mentor inference is approved.
 
-### Frontend and safe local setup
+### Gateway and provider boundary
 
-The Mentor conversation detail in `ConversationPages.tsx` invokes the typed
-`HelpiNUSServices.callables` adapter only when the Mentor clicks **Summarise
-Conversation**. A pending call disables duplicate clicks. The page shows
-separate loading, empty, support, access-loss, capacity, timeout, invalid
-output, configuration, and provider states. A successful brief is a private,
-editable, plain-text four-field draft with a partial-history notice when
-needed. It stays in page state and is neither sent nor saved. Account,
-conversation, and navigation changes clear it and discard late results; the
-chat remains available if generation fails.
+The gateway accepts only server-constructed messages, actor/feature metadata,
+a bounded output-token allowance, and an absolute deadline. Its
+`AiProvider.complete` interface supports a deterministic fake for local tests
+and the SoCLaaS HTTP adapter for controlled inference. The production-shaped
+adapter uses the fixed
+`https://soclaas-api.comp.nus.edu.sg/v1/chat/completions` endpoint with the
+Firebase-managed, server-only `SOCLAAS_API_KEY` secret and rejects redirects.
+The model must be an explicitly approved ID rather than the portal's `default`
+selector; context and output limits must be verified separately.
 
-For local development, keep `SOCLAAS_B3_ENABLED` and
-`SOCLAAS_B3_ISOLATION_VERIFIED` unset. Emulator and component tests supply
-synthetic configuration and fake HTTP. A controlled B3 provider test requires
-an operator to verify an isolated, synthetic-only `helpinus-dev` project and
-the exact test Firebase UIDs, approve a catalog-visible chat model and its
-context/output limits, configure the server-only
+Before calling a provider, the gateway validates the outbound request size,
+message and response bounds, model allowance, deadline, and capacity admission.
+It exposes bounded application errors (`AI_CONFIG`, `AI_CAPACITY`,
+`AI_TIMEOUT`, `AI_PROVIDER_LIMIT`, `AI_PROVIDER`, and `AI_RESPONSE`) rather than
+raw provider responses. Each attempt passes through the injected capacity
+boundary; the Mentor B3 path does not automatically retry failed inference.
+The gateway itself neither reads conversation records nor supplies a
+role-specific prompt.
+
+### Mentor authorization and message selection
+
+The exported `mentorConsultationSummary` callable accepts only
+`{helpRequestId}` with a canonical document ID. Client-provided transcripts,
+prompts, notes, paths, and extra fields are rejected. Before secret access,
+Firestore reads, or HTTP requests, the outer callable checks authentication,
+the exact `helpinus-dev` runtime/approved project, explicit B3 enablement and
+isolation flags, and an exact-UID allowlist.
+
+The handler then verifies the current Firebase identity, the authoritative
+`ACTIVE` Mentor profile, ownership of the accepted help request, and the
+matching `conversations/{helpRequestId}` record. Authorization and conversation
+pair checks are repeated before returning generated content. These checks
+remain necessary because Admin SDK reads bypass Firestore Security Rules.
+
+The handler selects at most the **30 most recent complete messages**, bounded
+to **12,000 body characters** and further reduced to fit the verified model
+allowance. Messages are presented chronologically with a deterministic
+created-time/document-ID order. It validates each saved message and checks
+counts around the bounded query to detect malformed, omitted, or changing
+rows. An empty conversation returns `EMPTY_HISTORY` without calling SoCLaaS;
+truncated older context is reported to the UI as `partialHistory=true`.
+
+### Prompt-injection boundary and output contract
+
+Saved Student and Mentor messages are **untrusted source data**, not
+instructions. The handler frames them as sender-labelled JSON, uses fixed
+server-authored instructions, and gives the model no application tools or
+credentials. This limits what conversation text can influence, but cannot
+guarantee faithful output from a live model.
+
+The requested brief consists of four fields:
+
+| Field | Purpose |
+| --- | --- |
+| `summary` | Concise account of the consultation |
+| `unresolvedQuestions` | Questions or difficulties still needing attention |
+| `teachingApproaches` | Potential approaches for the Mentor's next steps |
+| `limitations` | Gaps, uncertainty, or constraints in the generated account |
+
+The parser accepts bounded four-field JSON (including a fenced JSON response)
+or the four recognized text sections in the required order. It normalizes
+nonempty string arrays and uses an explicit none-identified statement for
+empty or null arrays in the three non-summary fields. All four displayed
+fields must resolve to nonempty plain-text strings within **8,000 characters
+combined**. Invalid content returns `AI_RESPONSE`; it is not persisted or
+rendered as trusted markup. The callable writes no chat or other business
+record.
+
+### Capacity, interface, and safe configuration
+
+B3's `soclaasTestScope/mentorSummary` Firestore reservation permits **one
+active test lease across instances**. An operator precreates the state record
+with `active: null`; absent or malformed state fails closed. Leases expire
+after 70 seconds, beyond the Function's 40-second limit and the provider's
+25-second deadline. The historical `attemptsUsed` field is not enforced:
+**the planned ten-attempt total cap is not implemented**. Nor does this test
+lease implement the separate planned shared daily quotas or 30-day audit.
+
+In `ConversationPages.tsx`, generation occurs only when the Mentor selects
+**Summarise Conversation**. The button disables repeat submission while a
+request is pending. A successful brief remains private, read-only, plain
+text in page state; it is neither sent to the Student nor saved to Firestore.
+Changing accounts, conversations, or routes clears the draft and ignores late
+results. Distinct UI states handle empty history, lost access, capacity,
+timeout, configuration, provider, and invalid-output failures without hiding
+the underlying chat. The current UI does **not** support editing the four
+fields, even though an earlier local preview demonstrated editing.
+
+Local emulator and component tests use synthetic accounts, fake HTTP, and
+mocked credentials. Ordinary local development must leave
+`SOCLAAS_B3_ENABLED` and `SOCLAAS_B3_ISOLATION_VERIFIED` unset. A controlled
+provider test additionally requires operator approval of the isolated,
+synthetic-only project and exact test UIDs, model and token limits, and the
+Firebase-managed secret. The operator configures
 `SOCLAAS_B3_APPROVED_PROJECT_ID`, `SOCLAAS_B3_ALLOWED_UIDS`,
 `SOCLAAS_APPROVED_ORIGIN`, `SOCLAAS_APPROVED_MODEL_ID`,
 `SOCLAAS_VERIFIED_CONTEXT_TOKENS`, `SOCLAAS_VERIFIED_OUTPUT_TOKENS`, and
-`SOCLAAS_B3_MAX_OUTPUT_TOKENS`, and bind the replacement
-Firebase-managed `SOCLAAS_API_KEY` secret. Only the operator's separate
-approval may enable the B3 flags and authorize deployment and inference.
-Never put that secret or server controls in `VITE_*`. The temporary first
-Functions predeploy hook blocks any Functions deploy whose selected
-`GCLOUD_PROJECT` is not exactly `helpinus-dev`; the callable also checks its
-runtime project.
+`SOCLAAS_B3_MAX_OUTPUT_TOKENS` before enabling the B3 flags. The temporary
+Functions predeploy guard rejects any selected `GCLOUD_PROJECT` other than
+`helpinus-dev`. No secret or server authorization control belongs in a
+`VITE_*` variable.
 
-### Verification and remaining gates
+### Verification and known limits
 
-The approved SDD package is copied into
-`docs/mission-brief/S3-D2-01-shared-soclaas-mentor-summary.md` and
-`docs/features/S3-D2-01/`. Its exact SHA-256 values match the local draft,
-worktree, and dated backup recorded in
-`workflow/handoffs/royden/S3-D2-01.md`. No SDD or implementation commit was
-made at the original feature handoff; the files' older header status describes
-earlier planning gates, while the ledger records the later package approval and
-local implementation authorization. A later authorized merge of local `master`
-created merge commit `6ebd73a`; the feature files remain uncommitted.
+Verification combines gateway unit tests, shared schemas, synthetic Auth and
+Firestore Emulator integration, frontend interaction tests, prompt-injection
+fixtures, a controlled real-provider test, and a browser journey. The
+S3-D2-02 adversarial evidence records **25/25** passing emulator tests with
+mocked SoCLaaS; it documents seven adversarial/discussion cases and their
+model-dependent limits. A controlled `helpinus-dev` test returned one
+synthetic real-provider four-section brief. Following the 2026-10-21 merge,
+the recorded full Functions integration suite passed **128/128** tests; a
+later root check passed **317 frontend, 103 Functions source, and 15 shared**
+tests. The subsequent focused browser journey passed **1/1**, verifying
+action visibility and no automatic generation—not editable fields or a
+hosted real-provider round trip.
 
-On 2026-10-20 with Node 22.23.3, B1's gateway tests passed 24/24 and shared
-contracts 13/13 in independent focused runs. B2's synthetic Auth/Firestore
-Emulator suite passed 11/11. B3's synthetic Auth/Firestore Emulator suite
-passed 5/5 and its frontend mock suite 7/7. The coordinator's B3
-`npm run check` passed lint, typecheck, tests, and builds: frontend 304 tests/36 files,
-Functions 91/14, shared 15/2. The Functions unit count excludes the separate
-Emulator suites. Useful local checks from the repository root are:
+The current evidence does **not** establish full hosted-UI availability,
+the separate direct signed-in foreign-Mentor authorization check, the
+provider's limits beyond the approved trial ceilings, live-model resistance
+to prompt injection, or production readiness. Shared quotas and auditing
+remain separate planned work. Current SDD reconciliation, removed-test
+history, and exact verification commands are recorded in the handoff and
+evidence files rather than treated as timeless architectural claims:
 
-```bash
-npm exec --prefix src/functions -- vitest run src/aiGateway.test.ts
-npm run test -w src/frontend -- mentorConversationSummary.test.tsx
-npm run check
-npm run verify:deploy-package --workspace src/functions
-```
+- `verification-evidence/S3-D2-02-prompt-injection-tests-2026-10-21.md`
+- `verification-evidence/S3-D2-01-B3-local-positive-2026-10-21.md`
+- `verification-evidence/S3-D2-merge-2026-10-21.md`
 
-Run `integration-tests/mentorConsultationSummary.test.ts` and
-`integration-tests/mentorSummaryCallable.test.ts` under local Auth/Firestore
-Emulators with a synthetic demo project. The S3-D2-02 adversarial rerun passed
-25/25 across those suites, with mocked SoCLaaS; its focused frontend test
-passed 7/7, and root `npm run check` passed. See
-`verification-evidence/S3-D2-02-prompt-injection-tests-2026-10-21.md` for the
-seven attack/discussion cases, review findings, and model-dependent limits.
-The original managed browser journey used
-`npm run verify:app -- --grep "Mentor sees a deliberate consultation draft
-action"`. After the user authorized stopping the process occupying Firestore
-port 8080, this journey passed in local Chromium, including a 390 × 720 viewport,
-Enter-key activation, fail-closed configuration feedback, and continued chat
-visibility. Evidence is in `.verify-app/runs/2026-10-20T10-43-54-954Z`.
-The later controlled `helpinus-dev` test verified the deployed callable with
-one synthetic real-provider four-section brief and local-preview editing; see
-`verification-evidence/S3-D2-01-B3-local-positive-2026-10-21.md`. Full B3
-acceptance still needs hosted-UI availability and the separate direct
-signed-in foreign-Mentor authorization check. Provider alias limits remain
-unverified beyond the approved trial ceilings. C shared Student/Mentor quotas
-and audit, real-model prompt-injection behavior, provider handling for real
-data, and release approval remain separate gates.
-
-After merging local `master` on 2026-10-21, full Functions integration passed
-128/128. A full frontend run timed out on one still-valid Mentor draft UI test.
-The managed Mentor browser run failed when the `helpinus-dev` Functions emulator
-rejected its dotenv setup before loading the callable. Inspection found the
-local B3 gate enabled, making the browser test's expected `AI_CONFIG` response
-invalid for that setup. The browser journey was narrowed to action visibility
-and no automatic generation, without activating the provider. Neither failed
-verification nor the revised browser journey was rerun; see
-`verification-evidence/S3-D2-merge-2026-10-21.md`.
-
-## 19. Deferred work
-
-- Complete help-request, conversation, booking, and availability workflows.
-- Complete the approved Student corpus, semantic evaluation, retention
-  scheduler, and controlled SoCLaaS smoke test for S2-D1-F03.
-- Complete shared quotas and audit, outstanding Mentor B3 acceptance checks,
-  and later security and release gates.
-- Build the GitHub Pages product website.
-- Keep password and account recovery delegated to Google.
-- Perform live development deployment and production promotion after human
-  environment setup and review.
-
-## 20. Acknowledgements and reuse
+## 19. Acknowledgements and reuse
 
 No MP2 source code, UI, documentation, or assets were reused. MP2 influenced
 only the expected standard of role separation, documentation, and engineering

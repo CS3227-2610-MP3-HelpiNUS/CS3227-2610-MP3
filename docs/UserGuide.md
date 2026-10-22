@@ -2,22 +2,14 @@
 
 ## 1. About HelpiNUS
 
-HelpiNUS helps NUS Students find suitable Mentors, request academic help,
-communicate, book consultations, and receive role-specific AI assistance.
-Mentors manage requests, availability, consultations, and AI-supported
-summaries.
+HelpiNUS helps NUS Students find Mentors, request academic help, and message a
+Mentor who accepts their request. Mentors can review requests, message Students,
+and manage their public profile. Students can also use the Study assistant.
 
-Sprint 1 provides account creation, sign-in, sign-out, session restoration,
-role-based access, Mentor discovery, and Mentor profile management. Sprint 2
-F01 adds Student help-request submission and history, a persisted Student
-request summary, and a Mentor request inbox. The local F02 implementation adds
-atomic Mentor acceptance and private request-linked text conversations for
-the Student and addressed Mentor. S2-D1-F03 adds a private Student Study
-Assistant with approved-source citations, recent conversation history, and
-explicit insufficient-context responses. Consultations remain scaffolds.
-A local test build includes a Mentor consultation-draft control.
-A controlled development test generated a brief through that local preview;
-the hosted app does not yet offer the control.
+The **Consultations** page is a preview; appointment booking is not available.
+The current local build also includes a Mentor consultation draft for accepted
+conversations. Its availability in a hosted version depends on that version's
+deployment and AI configuration.
 
 ## 2. Supported users and devices
 
@@ -29,9 +21,8 @@ HelpiNUS has two roles:
 Each Google account has one role. Dashboard navigation does not offer role
 switching; use a different Google account if you need a separate role.
 
-Laptop and mobile browsers are equally supported. The application targets WCAG
-2.1 AA, including keyboard access, visible focus, semantic form labels,
-sufficient contrast, and reduced-motion support.
+The navigation adapts to desktop and smaller screens. Keyboard users can use
+**Skip to content** to bypass repeated navigation.
 
 ## 3. Create an account
 
@@ -41,33 +32,22 @@ sufficient contrast, and reduced-motion support.
 4. If that account does not provide a display name, enter your name and select
    **Finish Student profile setup** or **Finish Mentor profile setup**.
 
-Registration creates an `ACTIVE` profile for the chosen role under the Google
-identity's Firebase UID. An existing account cannot register under the other
-role. HelpiNUS does not collect or store a password. Registration always opens
-Google authentication, even if a previous Google session remains in the browser.
-
-Firebase creates the sign-in identity before HelpiNUS creates the authoritative
-profile. If the second step is interrupted, the account remains unable to open
-protected pages until the safe retry succeeds. The retry never changes an
-existing role. The recovery form appears only after Google authentication in
-the current registration attempt and shows the Google email being used. Choose
-**Use another Google account** to clear that session. After a refresh, select
-**Continue with Google** again before completing an unfinished profile.
+An existing account cannot register under the other role. HelpiNUS does not
+collect or store a password. If profile setup is interrupted, return to
+registration and choose **Continue with Google** again. The page may ask for
+your name to finish setup. Check the Google email shown on the page, or choose
+**Use another Google account** if it is the wrong account.
 
 ## 4. Sign in and restore a session
 
 1. Choose **Yes, sign in**, then **Continue as Student** or **Continue as Mentor**.
 2. Select the Google account connected to that role in the popup.
-3. HelpiNUS verifies the identity and authoritative profile.
-4. Students are sent to `/student/dashboard`; Mentors are sent to
-   `/mentor/dashboard`.
+3. HelpiNUS checks the account and opens the dashboard for that role.
 
-Reloading the page restores a valid session. A missing, malformed, suspended,
-disabled, email-mismatched, or invalid account fails closed and displays a
-recovery explanation. Closing the Google window simply returns to the sign-in
-page. If pop-ups are blocked, allow them for HelpiNUS and try again. If a local
-Auth emulator is restarted, an identity left in browser storage is signed out
-automatically instead of becoming permanently stuck.
+Reloading the page restores a valid session. If the account cannot be verified,
+the page explains how to retry or contact support. Closing the Google window
+returns to sign-in. If pop-ups are blocked, allow them for HelpiNUS and try
+again.
 
 Choosing the wrong role shows guidance to sign in using the existing role; it
 does not create another profile. A Google identity without a HelpiNUS profile
@@ -279,16 +259,10 @@ If the assistant responds with **Not enough approved context**, mention the
 module and exact topic in a new question, such as `CS2103 test-case design`,
 and avoid relying on the assistant for material outside CS2030S or CS2103.
 
-Conversation access expires 14 days after its latest activity, at which point
-the content immediately disappears from lists, reads, retries, and assistant
-context. The maintenance policy targets physical removal of expired message
-content and retry receipts within 24 hours; content remaining after 72 hours is
-an operational issue. Bounded metadata-only audit records target 30-day
-retention. Those physical-retention jobs must be configured and monitored by an
-administrator before production enablement. An explicit deletion hides the
-conversation immediately and attempts physical cleanup in the same request.
-Students cannot read or write Study Assistant records directly, and Mentors
-cannot use the Student callable or route.
+Conversation access expires 14 days after its latest activity. Expired
+conversations no longer appear in your history. An explicit deletion removes
+the conversation from your view immediately. Only Students can use the Study
+assistant.
 
 Assistant output is displayed as plain text. It may still be inaccurate, so
 check the cited source and your course requirements. Use it to understand and
@@ -300,12 +274,6 @@ selected from the CS2030S 2021 Semester 2 notes and the CS2103/T AY2025/26
 Semester 1 textbook, and every grounded answer links back to the relevant
 public source page. It does not browse the web or answer from arbitrary module
 material during a conversation.
-
-In the local emulator, the deterministic fake provider uses the same approved
-CS2030S/CS2103 corpus. Local and automated tests never need a real provider key.
-Deployed environments use the server-only SoCLaaS adapter only when an
-administrator configures the environment's secret and explicitly enables the
-feature. The key is never exposed to the browser.
 
 ## 6. Mentor access
 
@@ -366,30 +334,29 @@ as the Student view, with the Student's historical display name and question
 context. The message, history, retry and read-status behavior above applies
 to both roles.
 
-### Consultation draft in the local test build
+### Review a consultation draft in the local build
 
-The **Consultation draft** section appears on a Mentor's accepted conversation
-page in the local Part B build. It is a test-only preview; the hosted app does
-not yet offer the control. A controlled test with synthetic conversation text
-returned a real generated four-section brief through the local preview.
+If your local build has AI drafting configured, open an accepted conversation
+as its Mentor and choose **Summarise Conversation** in **Consultation draft**.
+The button is available only to the Mentor in that conversation. It starts a
+draft only when selected; opening the conversation or receiving a message does
+not start one. While the request runs, the page says **Preparing consultation
+draft…**.
 
-Local interface checks show that a Mentor can open an accepted conversation
-and choose **Summarise Conversation**. The page shows **Preparing consultation
-draft…** while the request is pending. When the service reports that drafting
-is not configured, the page says **AI drafting is not configured for this test
-account.** No draft is added; the conversation and message box remain
-available. Opening the page or receiving a new message does not start a draft
-request. A managed local browser journey verified this fail-closed behavior at
-a phone-sized viewport with Enter-key activation. A real generated brief has
-also succeeded in that later controlled test.
+If a draft is returned, review its **Conversation summary**, **Unresolved
+Student questions**, **Suggested teaching approaches**, and **Limitations or
+missing context**. A **Partial history** notice means earlier messages were
+omitted. The fields are displayed as text in this build; there is no edit or
+save control. The draft is not sent as a chat message or saved to the
+conversation. Leaving the conversation or changing accounts clears it.
+Check the draft against the conversation before relying on it.
 
-Local simulated-response checks and the controlled development test cover the
-review screen: a successful response displays editable **Conversation summary**, **Unresolved Student
-questions**, **Suggested teaching approaches**, and **Limitations or missing
-context** fields. A **Partial history** notice appears if earlier messages
-were omitted. Edits remain on the current page and are neither sent as a
-message nor saved. Leaving the conversation or changing accounts clears the
-draft. The generated brief is for Mentor review; it is not a saved chat record.
+If there are no messages, the page says there is nothing to summarise. If AI
+drafting is not configured or the request fails, the page shows an explanation
+and adds no draft. A busy service may ask you to try again shortly; a timeout
+may still count as an attempt. Your messages remain available in the
+conversation. Availability of this local-build feature in a hosted app has not
+been confirmed.
 
 ### Manage your Mentor profile
 
@@ -444,186 +411,24 @@ On a laptop, choose **Sign out** at the bottom of the sidebar. On mobile, choose
 If the network operation fails, HelpiNUS keeps the current screen and shows a
 retryable error instead of pretending the session ended.
 
-## 8. Run HelpiNUS locally with mock data
-
-Requirements: Node.js 22 and npm.
-
-```bash
-npm ci
-npm run dev --workspace src/frontend
-```
-
-If no Firebase Web configuration is present, HelpiNUS intentionally uses its
-mock service adapter. Open the URL printed by Vite. This mode demonstrates the
-Student dashboard, navigation, Mentor discovery, and a simulated help-request
-flow without contacting Firebase. These mock requests are not persisted to
-Firestore. Mentor names beginning with **Sample** and their
-module information are demonstration data, not live Mentor profiles.
-
-## 9. Run with Firebase emulators
-
-Copy and configure the frontend environment:
-
-```bash
-cp src/frontend/.env.example src/frontend/.env.local
-```
-
-Add the `helpinus-dev` Firebase Web App values and set:
-
-```text
-VITE_FIREBASE_ENV=development
-VITE_USE_FIREBASE_EMULATORS=true
-```
-
-From the repository root, use Node 22 and Java 21 or newer to start the
-emulators, seed the demo accounts, and serve the frontend:
-
-```bash
-npm run dev:emulators
-```
-
-Open `http://127.0.0.1:5173/`. Press `q` then Enter in the terminal to stop
-the session and export emulator data to `.emulator-data/`. The next run imports
-that data before seeding missing records.
-
-Alternatively, start Auth, Firestore, and Functions manually:
-
-```bash
-npx firebase-tools emulators:start --only auth,firestore,functions \
-  --project helpinus-dev
-```
-
-In another terminal, seed the demo users:
-
-```bash
-FUNCTIONS_EMULATOR=true \
-FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 \
-FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 \
-npm run seed:emulator --workspace src/functions
-```
-
-Then start the frontend:
-
-```bash
-npm run dev --workspace src/frontend
-```
-
-### Emulator-only accounts
-
-| Role | Google identity shown by the Auth Emulator |
-| --- | --- |
-| Student | `student@example.test` |
-| Mentor | `mentor@example.test` |
-| Jamie Tan (Student) | `jamie.tan@example.test` |
-| Sample Aisha (Mentor) | `aisha@example.test` |
-
-Select these identities in the Auth Emulator's mock Google sign-in window. No
-real Google account or password is used. The seed links each identity to the
-mock `google.com` provider and marks its email verified so Firestore Rules allow
-module reads. These accounts must not be used in a real Firebase project.
-
-The emulator seed has a Demo Mentor with no listed modules and Sample Aisha
-with `CS2103T` and `CS2040S`. Jamie Tan can request help from Sample Aisha for
-either module. The catalogue also has inactive `CS3230`; it does not appear
-as a new selection. Re-running the seed preserves existing demo profile edits
-and module records while the emulators are running. Live Firebase mode displays
-the eligible Mentor records and module information available in that environment.
-
-Use `npm run dev:emulators` from the repository root for this two-account
-conversation walkthrough. A plain frontend `npm run dev` without Firebase web
-configuration opens a mock preview: it initially shows Jamie Tan, cannot
-perform Google authentication, and cannot accept a request.
-
-To try the conversation flow, choose **Continue with Google** and select Jamie
-Tan in the emulator window, then find **Sample Aisha** and request help for
-`CS2103T` or `CS2040S`.
-Sign out, sign in as Sample Aisha, open **Help requests**, and accept Jamie's
-pending request. Choose **Open conversation** on the accepted request, or open
-it from **Conversations**. Sign back in as Jamie to see the same saved chat.
-Requests made in the mock preview are separate fixtures and do not transfer
-into the emulator.
-
-## 10. Manual Sprint 1 verification
-
-### Mock frontend
-
-1. Remove or temporarily rename `src/frontend/.env.local`.
-2. Start the frontend.
-3. Confirm the Student dashboard renders sample data.
-4. Open **Find a mentor** and confirm the Sample Mentor list, search, module
-   filter, details, **Ask for help** dialog, and **Request help** form work.
-   Confirm **Help requests** shows the simulated result. Open **Consultations**
-   and confirm its labelled scaffold renders; open **Study assistant** and
-   confirm the question and history controls render.
-5. Narrow the browser to a phone-sized viewport.
-6. Confirm bottom navigation, header branding, and mobile sign-out are usable.
-7. Use only the keyboard to reach navigation, form controls, and sign-out;
-   verify the focus indicator remains visible.
-
-### Emulator Student
-
-1. Start and seed the emulators using Section 9.
-2. Choose **Yes, sign in**, then **Continue as Student** and `student@example.test` in the
-   emulator window.
-3. Confirm the Student dashboard opens.
-4. Reload and confirm the session is restored.
-5. Enter `/mentor/dashboard` manually and confirm the app returns to the Student
-   dashboard.
-6. Sign out and confirm protected URLs return to login.
-
-### Emulator Mentor
-
-1. Choose **Yes, sign in**, then **Continue as Mentor** and `mentor@example.test` in the
-   emulator window.
-2. Confirm the Mentor dashboard opens with the saved profile summary and a
-   **My profile** link. The seeded Mentor initially has no listed modules.
-3. Open **My profile**, make and save a profile change, then return to the
-   dashboard and check that it reads the saved change.
-4. Enter `/student/dashboard` manually and confirm the app returns to the Mentor
-   dashboard.
-5. Confirm both desktop and mobile sign-out work.
-
-### Registration and recovery
-
-1. Choose **No, create an account**, select **Student (mentee)**, then
-   **Continue with Google** and add a new mock Google identity.
-2. Confirm the selected role and that no password is requested.
-3. Confirm the new account reaches the Student dashboard.
-4. Stop and restart the Auth emulator without clearing browser storage.
-5. Refresh HelpiNUS and confirm the stale local identity is safely returned to
-   signed-out state.
-6. Confirm a missing Google display name shows the bounded profile-recovery
-   form and that retry creates only a Student profile.
-
-## 11. Troubleshooting
+## 8. Troubleshooting
 
 ### “We couldn’t load your account”
 
-- Confirm all three emulators are running if emulator mode is enabled.
-- Confirm the frontend uses loopback emulator hosts.
-- Restart the frontend after changing `.env.local`.
-- Select **Try again** after connectivity is restored.
-- A stale emulator identity should now be removed automatically; if an older
-  build is still cached, use a private window or clear the site data once.
+Check your connection and choose **Try again**. If the message continues,
+contact HelpiNUS support. If you are using a local development build, ask its
+maintainer to check the development services.
 
 ### Google sign-in does not open
 
-Allow pop-ups for the HelpiNUS origin and try again. If the page reports that
-Google sign-in is unavailable, an administrator must enable the Google provider
-and authorize the current domain in the selected Firebase project.
+Allow pop-ups for HelpiNUS and try again. If the page still reports that Google
+sign-in is unavailable, contact HelpiNUS support.
 
 ### “Your profile is not ready”
 
-Enter the Student name and choose **Retry Student profile setup**. This also
-repairs an Auth identity whose display name could not be saved during initial
-registration. If the profile remains unavailable, confirm that the Functions
-emulator or deployed `initializeStudentProfile` function is reachable.
-
-### “Firebase is not configured”
-
-Check that every required `VITE_FIREBASE_DEV_*` value is present in
-`src/frontend/.env.local`, then restart Vite. Never paste a service-account JSON
-key into the frontend configuration.
+Return to registration, choose your role, and continue with Google. If prompted
+for your name, choose **Finish Student profile setup** or **Finish Mentor
+profile setup**. If access still fails, contact HelpiNUS support.
 
 ### Forgot password
 

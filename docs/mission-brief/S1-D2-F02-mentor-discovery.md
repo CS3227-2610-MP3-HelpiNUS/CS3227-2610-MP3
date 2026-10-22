@@ -86,3 +86,7 @@ The emulator seed currently creates a demo Mentor with an empty `moduleIds` arra
 6. What should users see when no Mentors exist, a query has no matches, module data fails while Mentors load, or a later discovery page fails?
 7. What is the intended ordering and page-size behavior for the list, and should the search/filter state persist through navigation?
 8. Which fixture and emulator-data expectations must be met for demo and review, given the current single mock Mentor and empty-module emulator seed?
+
+## Final cross-feature disposition — 2026-10-22
+
+This brief records Sprint 1 discovery scope. The final worktree implements Mentor browsing and loaded-page filtering. Its help-request initiation placeholder was subsequently superseded by S2-D2-F01's Student request flow; this does not retroactively change the original S1-D2-F02 scope or approval. Current request behavior belongs to the later feature's source and SDD. No new test or approval is claimed by this note.

@@ -1,6 +1,7 @@
 # Requirements-to-Tests — S3-D2-02 Mentor Summary Prompt-Injection Defense
 
 **Status:** Developer 2 approved; planned tests pending execution  
+**Final-status pointer:** The status above describes this pre-execution plan; see §4 for recorded historical execution and current-source gaps.
 **Draft date:** 2026-10-21 (Asia/Singapore)  
 **Approval date:** 2026-10-21 (Asia/Singapore)  
 **Approval reference:** Developer 2's reply “Approve reviewed package.”  
@@ -33,3 +34,7 @@ The seven cases below are planned as one table-driven test through the existing 
 ## 3. Completion gate
 
 PI-01–PI-07 and applicable B-01–B-03 must have actual passing results and environment/command evidence. Record any failure and retest without weakening assertions. B-04 must distinguish deterministic application boundaries from unverified live-model behavior. No mocked result is labeled real-model security signoff; no live SoCLaaS inference or deployment is planned. The reviewed package approval is recorded above; Developer 2's earlier execution message authorizes only the bounded local tests and documentation work. This matrix itself reports no test as run.
+
+## 4. Final evidence disposition — 2026-10-22
+
+The `Planned` labels above preserve the approved pre-execution plan. `workflow/handoffs/royden/S3-D2-02.md` records historical PI-01–PI-07 synthetic mocked execution, focused backend/frontend and gateway results, and independent reviews. It also records a later merge, a removed Mentor draft UI component test, and a successful action-only browser rerun without invoking the provider. Consequently B-02's editable-textarea claim is **not satisfied by final source** and its prior pass is not current UI evidence. B-01 and PI-01–PI-07 remain historical evidence for deterministic application boundaries; no new suite was run here. B-04 remains limited to mocked application behavior. The final Mentor UI uses read-only text; live-model resistance, real-data policy, and release approval remain unverified/open.

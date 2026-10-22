@@ -136,3 +136,20 @@ These are **evidence/approval gates**, not code-test failures. Record their owne
 ## 5. Completion and stop gate
 
 Developer 2 authorized local Milestone A implementation only. Further milestones, real SoCLaaS inference, and SDD Git publication each need their own authorization. Run A → B1 → B2 → B3 → C in order, retaining B3's real-provider happy path before C quotas and never treating C as the D security campaign. Record each case's actual evidence and status; rerun affected regression cases after fixes. Before a C readiness claim, every applicable A–C test above must pass in its required evidence class, G-01–G-05 must be resolved, the two real-provider checks must have controlled redacted evidence, and the joint Student/Mentor budget check must pass. Open G-06/G-07 remain explicit release blockers. This plan does not label any test as run.
+
+## 6. Final traceability disposition — 2026-10-22
+
+The matrix above is a **planned-case crosswalk**, not proof that every TC passed. Existing handoffs record focused local/mock checks and one controlled `helpinus-dev` local-preview four-section result. They explicitly leave the hosted UI and direct signed-in foreign-Mentor B3 checks open; they do not establish full TC-012, C readiness, or general release. No tests were run for this documentation reconciliation.
+
+The planned A→B→C→D order was not followed: S3-D2-02's synthetic mocked checks were recorded before C shared quotas and audit existed. G-06's historical wording must not be read as proof of C completion.
+
+| Retained check | Current disposition and evidence limit |
+| --- | --- |
+| TC-001–TC-010, TC-013–TC-014 | Relevant implementation and historical focused test evidence exist in `workflow/handoffs/royden/S3-D2-01.md`. The final UI is read-only, and the later merge removed the Mentor draft UI component test, so TC-013's edit assertion is not valid for final source. Do not infer a fresh pass from test filenames. |
+| TC-011 / AC-25 | The final capacity module enforces one active lease but has no ten-attempt admission limit. The planned total-cap assertion is not satisfied by final source. |
+| TC-012 / AC-20 | A historical controlled local-preview real-provider result is recorded, but final source cannot edit the brief; hosted UI and direct foreign-Mentor acceptance remain outstanding. Full planned acceptance is not established. |
+| TC-015–TC-017 / AC-31–AC-36 | Common Student/Mentor quotas, aggregate budget, persistent Mentor audit, and retention are unimplemented; planned checks cannot be marked passed. |
+| TC-018–TC-019 | S3-D2-02 records seven synthetic mocked boundary cases; these do not prove live-model resistance or broad semantic quality. No new human quality review is inferred here. |
+| TC-020 / G-06–G-07 | C readiness, real-data policy, and release approval remain open. |
+
+Preserve the original approvals and historical results in the handoffs; this final disposition does not rewrite them or invent a new execution record.
