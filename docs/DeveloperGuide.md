@@ -1,5 +1,11 @@
 # HelpiNUS Developer Guide
 
+> **Live production application:**
+> [https://helpinus-prod.web.app](https://helpinus-prod.web.app)
+>
+> Use this URL for approved post-deployment smoke tests. Continue to use the
+> local Firebase Emulator Suite for isolated development and automated tests.
+
 ## 1. Product and Sprint 1 scope
 
 HelpiNUS is a two-role academic-support application for NUS Students and
@@ -945,11 +951,11 @@ keyboard focus, and emulator restart recovery.
 
 ## 15. Environments and continuous delivery
 
-| Git branch | Firebase project | Deployment behaviour |
-| --- | --- | --- |
-| Feature `zh/...` | Local emulators | No deployment |
-| `dev-staging` | `helpinus-dev` | Automatic after verification |
-| `master` | `helpinus-prod` | Pauses at protected `production` environment |
+| Git branch | Firebase project | Hosted URL | Deployment behaviour |
+| --- | --- | --- | --- |
+| Feature `zh/...` | Local emulators | Not hosted | No deployment |
+| `dev-staging` | `helpinus-dev` | Development Hosting URL | Automatic after verification |
+| `master` | `helpinus-prod` | [Production site](https://helpinus-prod.web.app) | Pauses at protected `production` environment |
 
 Configure these GitHub repository variables for development:
 

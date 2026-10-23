@@ -1,5 +1,11 @@
 # HelpiNUS User Guide
 
+> **Test HelpiNUS on the live production site:**
+> [Open HelpiNUS Production](https://helpinus-prod.web.app)
+>
+> This is the official hosted application. You do not need to install anything
+> to use it.
+
 ## 1. About HelpiNUS
 
 HelpiNUS helps NUS Students find Mentors, request academic help, and message a
@@ -26,7 +32,8 @@ The navigation adapts to desktop and smaller screens. Keyboard users can use
 
 ## 3. Create an account
 
-1. Open HelpiNUS and choose **No, create an account**.
+1. Open the [HelpiNUS production site](https://helpinus-prod.web.app) and choose
+   **No, create an account**.
 2. Choose **Student (mentee)** or **Mentor** under **Account type**.
 3. Select **Continue with Google** and choose your Google account in the popup.
 4. If that account does not provide a display name, enter your name and select
