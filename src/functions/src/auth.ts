@@ -59,6 +59,23 @@ export async function requireRole(request: CallableRequest<unknown>, role: UserR
   return requireActiveUser(request, role)
 }
 
+export async function requireAnyActiveUser(request: CallableRequest<unknown>): Promise<AuthorizedUser> {
+  const auth = await requireAuthenticated(request)
+  const db = getFirestore()
+  const [student, mentor] = await Promise.all([
+    db.collection('users').doc(auth.uid).get(),
+    db.collection('mentors').doc(auth.uid).get(),
+  ])
+  if (student.exists && student.data()?.role === 'STUDENT') {
+    if (mentor.exists) {
+      throw new HttpsError('permission-denied', 'This account has conflicting roles. Contact HelpiNUS support for review.')
+    }
+    return requireActiveUser(request, 'STUDENT')
+  }
+  if (mentor.exists) return requireActiveUser(request, 'MENTOR')
+  throw new HttpsError('failed-precondition', 'Your profile is not ready yet.')
+}
+
 export function assertCurrentMentorRecord(data: unknown, uid: string, email: string): void {
   const record = data as Record<string, unknown> | undefined
   const createdAt = record?.createdAt as { toDate?: () => Date } | undefined
@@ -76,6 +93,18 @@ export async function requireCurrentMentor(request: CallableRequest<unknown>): P
   const synthetic = process.env.FUNCTIONS_EMULATOR === 'true' && user.email.endsWith('@example.test')
   if (authUser.disabled || authUser.email !== user.email || (!authUser.emailVerified && !synthetic)) {
     throw new HttpsError('permission-denied', 'Mentor account access has changed.')
+  }
+  return user
+}
+
+export async function requireCurrentStudent(request: CallableRequest<unknown>): Promise<AuthorizedUser> {
+  const user = await requireRole(request, 'STUDENT')
+  let authUser
+  try { authUser = await getAuth().getUser(user.uid) }
+  catch { throw new HttpsError('permission-denied', 'Student account access has changed.') }
+  const synthetic = process.env.FUNCTIONS_EMULATOR === 'true' && user.email.endsWith('@example.test')
+  if (authUser.disabled || authUser.email !== user.email || (!authUser.emailVerified && !synthetic)) {
+    throw new HttpsError('permission-denied', 'Student account access has changed.')
   }
   return user
 }

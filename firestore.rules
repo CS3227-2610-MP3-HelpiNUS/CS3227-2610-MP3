@@ -45,6 +45,12 @@ service cloud.firestore {
         && data.createdAt == get(/databases/$(database)/documents/helpRequests/$(id)).data.updatedAt
         && data.updatedAt == get(/databases/$(database)/documents/helpRequests/$(id)).data.updatedAt;
     }
+    function schedulableMentor(mentorId) {
+      return activeMentor(mentorId)
+        && exists(/databases/$(database)/documents/mentorProfiles/$(mentorId))
+        && get(/databases/$(database)/documents/mentorProfiles/$(mentorId)).data.userId == mentorId
+        && get(/databases/$(database)/documents/mentorProfiles/$(mentorId)).data.active == true;
+    }
     match /users/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
     match /mentors/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
     match /mentorProfiles/{uid} {
@@ -80,8 +86,34 @@ service cloud.firestore {
         allow write: if false;
       }
     }
-    match /availabilitySlots/{id} { allow read: if activeAccount() && resource.data.withdrawn == false && resource.data.startsAt > request.time && activeMentor(resource.data.mentorId); allow write: if false; }
-    match /appointments/{id} { allow read: if (activeStudent() && resource.data.studentId == request.auth.uid) || (activeMentor(request.auth.uid) && resource.data.mentorId == request.auth.uid); allow write: if false; }
+    match /availabilitySlots/{id} {
+      function ownMentorSlot() {
+        return activeMentor(request.auth.uid) && resource.data.get('mentorId', '') == request.auth.uid;
+      }
+      function publicOpenSlot() {
+        return resource.data.get('status', '') == 'OPEN'
+          && resource.data.get('appointmentId', 'MISSING') == null;
+      }
+      allow get: if activeAccount() && (ownMentorSlot() || (publicOpenSlot() && schedulableMentor(resource.data.get('mentorId', ''))));
+      // Firestore cannot prove a cross-document Mentor/profile predicate for a
+      // collection query. The query exposes only unbooked OPEN projections;
+      // reserveAppointment rechecks the current Auth user and Mentor profile.
+      allow list: if activeAccount() && request.query.limit != null && request.query.limit <= 100
+        && (ownMentorSlot() || publicOpenSlot());
+      allow write: if false;
+    }
+    match /appointments/{id} {
+      function ownsAppointment() {
+        return (activeStudent() && resource.data.get('studentId', '') == request.auth.uid)
+          || (activeMentor(request.auth.uid) && resource.data.get('mentorId', '') == request.auth.uid);
+      }
+      allow get: if ownsAppointment();
+      allow list: if request.query.limit != null && request.query.limit <= 100 && ownsAppointment();
+      allow write: if false;
+    }
+    match /appointmentOperations/{uid}/operations/{requestId} { allow read, write: if false; }
+    match /availabilitySlotLocks/{id} { allow read, write: if false; }
+    match /studentAppointmentLocks/{id} { allow read, write: if false; }
     match /aiAuditEvents/{id} { allow read, write: if false; }
     // S2-D1-F03 is callable-only. Keeping every Student Study Assistant root
     // private also prevents accidental coupling to Mentor AI features.
