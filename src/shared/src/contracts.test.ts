@@ -1,0 +1,269 @@
+import { describe, expect, it } from 'vitest'
+
+import {
+  availabilitySlotSchema,
+  closeHelpRequestInputSchema,
+  createHelpRequestInputSchema,
+  respondToHelpRequestInputSchema,
+  discoverMentorsInputSchema,
+  discoverMentorsOutputSchema,
+  getMentorRequestSelectionInputSchema,
+  getMentorRequestSelectionOutputSchema,
+  readOwnMentorProfileInputSchema,
+  readOwnMentorProfileOutputSchema,
+  searchMentorModulesInputSchema,
+  searchMentorModulesOutputSchema,
+  updateOwnMentorProfileInputSchema,
+  updateOwnMentorProfileOutputSchema,
+  messageSchema,
+  mentorConsultationSummaryInputSchema,
+  mentorConsultationSummaryOutputSchema,
+  studentStudyAssistInputSchema,
+  studentStudyAssistOutputSchema,
+  listStudentStudyAssistantConversationsInputSchema,
+  readStudentStudyAssistantConversationInputSchema,
+  deleteStudentStudyAssistantConversationInputSchema,
+  userSchema,
+} from './index.js'
+
+describe('shared contracts', () => {
+  it('gives Mentor an independent strict conversation contract', () => {
+    const requestId = 'b70f16a0-5010-4a53-95d7-718e396090a5'
+    expect(mentorConsultationSummaryInputSchema.parse({ helpRequestId: 'request-1' })).toEqual({ helpRequestId: 'request-1' })
+    for (const input of [
+      { helpRequestId: 'request-1', requestId },
+      { helpRequestId: 'request-1', notes: 'forged' },
+      { helpRequestId: 'request-1', appointmentId: 'appointment-1' },
+      { helpRequestId: 'request-1', prompt: 'forged' },
+      { helpRequestId: 'request-1', transcript: 'forged' },
+      { helpRequestId: 'request-1', credential: 'forged' },
+      { helpRequestId: ' request-1 ' }, { helpRequestId: 'request/1' },
+    ]) expect(mentorConsultationSummaryInputSchema.safeParse(input).success).toBe(false)
+    const brief = { summary: 'Summary', unresolvedQuestions: 'None identified from the selected messages.', teachingApproaches: 'Discuss examples.', limitations: 'No further context.' }
+    expect(mentorConsultationSummaryOutputSchema.parse({ brief, partialHistory: false })).toEqual({ brief, partialHistory: false })
+    for (const output of [
+      { brief: { ...brief, summary: '' }, partialHistory: false },
+      { brief: { ...brief, extra: 'hidden' }, partialHistory: false },
+      { brief: { ...brief, summary: 'x'.repeat(8001) }, partialHistory: false },
+      { brief: { ...brief, summary: 'x'.repeat(7999) }, partialHistory: false },
+      { brief, partialHistory: 'false' },
+      { brief, partialHistory: false, transcript: 'private' },
+    ]) expect(mentorConsultationSummaryOutputSchema.safeParse(output).success).toBe(false)
+  })
+  it('enforces strict Mentor profile read, search, and update wire shapes', () => {
+    expect(readOwnMentorProfileInputSchema.safeParse({ uid: 'other' }).success).toBe(false)
+    expect(readOwnMentorProfileOutputSchema.safeParse({ kind: 'ready', profile: { displayName: 'Mentor', biography: '', moduleIds: [], version: { revision: 0, updateTime: '1:000000000' }, email: 'private@example.test' }, metadata: { kind: 'ready', modules: [] } }).success).toBe(false)
+    expect(searchMentorModulesInputSchema.safeParse({ query: '' }).success).toBe(false)
+    expect(searchMentorModulesOutputSchema.safeParse({ modules: Array.from({ length: 21 }, (_, i) => ({ id: `m${i}`, code: 'CS1000', title: 'Test' })), nextCursor: null }).success).toBe(false)
+    const valid = { requestId: 'b70f16a0-5010-4a53-95d7-718e396090a5', baseline: { revision: 0, updateTime: '1:000000000' }, biography: 'Line one\nLine two', moduleIds: ['cs2103t'] }
+    expect(updateOwnMentorProfileInputSchema.parse(valid).biography).toBe('Line one\nLine two')
+    for (const change of [{ uid: 'other' }, { active: true }, { moduleIds: [' cs2103t'] }, { moduleIds: ['cs2103t', 'cs2103t'] }, { moduleIds: Array.from({ length: 31 }, (_, i) => `m${i}`) }, { baseline: { revision: 0.1, updateTime: '1:0' } }]) {
+      expect(updateOwnMentorProfileInputSchema.safeParse({ ...valid, ...change }).success).toBe(false)
+    }
+    expect(updateOwnMentorProfileOutputSchema.safeParse({ kind: 'accepted', stored: { biography: '', moduleIds: [], revision: 1, uid: 'other' } }).success).toBe(false)
+  })
+
+  it('accepts every read variant and enforces the metadata union', () => {
+    for (const kind of ['missing', 'inactive', 'invalid'] as const) {
+      expect(readOwnMentorProfileOutputSchema.parse({ kind })).toEqual({ kind })
+      expect(readOwnMentorProfileOutputSchema.safeParse({ kind, profile: {} }).success).toBe(false)
+    }
+    const profile = { displayName: 'Mentor', biography: 'b'.repeat(1000), moduleIds: ['cs2103t'], version: { revision: Number.MAX_SAFE_INTEGER, updateTime: '123:000000001' } }
+    const saved = { id: 'cs2103t', state: 'active', code: 'CS2103T', title: 'Software Engineering' }
+    const ready = { kind: 'ready', profile, metadata: { kind: 'ready', modules: [saved, { id: 'old', state: 'missing' }] } }
+    expect(readOwnMentorProfileOutputSchema.safeParse(ready).success).toBe(true)
+    expect(readOwnMentorProfileOutputSchema.safeParse({ ...ready, metadata: { kind: 'unavailable' } }).success).toBe(true)
+    for (const metadata of [
+      { kind: 'unavailable', modules: [] },
+      { kind: 'ready', modules: [{ id: 'old', state: 'missing', code: 'OLD' }] },
+      { kind: 'ready', modules: [{ id: 'cs2103t', state: 'active', code: 'CS2103T' }] },
+    ]) expect(readOwnMentorProfileOutputSchema.safeParse({ ...ready, metadata }).success).toBe(false)
+    expect(readOwnMentorProfileOutputSchema.safeParse({ ...ready, profile: { ...profile, biography: 'b'.repeat(1001) } }).success).toBe(false)
+    expect(readOwnMentorProfileOutputSchema.safeParse({ ...ready, profile: { ...profile, version: { revision: Number.MAX_SAFE_INTEGER + 1, updateTime: '123:000000001' } } }).success).toBe(false)
+  })
+
+  it('accepts exact search bounds and rejects malformed pages or privileged fields', () => {
+    expect(searchMentorModulesInputSchema.parse({ query: 'CS' })).toEqual({ query: 'CS' })
+    expect(searchMentorModulesInputSchema.safeParse({ query: 'x'.repeat(160), cursor: 'c'.repeat(512) }).success).toBe(true)
+    for (const input of [{ query: '' }, { query: 'x'.repeat(161) }, { query: 'cs', uid: 'mentor' }, { query: 'cs', cursor: '' }, { query: 'cs', cursor: 'x'.repeat(513) }]) {
+      expect(searchMentorModulesInputSchema.safeParse(input).success).toBe(false)
+    }
+    const module = { id: 'cs2103t', code: 'CS2103T', title: 'Software Engineering' }
+    expect(searchMentorModulesOutputSchema.safeParse({ modules: [], nextCursor: null }).success).toBe(true)
+    expect(searchMentorModulesOutputSchema.safeParse({ modules: Array.from({ length: 20 }, (_, index) => ({ ...module, id: `m${index}` })), nextCursor: 'cursor' }).success).toBe(true)
+    for (const output of [
+      { modules: [module], nextCursor: undefined },
+      { modules: [{ ...module, active: true }], nextCursor: null },
+      { modules: [{ ...module, id: ' bad ' }], nextCursor: null },
+      { modules: [module], nextCursor: 'x'.repeat(513) },
+      { modules: [], nextCursor: null, email: 'private@example.test' },
+    ]) expect(searchMentorModulesOutputSchema.safeParse(output).success).toBe(false)
+  })
+
+  it('enforces update identity, revision, biography, module, and receipt boundaries', () => {
+    const baseline = { revision: 0, updateTime: '1:000000000' }
+    const input = { requestId: 'b70f16a0-5010-4a53-95d7-718e396090a5', baseline, biography: 'b'.repeat(1000), moduleIds: Array.from({ length: 30 }, (_, index) => `m${index}`) }
+    expect(updateOwnMentorProfileInputSchema.safeParse(input).success).toBe(true)
+    for (const change of [
+      { requestId: 'not-a-uuid' }, { baseline: { ...baseline, revision: -1 } },
+      { baseline: { ...baseline, revision: 0.5 } }, { baseline: { ...baseline, updateTime: '1:0' } },
+      { biography: 'b'.repeat(1001) }, { moduleIds: [...input.moduleIds, 'm30'] },
+      { moduleIds: ['m1', 'm1'] }, { moduleIds: [' bad '] }, { role: 'ADMIN' },
+    ]) expect(updateOwnMentorProfileInputSchema.safeParse({ ...input, ...change }).success).toBe(false)
+    const accepted = { kind: 'accepted', stored: { biography: 'Saved', moduleIds: ['m1'], revision: 1 } }
+    const rejected = { kind: 'rejected', reason: 'CONFLICT', fieldErrors: { biography: ['Changed'] } }
+    expect(updateOwnMentorProfileOutputSchema.safeParse(accepted).success).toBe(true)
+    expect(updateOwnMentorProfileOutputSchema.safeParse(rejected).success).toBe(true)
+    expect(updateOwnMentorProfileOutputSchema.safeParse({ kind: 'rejected', reason: 'MODULE_INELIGIBLE' }).success).toBe(true)
+    for (const output of [
+      { ...accepted, stored: { ...accepted.stored, revision: 0 } },
+      { ...accepted, stored: { ...accepted.stored, uid: 'other' } },
+      { ...rejected, reason: 'UNKNOWN' },
+      { ...rejected, stored: accepted.stored },
+    ]) expect(updateOwnMentorProfileOutputSchema.safeParse(output).success).toBe(false)
+  })
+  it('accepts a trusted student profile', () => {
+    expect(
+      userSchema.parse({
+        id: 'student-1',
+        displayName: 'Student One',
+        email: 'student@example.test',
+        role: 'STUDENT',
+        status: 'ACTIVE',
+        createdAt: '2026-10-13T10:00:00.000+08:00',
+      }),
+    ).toMatchObject({ role: 'STUDENT', status: 'ACTIVE' })
+  })
+
+  it('rejects an inverted availability window', () => {
+    expect(() =>
+      availabilitySlotSchema.parse({
+        id: 'slot-1',
+        mentorId: 'mentor-1',
+        startsAt: '2026-10-13T11:00:00.000+08:00',
+        endsAt: '2026-10-13T10:00:00.000+08:00',
+        withdrawn: false,
+        createdAt: '2026-10-13T09:00:00.000+08:00',
+      }),
+    ).toThrow('endsAt must be after startsAt')
+  })
+
+  it('requires idempotency keys for state-changing callables', () => {
+    expect(
+      createHelpRequestInputSchema.safeParse({
+        moduleId: 'CS3227',
+        title: 'Need help',
+        description: 'Please explain the topic.',
+      }).success,
+    ).toBe(false)
+  })
+
+  it('uses explicit F01 operation and persistent IDs with strict normalized bounds', () => {
+    const operationId = 'b70f16a0-5010-4a53-95d7-718e396090a5'
+    const create = { operationId, mentorId: 'mentor-1', moduleId: 'cs2103t', title: '  Question  ', description: '  Line one\nLine two  ' }
+    expect(createHelpRequestInputSchema.parse(create)).toMatchObject({ title: 'Question', description: 'Line one\nLine two' })
+    for (const invalid of [
+      { ...create, operationId: 'not-a-uuid' },
+      { ...create, title: ' '.repeat(3) },
+      { ...create, title: 'X'.repeat(121) },
+      { ...create, description: 'X'.repeat(2001) },
+      { ...create, studentId: 'forged' },
+      { ...create, requestId: operationId },
+      { ...create, mentorId: null },
+    ]) expect(createHelpRequestInputSchema.safeParse(invalid).success).toBe(false)
+    const decision = { operationId, helpRequestId: 'request-1', response: 'REJECTED' }
+    expect(respondToHelpRequestInputSchema.safeParse(decision).success).toBe(true)
+    expect(respondToHelpRequestInputSchema.safeParse({ ...decision, requestId: operationId }).success).toBe(false)
+    expect(respondToHelpRequestInputSchema.safeParse({ ...decision, helpRequestId: operationId, operationId: 'bad' }).success).toBe(false)
+  })
+
+  it('keeps F04 update and dormant close requestId contracts while F01 requires operationId', () => {
+    const requestId = 'b70f16a0-5010-4a53-95d7-718e396090a5'
+    const helpRequestId = 'server-generated-help-request'
+    const update = { requestId, baseline: { revision: 0, updateTime: '1:000000000' }, biography: 'Updated', moduleIds: ['cs2103t'] }
+    const close = { requestId, helpRequestId }
+    expect(updateOwnMentorProfileInputSchema.parse(update)).toEqual(update)
+    expect(closeHelpRequestInputSchema.parse(close)).toEqual(close)
+    expect(updateOwnMentorProfileInputSchema.safeParse({ ...update, requestId: undefined, operationId: requestId }).success).toBe(false)
+    expect(closeHelpRequestInputSchema.safeParse({ operationId: requestId, helpRequestId }).success).toBe(false)
+    const create = { mentorId: 'mentor-1', moduleId: 'cs2103t', title: 'Question', description: 'Explain this topic' }
+    expect(createHelpRequestInputSchema.safeParse({ ...create, requestId }).success).toBe(false)
+    expect(respondToHelpRequestInputSchema.safeParse({ requestId, helpRequestId, response: 'REJECTED' }).success).toBe(false)
+    expect(createHelpRequestInputSchema.parse({ ...create, operationId: requestId })).toEqual({ ...create, operationId: requestId })
+    expect(respondToHelpRequestInputSchema.parse({ operationId: requestId, helpRequestId, response: 'REJECTED' })).toEqual({ operationId: requestId, helpRequestId, response: 'REJECTED' })
+  })
+
+  it('defaults Mentor discovery pagination and rejects private account fields', () => {
+    expect(discoverMentorsInputSchema.parse({})).toEqual({ limit: 20 })
+    expect(discoverMentorsOutputSchema.safeParse({
+      mentors: [{
+        userId: 'mentor-1',
+        displayName: 'Mentor One',
+        biography: '',
+        moduleIds: ['CS3227'],
+        email: 'private@example.test',
+      }],
+      nextCursor: null,
+    }).success).toBe(false)
+  })
+
+  it('keeps targeted Mentor selection strict and public', () => {
+    expect(getMentorRequestSelectionInputSchema.parse({ mentorId: 'mentor-1' })).toEqual({ mentorId: 'mentor-1' })
+    for (const input of [{ mentorId: ' mentor-1 ' }, { mentorId: 'mentor/1' }, { mentorId: 'mentor-1', studentId: 'forged' }]) {
+      expect(getMentorRequestSelectionInputSchema.safeParse(input).success).toBe(false)
+    }
+    const ready = { kind: 'ready', mentor: { userId: 'mentor-1', displayName: 'Mentor One', moduleIds: ['cs2103t'] } }
+    expect(getMentorRequestSelectionOutputSchema.parse(ready)).toEqual(ready)
+    expect(getMentorRequestSelectionOutputSchema.parse({ kind: 'unavailable' })).toEqual({ kind: 'unavailable' })
+    for (const output of [
+      { ...ready, mentor: { ...ready.mentor, email: 'private@example.test' } },
+      { ...ready, mentor: { ...ready.mentor, biography: 'private' } },
+      { ...ready, mentor: { ...ready.mentor, moduleIds: [' bad '] } },
+      { kind: 'unavailable', reason: 'inactive' },
+    ]) expect(getMentorRequestSelectionOutputSchema.safeParse(output).success).toBe(false)
+  })
+
+  it('rejects a message with only whitespace', () => {
+    expect(messageSchema.safeParse({
+      id: 'message-1', conversationId: 'conversation-1', senderId: 'student-1', body: ' \t\n ',
+      createdAt: '2026-10-13T10:00:00.000Z',
+    }).success).toBe(false)
+  })
+
+  it('enforces strict Student Study Assistant send and citation boundaries', () => {
+    const requestId = 'b70f16a0-5010-4a53-95d7-718e396090a5'
+    const input = { requestId, conversationId: null, userMessage: '  Explain breadth-first search.  ' }
+    expect(studentStudyAssistInputSchema.parse(input)).toEqual({ ...input, userMessage: 'Explain breadth-first search.' })
+    for (const invalid of [
+      { ...input, requestId: 'not-a-uuid' },
+      { ...input, userMessage: '   ' },
+      { ...input, userMessage: 'x'.repeat(4001) },
+      { ...input, conversationId: ' other ' },
+      { ...input, uid: 'forged' },
+    ]) expect(studentStudyAssistInputSchema.safeParse(invalid).success).toBe(false)
+
+    const conversation = { id: 'conversation-1', title: 'Breadth-first search', preview: 'Queues visit nodes by level.', lastActivityAt: '2026-10-21T08:00:00.000Z', expiresAt: '2026-11-04T08:00:00.000Z' }
+    const userMessage = { id: 'user-1', role: 'STUDENT', content: 'Explain breadth-first search.', createdAt: conversation.lastActivityAt }
+    const citation = { sourceId: 'soc-bfs', title: 'Synthetic SoC algorithms guide', canonicalUrl: 'https://example.test/soc/bfs', version: 'fixture-v1', section: 'Traversal' }
+    const groundedAssistantMessage = { id: 'assistant-1', role: 'ASSISTANT', grounding: 'GROUNDED', content: 'Breadth-first search explores one level at a time.', createdAt: conversation.lastActivityAt, citations: [citation] }
+    const insufficientAssistantMessage = { id: 'assistant-2', role: 'ASSISTANT', grounding: 'INSUFFICIENT_CONTEXT', content: 'I could not find enough approved context.', createdAt: conversation.lastActivityAt, citations: [] }
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage: groundedAssistantMessage, replayed: false }).success).toBe(true)
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'insufficient_context', conversation, userMessage, assistantMessage: insufficientAssistantMessage, replayed: false }).success).toBe(true)
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage: { ...groundedAssistantMessage, citations: [] }, replayed: false }).success).toBe(false)
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'insufficient_context', conversation, userMessage, assistantMessage: { ...insufficientAssistantMessage, citations: [citation] }, replayed: false }).success).toBe(false)
+    expect(studentStudyAssistOutputSchema.safeParse({ kind: 'grounded', conversation, userMessage, assistantMessage: { ...groundedAssistantMessage, citations: [{ ...citation, canonicalUrl: 'javascript:alert(1)' }] }, replayed: false }).success).toBe(false)
+  })
+
+  it('bounds Student Study Assistant list, read, and delete operations', () => {
+    expect(listStudentStudyAssistantConversationsInputSchema.parse({})).toEqual({ limit: 20 })
+    expect(readStudentStudyAssistantConversationInputSchema.parse({ conversationId: 'conversation-1' })).toEqual({ conversationId: 'conversation-1', limit: 50 })
+    expect(deleteStudentStudyAssistantConversationInputSchema.safeParse({ requestId: crypto.randomUUID(), conversationId: 'conversation-1' }).success).toBe(true)
+    for (const invalid of [
+      { cursor: '', limit: 20 },
+      { limit: 51 },
+      { uid: 'forged' },
+    ]) expect(listStudentStudyAssistantConversationsInputSchema.safeParse(invalid).success).toBe(false)
+    expect(readStudentStudyAssistantConversationInputSchema.safeParse({ conversationId: 'conversation/1' }).success).toBe(false)
+    expect(deleteStudentStudyAssistantConversationInputSchema.safeParse({ requestId: crypto.randomUUID(), conversationId: 'conversation-1', ownerUid: 'forged' }).success).toBe(false)
+  })
+})

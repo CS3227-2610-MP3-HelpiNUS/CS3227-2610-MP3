@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HelpiNUS — Full-screen conversation detail review</title>
+  <style>
+    :root {
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #243238;
+      background: #f6f8f7;
+      font-synthesis: none;
+      --ink: #243238;
+      --muted: #58686c;
+      --line: #dfe7e3;
+      --green: #176b55;
+      --green-dark: #105742;
+      --green-soft: #e8f3ee;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    button { font: inherit; cursor: default; }
+    button:focus-visible { outline: 3px solid #155e75; outline-offset: 3px; }
+    .shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); width: 100%; height: 100dvh; min-height: 0; overflow: hidden; }
+    .sidebar { display: flex; min-height: 0; flex-direction: column; padding: 25px 16px 17px; border-right: 1px solid var(--line); background: #fff; }
+    .brand { display: flex; align-items: center; gap: 10px; margin: 0 0 42px; color: var(--ink); font-size: 18px; font-weight: 750; letter-spacing: -.045em; }
+    .brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 9px; background: var(--green); color: #fff; font-weight: 750; }
+    .brand em { color: var(--green); font-style: normal; }
+    .nav-label { margin: 0 11px 12px; color: #758387; font-size: 10px; font-weight: 750; letter-spacing: .13em; }
+    .nav { display: grid; gap: 4px; }
+    .nav-item { display: flex; min-height: 44px; align-items: center; gap: 12px; padding: 0 12px; border-radius: 8px; color: #46565a; font-size: 13px; font-weight: 550; }
+    .nav-item.active { background: var(--green-soft); color: var(--green-dark); font-weight: 700; }
+    .nav-item svg { width: 18px; height: 18px; flex: 0 0 auto; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .profile { display: flex; align-items: center; gap: 10px; margin-top: auto; padding: 16px 4px 12px; border-top: 1px solid var(--line); font-size: 12px; }
+    .avatar { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid #cce1d6; border-radius: 50%; background: #e4f0ea; color: #285c48; font-weight: 700; }
+    .profile strong, .profile small { display: block; }
+    .profile small { margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .signout { padding: 8px 5px; color: var(--muted); font-size: 12px; }
+    .conversation { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; height: 100dvh; background: #fff; }
+    .chat-header { display: flex; min-width: 0; align-items: center; gap: 16px; min-height: 83px; padding: 12px 22px; border-bottom: 1px solid var(--line); background: #fff; }
+    .back { display: inline-flex; min-height: 44px; flex: 0 0 auto; align-items: center; gap: 8px; padding: 0 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--green-dark); font-size: 13px; font-weight: 650; }
+    .back svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .header-divider { width: 1px; height: 35px; flex: 0 0 auto; background: var(--line); }
+    .participant { min-width: 0; flex: 1; }
+    .participant-name { display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 15px; font-weight: 700; }
+    .participant-name span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .module { flex: 0 0 auto; padding: 4px 7px; border-radius: 5px; background: #f1f5f3; color: #3e6655; font-size: 10px; font-weight: 650; }
+    .request-title { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+    .context { display: inline-flex; min-height: 38px; flex: 0 0 auto; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid #d2e7db; border-radius: 100px; background: var(--green-soft); color: var(--green-dark); font-size: 11px; font-weight: 700; }
+    .context svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .history { display: flex; min-height: 0; flex-direction: column; gap: 13px; overflow-y: auto; overflow-x: hidden; padding: 25px clamp(15px, 2vw, 35px); background: linear-gradient(#fbfdfc, #f4faf7); }
+    .date { align-self: center; margin: 1px 0 7px; padding: 5px 10px; border-radius: 100px; background: #e9f1ec; color: #5b7770; font-size: 11px; }
+    .bubble { width: fit-content; max-width: min(72%, 460px); padding: 11px 14px; border: 1px solid var(--line); border-radius: 15px; background: #fff; box-shadow: 0 2px 6px #173c2c0b; overflow-wrap: anywhere; }
+    .bubble.in { align-self: flex-start; border-bottom-left-radius: 5px; }
+    .bubble.out { align-self: flex-end; border-color: #c7e4d7; border-bottom-right-radius: 5px; background: #dff0e9; }
+    .bubble p { margin: 0; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+    .bubble small { display: block; margin-top: 6px; color: var(--muted); font-size: 10px; text-align: right; }
+    .composer { display: flex; min-width: 0; align-items: flex-end; gap: 10px; padding: 12px 17px max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: #fff; }
+    .input-look { display: flex; min-height: 46px; min-width: 0; flex: 1; align-items: center; padding: 10px 14px; border: 1px solid #bfd5ca; border-radius: 12px; color: #889b9d; font-size: 13px; }
+    .send { display: grid; width: 46px; height: 46px; flex: 0 0 46px; place-items: center; border: 0; border-radius: 12px; background: var(--green); color: #fff; }
+    .send svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    @media (max-width: 800px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .chat-header { padding-inline: 13px; }
+      .history { padding-inline: 13px; }
+      .composer { padding-inline: 10px; }
+    }
+    @media (max-width: 520px) {
+      .chat-header { gap: 10px; min-height: 76px; }
+      .back { width: 44px; padding: 0; justify-content: center; }
+      .back span { display: none; }
+      .header-divider { display: none; }
+      .participant-name { flex-wrap: wrap; gap: 5px; font-size: 13px; }
+      .request-title { font-size: 11px; }
+      .context { min-height: 34px; padding-inline: 9px; font-size: 10px; }
+      .bubble { max-width: 88%; }
+    }
+    @media (max-height: 420px) {
+      html, body, .shell, .conversation { height: auto; min-height: 420px; }
+      .shell { overflow: visible; }
+      .history { min-height: 240px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Student navigation preview">
+      <div class="brand"><span class="brand-mark">H</span><span>Helpi<em>NUS</em></span></div>
+      <div class="nav-label">STUDENT SPACE</div>
+      <nav class="nav" aria-label="Main navigation preview">
+        <div class="nav-item"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/></svg>Dashboard</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-4 2-6 6-6s6 2 6 6M14 15c4-.4 7 1.5 8 5"/></svg>Find a mentor</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/><path d="M9 8h6M9 11h6"/></svg>Help requests</div>
+        <div class="nav-item active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11c0 5-4 9-9 9-2 0-4-.5-5.5-1.5L2 20l1.5-4C2.5 14.5 2 13 2 11a9 9 0 0 1 18 0z"/></svg>Conversations</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 10h18"/></svg>Consultations</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2 9 10-5 10 5-10 5zM6 11v5c4 3 8 3 12 0v-5"/></svg>Study assistant</div>
+      </nav>
+      <div class="profile"><span class="avatar">J</span><span><strong>Jamie Tan</strong><small>Student account</small></span></div>
+      <div class="signout">↪ &nbsp; Sign out</div>
+    </aside>
+    <main class="conversation" aria-label="Static conversation detail preview">
+      <header class="chat-header">
+        <button class="back" type="button" aria-label="Back to conversations"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7M9 12h12"/></svg><span>Conversations</span></button>
+        <span class="header-divider" aria-hidden="true"></span>
+        <div class="participant"><div class="participant-name"><span>Sample Aisha</span><span class="module">CS2103T</span></div><span class="request-title">Help with sequence diagrams</span></div>
+        <button class="context" type="button">Request context <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+      </header>
+      <section class="history" aria-label="Message history preview">
+        <div class="date">17 October 2026</div>
+        <div class="bubble in"><p>Hi Jamie, which part of the sequence diagram would you like to discuss?</p><small>Sample Aisha · 5:07 am</small></div>
+        <div class="bubble out"><p>I'm unsure when to use an activation bar.</p><small>5:08 am · Sent</small></div>
+        <div class="bubble in"><p>Let's walk through one interaction step by step. An activation bar shows when an object is performing work.</p><small>Sample Aisha · 5:09 am</small></div>
+        <div class="bubble out"><p>That helps. Could we look at a short example?</p><small>5:10 am · ✓✓ Read</small></div>
+      </section>
+      <div class="composer" aria-label="Message composer preview"><div class="input-look">Write a message…</div><button class="send" type="button" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-8-7 18-3-7-8-3zM11 14l10-11"/></svg></button></div>
+    </main>
+  </div>
+</body>
+</html>

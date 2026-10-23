@@ -1,0 +1,55 @@
+!  emulators: You are not currently authenticated so some features may not work correctly. Please run firebase login to authenticate the CLI.
+i  emulators: Starting emulators: auth, functions, firestore
+!  functions: The following emulators are not running, calls to these services from the Functions emulator will affect production: apphosting, database, hosting, pubsub, storage, dataconnect
+!  functions: Unable to fetch project Admin SDK configuration, Admin SDK behavior in Cloud Functions emulator may be incorrect.
+i  firestore: Firestore Emulator logging to firestore-debug.log
++  firestore: Firestore Emulator was started in standard edition.
++  firestore: Firestore Emulator UI websocket is running on 9150.
+i  functions: Watching "C:\Users\royde\Desktop\NUS\Sem 5\CS3227\MP3\CS3227-2610-MP3-conversation-management\src\functions\deploy" for Cloud Functions...
++  functions: Using node@22 from host.
+Serving at port 8742
+
++  functions: Loaded functions definitions from source: acknowledgeMessage, cancelAppointment, closeHelpRequest, completeAppointment, createAvailabilitySlot, createHelpRequest, discoverMentors, getMentorRequestSelection, initializeStudentProfile, mentorConsultationSummary, readOwnMentorProfile, reserveAppointment, respondToAppointment, respondToHelpRequest, searchMentorModules, sendMessage, studentStudyAssist, testAuthenticated, updateOwnMentorProfile, withdrawAvailabilitySlot.
++  functions[asia-southeast1-acknowledgeMessage]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/acknowledgeMessage).
++  functions[asia-southeast1-cancelAppointment]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/cancelAppointment).
++  functions[asia-southeast1-closeHelpRequest]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/closeHelpRequest).
++  functions[asia-southeast1-completeAppointment]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/completeAppointment).
++  functions[asia-southeast1-createAvailabilitySlot]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/createAvailabilitySlot).
++  functions[asia-southeast1-createHelpRequest]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/createHelpRequest).
++  functions[asia-southeast1-discoverMentors]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/discoverMentors).
++  functions[asia-southeast1-getMentorRequestSelection]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/getMentorRequestSelection).
++  functions[asia-southeast1-initializeStudentProfile]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/initializeStudentProfile).
++  functions[asia-southeast1-mentorConsultationSummary]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/mentorConsultationSummary).
++  functions[asia-southeast1-readOwnMentorProfile]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/readOwnMentorProfile).
++  functions[asia-southeast1-reserveAppointment]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/reserveAppointment).
++  functions[asia-southeast1-respondToAppointment]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/respondToAppointment).
++  functions[asia-southeast1-respondToHelpRequest]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/respondToHelpRequest).
++  functions[asia-southeast1-searchMentorModules]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/searchMentorModules).
++  functions[asia-southeast1-sendMessage]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/sendMessage).
++  functions[asia-southeast1-studentStudyAssist]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/studentStudyAssist).
++  functions[asia-southeast1-testAuthenticated]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/testAuthenticated).
++  functions[asia-southeast1-updateOwnMentorProfile]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/updateOwnMentorProfile).
++  functions[asia-southeast1-withdrawAvailabilitySlot]: http function initialized (http://127.0.0.1:5001/helpinus-integration-test/asia-southeast1/withdrawAvailabilitySlot).
+i  Running script: npm exec --prefix src/functions -- vitest run integration-tests/helpRequestPagination.test.ts --no-file-parallelism
+
+ RUN  v4.1.11 C:/Users/royde/Desktop/NUS/Sem 5/CS3227/MP3/CS3227-2610-MP3-conversation-management
+
+i  functions: Beginning execution of "asia-southeast1-respondToHelpRequest"
+>  {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+i  functions: Finished "asia-southeast1-respondToHelpRequest" in 241.5505ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  23:18:29
+   Duration  4.94s (transform 35ms, setup 0ms, import 771ms, tests 4.00s, environment 0ms)
+
++  Script exited successfully (code 0)
+i  emulators: Shutting down emulators.
+i  functions: Stopping Functions Emulator
+i  firestore: Stopping Firestore Emulator
+!  Firestore Emulator has exited upon receiving signal: SIGINT
+i  auth: Stopping Authentication Emulator
+i  eventarc: Stopping Eventarc Emulator
+i  tasks: Stopping Cloud Tasks Emulator
+i  hub: Stopping emulator hub
+i  logging: Stopping Logging Emulator

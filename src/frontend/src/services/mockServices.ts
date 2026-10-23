@@ -1,0 +1,287 @@
+import { callableSchemas, discoverMentorsOutputSchema, moduleSchema, type Appointment, type AvailabilitySlot, type CallableInput, type CallableName, type CallableOutput, type Conversation, type F01HelpRequest, type HelpRequest, type MentorProfile, type Module, type User } from '@helpinus/shared'
+import type { CallableClient, DashboardData, HelpiNUSServices } from './contracts'
+
+export type MockCallableFixtures = Partial<{
+  [Name in CallableName]: (
+    input: CallableInput<Name>,
+  ) => CallableOutput<Name> | Promise<CallableOutput<Name>>
+}>
+
+export class MockCallableUnavailableError extends Error {
+  readonly callableName: CallableName
+
+  constructor(callableName: CallableName) {
+    super(`${callableName} has no mock fixture.`)
+    this.name = 'MockCallableUnavailableError'
+    this.callableName = callableName
+  }
+}
+
+export function createMockCallableClient(fixtures: MockCallableFixtures = {}): CallableClient {
+  return {
+    async invoke<Name extends CallableName>(name: Name, input: CallableInput<Name>) {
+      const handler = fixtures[name] as
+        | ((value: CallableInput<Name>) => CallableOutput<Name> | Promise<CallableOutput<Name>>)
+        | undefined
+      if (!handler) throw new MockCallableUnavailableError(name)
+      return callableSchemas[name].output.parse(await handler(input)) as CallableOutput<Name>
+    },
+  }
+}
+
+const student: User = {
+  id: 'student-01', displayName: 'Jamie Tan', email: 'jamie.tan@example.edu',
+  role: 'STUDENT', status: 'ACTIVE', createdAt: '2026-01-12T09:00:00.000Z',
+}
+const mentor: User = {
+  id: 'mentor-01', displayName: 'Aisha Rahman', email: 'aisha.rahman@example.edu',
+  role: 'MENTOR', status: 'ACTIVE', createdAt: '2025-08-03T09:00:00.000Z',
+}
+const modules: Module[] = [
+  { id: 'cs2103t', code: 'CS2103T', title: 'Software Engineering', active: true },
+  { id: 'cs2040s', code: 'CS2040S', title: 'Data Structures and Algorithms', active: true },
+]
+const requests: HelpRequest[] = [
+  {
+    id: 'request-01', studentId: student.id, mentorId: mentor.id, moduleId: 'cs2103t',
+    title: 'Understanding sequence diagrams',
+    description: 'I would like to walk through how to model alternate flows.', status: 'ACCEPTED',
+    createdAt: '2026-10-12T05:30:00.000Z', updatedAt: '2026-10-12T08:00:00.000Z',
+  },
+  {
+    id: 'request-02', studentId: student.id, mentorId: null, moduleId: 'cs2040s',
+    title: 'Preparing for the next tutorial',
+    description: 'Help with graph traversal practice.', status: 'PENDING',
+    createdAt: '2026-10-11T03:00:00.000Z', updatedAt: '2026-10-11T03:00:00.000Z',
+  },
+]
+const appointments: Appointment[] = [
+  {
+    id: 'appointment-01', slotId: 'slot-01', studentId: student.id, mentorId: mentor.id,
+    helpRequestId: 'request-01', topic: 'Sequence diagrams and alternate flows', status: 'CONFIRMED',
+    createdAt: '2026-10-12T08:10:00.000Z', updatedAt: '2026-10-12T08:10:00.000Z',
+  },
+]
+const slots: AvailabilitySlot[] = [
+  { id: 'slot-01', mentorId: mentor.id, startsAt: '2026-10-15T07:00:00.000Z', endsAt: '2026-10-15T08:00:00.000Z', withdrawn: false, createdAt: '2026-10-09T08:00:00.000Z' },
+]
+const conversations: Conversation[] = [
+  {
+    id: 'conversation-01', participantIds: [student.id, mentor.id], helpRequestId: 'request-01',
+    createdAt: '2026-10-12T08:05:00.000Z', updatedAt: '2026-10-12T08:05:00.000Z',
+  },
+]
+const mentorProfile: MentorProfile = {
+  userId: mentor.id,
+  biography: 'I enjoy breaking software design concepts into practical steps.',
+  moduleIds: modules.map(({ id }) => id),
+  active: true,
+}
+let managedBiography = mentorProfile.biography
+let managedModuleIds = [...mentorProfile.moduleIds]
+let managedRevision = 0
+let managedUpdateTime = '1:000000000'
+const managedReceipts = new Map<string, { fingerprint: string; output: CallableOutput<'updateOwnMentorProfile'> }>()
+const managedModuleCatalog = [...modules, { id: 'cs3230', code: 'CS3230', title: 'Design and Analysis of Algorithms', active: false }]
+
+export const mockDashboard: DashboardData = {
+  user: student, requests, appointments, slots, conversations,
+  mentors: [{ profile: mentorProfile, user: mentor, modules }],
+}
+let signedInUser: User | null = student
+
+type MockStudyConversation = {
+  conversation: CallableOutput<'listStudentStudyAssistantConversations'>['conversations'][number]
+  messages: CallableOutput<'readStudentStudyAssistantConversation'>['messages']
+}
+const mockStudyConversations = new Map<string, MockStudyConversation>()
+const mockStudyReceipts = new Map<string, CallableOutput<'studentStudyAssist'>>()
+const mockStudyDeleted = new Set<string>()
+
+function mockStudyTitle(message: string) {
+  const normalized = message.replace(/\s+/gu, ' ').trim()
+  return Array.from(normalized).length > 56 ? `${Array.from(normalized).slice(0, 55).join('')}…` : normalized
+}
+
+function mockStudyAnswer(question: string) {
+  if (/\b(?:weather|football|recipe|unsupported)\b/iu.test(question)) {
+    return {
+      kind: 'insufficient_context' as const,
+      content: 'I could not find enough information in the approved NUS computing sources to answer that question.',
+      citations: [],
+    }
+  }
+  return {
+    kind: 'grounded' as const,
+    content: 'Breadth-first search explores a graph one distance layer at a time. A queue keeps newly discovered vertices in first-in, first-out order, so every vertex reached through fewer edges is processed before vertices farther from the start.',
+    citations: [{ sourceId: 'synthetic-cs2040s-bfs', title: 'Synthetic CS2040S graph traversal notes', canonicalUrl: 'https://example.edu/approved/cs2040s/bfs', version: 'synthetic-v1', section: 'Breadth-first search' }],
+  }
+}
+
+// Discovery fixtures contain only the callable's public Mentor fields. Their
+// opaque cursor is selected by input, just as a later callable page would be.
+const discoveryPages = {
+  first: discoverMentorsOutputSchema.parse({
+    mentors: [
+      { userId: 'sample-mentor-01', displayName: 'Sample Aisha', biography: 'I enjoy explaining software design with examples.', moduleIds: ['cs2103t', 'cs2040s'] },
+      { userId: 'sample-mentor-02', displayName: 'Sample Dev', biography: 'Happy to work through graph problems.', moduleIds: ['cs2040s', 'cs3230'] },
+      { userId: 'sample-mentor-03', displayName: 'Sample Mei', biography: 'Let us explore computing systems together.', moduleIds: ['missing-module'] },
+      { userId: 'sample-mentor-04', displayName: 'Sample Noor', biography: '', moduleIds: [] },
+    ],
+    nextCursor: 'sample-page-2',
+  }),
+  'sample-page-2': discoverMentorsOutputSchema.parse({
+    mentors: [
+      { userId: 'sample-mentor-05', displayName: 'Sample Ravi', biography: 'I like making algorithms approachable.', moduleIds: ['cs2040s'] },
+    ],
+    nextCursor: null,
+  }),
+}
+
+const discoveryModules = new Map<string, unknown>([
+  ...modules.map((module): [string, Module] => [module.id, module]),
+  ['cs3230', { id: 'cs3230', code: 'CS3230', title: 'Design and Analysis of Algorithms', active: false }],
+])
+
+export function createMockModuleLookup(records: ReadonlyMap<string, unknown>): HelpiNUSServices['modules'] {
+  return {
+    async getById(id) {
+      if (!records.has(id)) return null
+      const record = records.get(id)
+      if (record instanceof Error) throw record
+      const parsed = moduleSchema.parse(record)
+      if (parsed.id !== id) throw new Error('Module document ID does not match stored ID.')
+      return parsed
+    },
+  }
+}
+
+const f01Requests: F01HelpRequest[] = []
+const requestListeners = new Set<() => void>()
+const notifyRequests = () => { for (const listener of requestListeners) listener() }
+function mockSubscribe(read: () => F01HelpRequest[], onData: (items: F01HelpRequest[]) => void) {
+  const listener = () => onData(read())
+  requestListeners.add(listener)
+  listener()
+  return () => { requestListeners.delete(listener) }
+}
+
+export const mockServices: HelpiNUSServices = {
+  session: {
+    getCurrent: async () => ({ user: signedInUser }),
+    subscribe: (listener) => { listener({ user: signedInUser }); return () => {} },
+    signInWithGoogle: async () => { throw Object.assign(new Error('Mock preview does not authenticate. Start npm run dev:emulators to sign in with Google.'), { code: 'mock/preview-only' }) },
+    registerStudentWithGoogle: async () => { throw Object.assign(new Error('Mock preview does not authenticate. Start npm run dev:emulators to register with Google.'), { code: 'mock/preview-only' }) },
+    registerMentorWithGoogle: async () => { throw Object.assign(new Error('Mock preview does not authenticate. Start npm run dev:emulators to register with Google.'), { code: 'mock/preview-only' }) },
+    retryStudentProfile: async () => ({ user: signedInUser }),
+    retryMentorProfile: async () => ({ user: signedInUser }),
+    signOut: async () => { signedInUser = null },
+  },
+  dashboard: { getStudentDashboard: async () => mockDashboard },
+  modules: createMockModuleLookup(discoveryModules),
+  helpRequests: {
+    async getSelection(mentorId) { const found = Object.values(discoveryPages).flatMap((page) => page.mentors).find((item) => item.userId === mentorId); return found ? { userId: found.userId, displayName: found.displayName, moduleIds: found.moduleIds } : null },
+    subscribeStudentPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.studentId === uid).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20), onData) },
+    subscribeMentorPendingPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.mentorId === uid && item.status === 'PENDING').sort((a, b) => a.createdAt.localeCompare(b.createdAt)).slice(0, 20), onData) },
+    subscribeMentorDecidedPage(uid, _cursor, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.mentorId === uid && item.status !== 'PENDING').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20), onData) },
+    subscribeDetail(id, onData) { return mockSubscribe(() => f01Requests.filter((item) => item.id === id), (items) => onData(items[0] ?? null)) },
+    subscribeStudentSummary(uid, onData) { const listener = () => { const own = f01Requests.filter((item) => item.studentId === uid); const pendingCount = own.filter((item) => item.status === 'PENDING').length; const acceptedCount = own.filter((item) => item.status === 'ACCEPTED').length; onData({ pendingCount, acceptedCount, rejectedCount: own.filter((item) => item.status === 'REJECTED').length, openCount: pendingCount + acceptedCount, updatedAt: new Date().toISOString() }) }; requestListeners.add(listener); listener(); return () => { requestListeners.delete(listener) } },
+  },
+  conversations: {
+    subscribeList(_uid, _role, _cursor, onData) { onData([], null); return () => {} },
+    subscribeDetail(_id, onData) { onData(null); return () => {} },
+    subscribeMessages(_id, _cursor, onData) { onData([], null); return () => {} },
+    async getMessageFromServer() { return null },
+  },
+  callables: createMockCallableClient({
+    createHelpRequest: async (input) => {
+      const existing = f01Requests.find((item) => item.studentId === student.id && item.mentorId === input.mentorId && item.moduleId === input.moduleId && item.status === 'PENDING')
+      if (existing) return { kind: 'duplicate', existingHelpRequestId: existing.id, currentStatus: existing.status }
+      const now = new Date().toISOString()
+      const helpRequest: F01HelpRequest = { id: crypto.randomUUID(), studentId: student.id, mentorId: input.mentorId, moduleId: input.moduleId, title: input.title.trim(), description: input.description.trim(), studentDisplayName: student.displayName, mentorDisplayName: Object.values(discoveryPages).flatMap((page) => page.mentors).find((item) => item.userId === input.mentorId)?.displayName ?? 'Mentor', status: 'PENDING', createdAt: now, updatedAt: now }
+      f01Requests.unshift(helpRequest); notifyRequests(); return { kind: 'created', helpRequest }
+    },
+    respondToHelpRequest: async (input) => {
+      const found = f01Requests.find((item) => item.id === input.helpRequestId)
+      if (!found) throw new Error('Request unavailable')
+      if (input.response === 'ACCEPTED') throw new Error('Acceptance is waiting for conversation integration.')
+      if (found.status !== 'PENDING') return found.status === input.response ? { kind: 'already_decided', helpRequest: found, conversationId: null } : { kind: 'conflict', actualStatus: found.status }
+      found.status = 'REJECTED'; found.updatedAt = new Date().toISOString(); notifyRequests(); return { kind: 'decided', helpRequest: found, conversationId: null }
+    },
+    readOwnMentorProfile: async () => ({ kind: 'ready', profile: { displayName: mentor.displayName, biography: managedBiography, moduleIds: [...managedModuleIds], version: { revision: managedRevision, updateTime: managedUpdateTime } }, metadata: { kind: 'ready', modules: managedModuleIds.map((id) => { const found = managedModuleCatalog.find((module) => module.id === id); return found ? { id, state: found.active ? 'active' as const : 'inactive' as const, code: found.code, title: found.title } : { id, state: 'missing' as const } }) } }),
+    searchMentorModules: async ({ query, cursor }) => {
+      const normalized = query.normalize('NFKC').trim().toLowerCase()
+      const matches = managedModuleCatalog.filter((module) => module.active && [module.code, module.title].some((text) => text.toLowerCase().startsWith(normalized))).sort((a, b) => a.id.localeCompare(b.id))
+      const start = cursor ? matches.findIndex((module) => module.id === cursor) + 1 : 0
+      const page = matches.slice(start, start + 20)
+      return { modules: page.map(({ id, code, title }) => ({ id, code, title })), nextCursor: start + 20 < matches.length ? page[page.length - 1].id : null }
+    },
+    updateOwnMentorProfile: async (input) => {
+      const fingerprint = JSON.stringify({ baseline: input.baseline, biography: input.biography.trim(), moduleIds: [...input.moduleIds].sort() })
+      const prior = managedReceipts.get(input.requestId)
+      if (prior) { if (prior.fingerprint !== fingerprint) throw new Error('Request ID reused for a different change.'); return prior.output }
+      let output: CallableOutput<'updateOwnMentorProfile'>
+      if (input.baseline.revision !== managedRevision || input.baseline.updateTime !== managedUpdateTime) output = { kind: 'rejected', reason: 'CONFLICT' }
+      else if (input.moduleIds.some((id) => !managedModuleIds.includes(id) && !managedModuleCatalog.some((module) => module.id === id && module.active))) output = { kind: 'rejected', reason: 'MODULE_INELIGIBLE' }
+      else { managedBiography = input.biography.trim(); managedModuleIds = [...input.moduleIds]; managedRevision += 1; managedUpdateTime = `${managedRevision + 1}:000000000`; output = { kind: 'accepted', stored: { biography: managedBiography, moduleIds: [...managedModuleIds], revision: managedRevision } } }
+      managedReceipts.set(input.requestId, { fingerprint, output })
+      return output
+    },
+    discoverMentors: async ({ cursor, limit }) => {
+      if (limit !== 20) throw new Error('Mock discovery expects a page size of 20.')
+      if (cursor === undefined) return discoveryPages.first
+      if (cursor === 'sample-page-2') return discoveryPages['sample-page-2']
+      throw new Error('Unknown mock discovery cursor.')
+    },
+    listStudentStudyAssistantConversations: async ({ cursor, limit }) => {
+      const pageSize = limit ?? 20
+      const sorted = [...mockStudyConversations.values()].map(({ conversation }) => conversation)
+        .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt) || b.id.localeCompare(a.id))
+      const start = cursor ? sorted.findIndex((conversation) => conversation.id === cursor) + 1 : 0
+      const page = sorted.slice(start, start + pageSize)
+      return { conversations: page, nextCursor: start + pageSize < sorted.length ? page.at(-1)?.id ?? null : null }
+    },
+    readStudentStudyAssistantConversation: async ({ conversationId, cursor, limit }) => {
+      const pageSize = limit ?? 50
+      const record = mockStudyConversations.get(conversationId)
+      if (!record || mockStudyDeleted.has(conversationId)) throw Object.assign(new Error('Conversation unavailable'), { code: 'not-found' })
+      const start = cursor ? record.messages.findIndex((message) => message.id === cursor) + 1 : 0
+      const page = record.messages.slice(start, start + pageSize)
+      return { conversation: record.conversation, messages: page, nextCursor: start + pageSize < record.messages.length ? page.at(-1)?.id ?? null : null }
+    },
+    studentStudyAssist: async (input) => {
+      const replay = mockStudyReceipts.get(input.requestId)
+      if (replay) return { ...replay, replayed: true }
+      const now = new Date().toISOString()
+      const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+      const conversationId = input.conversationId ?? crypto.randomUUID()
+      if (mockStudyDeleted.has(conversationId)) throw Object.assign(new Error('Conversation unavailable'), { code: 'not-found' })
+      const prior = mockStudyConversations.get(conversationId)
+      if (input.conversationId && !prior) throw Object.assign(new Error('Conversation unavailable'), { code: 'not-found' })
+      const answer = mockStudyAnswer(input.userMessage)
+      const userMessage = { id: crypto.randomUUID(), role: 'STUDENT' as const, content: input.userMessage.trim(), createdAt: now }
+      const assistantMessage = {
+        id: crypto.randomUUID(), role: 'ASSISTANT' as const, content: answer.content,
+        createdAt: new Date(Date.now() + 1).toISOString(),
+        grounding: answer.kind === 'grounded' ? 'GROUNDED' as const : 'INSUFFICIENT_CONTEXT' as const,
+        citations: answer.citations,
+      }
+      const conversation = {
+        id: conversationId,
+        title: prior?.conversation.title ?? mockStudyTitle(input.userMessage),
+        preview: assistantMessage.content.slice(0, 240),
+        lastActivityAt: assistantMessage.createdAt,
+        expiresAt,
+      }
+      mockStudyConversations.set(conversationId, { conversation, messages: [...(prior?.messages ?? []), userMessage, assistantMessage] })
+      const output = { kind: answer.kind, conversation, userMessage, assistantMessage, replayed: false } as CallableOutput<'studentStudyAssist'>
+      mockStudyReceipts.set(input.requestId, output)
+      return output
+    },
+    deleteStudentStudyAssistantConversation: async ({ conversationId }) => {
+      const kind = mockStudyConversations.delete(conversationId) ? 'deleted' as const : 'already_deleted' as const
+      mockStudyDeleted.add(conversationId)
+      return { kind, conversationId }
+    },
+  }),
+}

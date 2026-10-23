@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function activeStudent() {
+      return signedIn()
+        && !exists(/databases/$(database)/documents/mentors/$(request.auth.uid))
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.id == request.auth.uid
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'ACTIVE'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STUDENT'
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email;
+    }
+    function activeMentor(mentorId) {
+      return signedIn()
+        && (!exists(/databases/$(database)/documents/users/$(mentorId))
+          || get(/databases/$(database)/documents/users/$(mentorId)).data.role == 'MENTOR')
+        && exists(/databases/$(database)/documents/mentors/$(mentorId))
+        && get(/databases/$(database)/documents/mentors/$(mentorId)).data.id == mentorId
+        && get(/databases/$(database)/documents/mentors/$(mentorId)).data.role == 'MENTOR'
+        && get(/databases/$(database)/documents/mentors/$(mentorId)).data.status == 'ACTIVE'
+        && (mentorId != request.auth.uid || (request.auth.token.email_verified == true
+          && request.auth.token.email == get(/databases/$(database)/documents/mentors/$(mentorId)).data.email));
+    }
+    function activeAccount() { return activeStudent() || activeMentor(request.auth.uid); }
+    function acceptedConversation(data, id) {
+      return activeAccount()
+        && data.keys().hasAll(['id', 'helpRequestId', 'studentId', 'mentorId', 'participantIds', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'helpRequestId', 'studentId', 'mentorId', 'participantIds', 'createdAt', 'updatedAt'])
+        && data.id == id
+        && data.helpRequestId == id
+        && data.studentId is string
+        && data.mentorId is string
+        && data.studentId != data.mentorId
+        && data.participantIds == [data.studentId, data.mentorId]
+        && ((activeStudent() && request.auth.uid == data.studentId) || (activeMentor(request.auth.uid) && request.auth.uid == data.mentorId))
+        && exists(/databases/$(database)/documents/helpRequests/$(id))
+        && get(/databases/$(database)/documents/helpRequests/$(id)).data.id == id
+        && get(/databases/$(database)/documents/helpRequests/$(id)).data.status == 'ACCEPTED'
+        && get(/databases/$(database)/documents/helpRequests/$(id)).data.studentId == data.studentId
+        && get(/databases/$(database)/documents/helpRequests/$(id)).data.mentorId == data.mentorId
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.createdAt == get(/databases/$(database)/documents/helpRequests/$(id)).data.updatedAt
+        && data.updatedAt == get(/databases/$(database)/documents/helpRequests/$(id)).data.updatedAt;
+    }
+    match /users/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
+    match /mentors/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
+    match /mentorProfiles/{uid} {
+      allow get: if activeAccount() && resource.data.active == true && activeMentor(uid);
+      // Collection discovery is served by discoverMentors so every profile can
+      // be joined to its authoritative mentors/{uid} role and status record.
+      allow list: if false;
+      allow write: if false;
+    }
+    match /modules/{id} { allow read: if activeAccount(); allow write: if false; }
+    match /helpRequests/{id} {
+      allow get: if (activeStudent() && resource.data.studentId == request.auth.uid) || (activeMentor(request.auth.uid) && resource.data.mentorId == request.auth.uid);
+      allow list: if request.query.limit != null && request.query.limit <= 20
+        && ((activeStudent() && resource.data.studentId == request.auth.uid) || (activeMentor(request.auth.uid) && resource.data.mentorId == request.auth.uid));
+      allow write: if false;
+    }
+    match /helpRequestSummaries/{uid} {
+      allow get: if activeStudent() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+    match /helpRequestOperations/{uid}/operations/{operationId} { allow read, write: if false; }
+    match /pendingHelpRequestKeys/{key} { allow read, write: if false; }
+    match /conversations/{id} {
+      allow get: if acceptedConversation(resource.data, id);
+      // F02 must supply an authorized list strategy and prove it in Emulator.
+      allow list: if false;
+      allow write: if false;
+      match /messages/{messageId} {
+        function conversation() { return get(/databases/$(database)/documents/conversations/$(id)).data; }
+        allow get: if exists(/databases/$(database)/documents/conversations/$(id)) && acceptedConversation(conversation(), id);
+        allow list: if request.query.limit != null && request.query.limit <= 20
+          && exists(/databases/$(database)/documents/conversations/$(id)) && acceptedConversation(conversation(), id);
+        allow write: if false;
+      }
+    }
+    match /availabilitySlots/{id} { allow read: if activeAccount() && resource.data.withdrawn == false && resource.data.startsAt > request.time && activeMentor(resource.data.mentorId); allow write: if false; }
+    match /appointments/{id} { allow read: if (activeStudent() && resource.data.studentId == request.auth.uid) || (activeMentor(request.auth.uid) && resource.data.mentorId == request.auth.uid); allow write: if false; }
+    match /aiAuditEvents/{id} { allow read, write: if false; }
+    // S2-D1-F03 is callable-only. Keeping every Student Study Assistant root
+    // private also prevents accidental coupling to Mentor AI features.
+    match /studentStudyAssistantUsers/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantCorpus/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantConfig/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantRateControls/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantDeletionTombstones/{document=**} { allow read, write: if false; }
+    match /studentStudyAssistantAuditEvents/{document=**} { allow read, write: if false; }
+  }
+}

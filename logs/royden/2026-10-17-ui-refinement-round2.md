@@ -1,0 +1,9 @@
+# 2026-10-17 UI refinement round 2
+
+Developer 2 approved the second Help Request and Conversation UI drafts and static HTML mockup with “Approve. Make the necessary planned improvements.” The exact pre-metadata draft bytes were backed up under `Dev2-local-SDD-backups/2026-10-17-ui-refinement-round2-approved/`; the approved additions and mockup are in commit `0016a57`. Frontend implementation and focused tests are in `115504c`. No backend contract, Rules, persistence, or authorization changes were made.
+
+The request-entry dialog is centered and bounded in the viewport, and its keyboard loop includes the Request help link. The accepted detail has white primary-button text and no duplicate settled success notice. The chat composer has no visible Message label while retaining an accessible name. The conversation detail fills the available shell area; labelled conversation list cards have explicit Open conversation buttons. User and Developer Guides were updated to reflect these views.
+
+On Node 22.23.3, the focused frontend run passed 69/69 and the full frontend suite passed 192/192. `npm run lint --workspace src/frontend` and `npm run build --workspace src/frontend` passed; build reported only its existing large-chunk advisory. An initial focused Vitest run failed before loading tests due a Windows TEMP rename `EPERM`; rerunning with workspace-local TEMP/TMP passed. Independent read-only review found no concrete defect, including the corrected dialog focus loop.
+
+Manual rendered checks at desktop and 320 px, short viewport, zoom and with a mobile keyboard, plus screen-reader observations, are still required to close the new UI verification scenarios. This change does not close the broader F01/F02 RTT, CI, integration, data-audit, or release gates. No push, PR, merge or deployment was performed.

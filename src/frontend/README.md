@@ -1,75 +1,36 @@
-# React + TypeScript + Vite
+# HelpiNUS frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React, TypeScript, Vite, Tailwind CSS, React Router, and Firebase Web SDK client
+foundation. React components use the adapter boundary in `src/services`; local
+mock adapters keep route and dashboard work independent of backend integration.
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Use Node.js 22 (see the repository `.nvmrc`). From the repository root:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```sh
+npm install
+npm run dev -w src/frontend
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+With no Firebase configuration, the app uses the sample Student workspace.
+Copy `.env.example` to `.env.local` to configure a Firebase web app. Values
+prefixed with `VITE_` are public browser configuration and must not contain
+service-account credentials or other secrets. Use the `VITE_FIREBASE_DEV_*`
+values for `helpinus-dev` and `VITE_FIREBASE_PROD_*` for `helpinus-prod`.
+Choose the active project with `VITE_FIREBASE_ENV`. Emulator connections require
+`VITE_USE_FIREBASE_EMULATORS=true`, a development build, and a loopback browser
+host; emulator ports are Auth `9099`, Firestore `8080`, and Functions `5001`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Frontend checks
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```sh
+npm run lint -w src/frontend
+npm run typecheck -w src/frontend
+npm run test -w src/frontend
+npm run build -w src/frontend
 ```
+
+Dashboard and route scaffolds intentionally use sample data until the auth,
+Firestore query, and callable adapters are integrated. AI routes do not send
+prompts or call a model in this sprint.

@@ -1,0 +1,106 @@
+import { initializeApp } from 'firebase-admin/app'
+import { getFirestore } from 'firebase-admin/firestore'
+import { HttpsError } from 'firebase-functions/v2/https'
+import { defineSecret } from 'firebase-functions/params'
+import { callable, singaporeRegion } from './callable.js'
+import { requireActiveUser, requireRole } from './auth.js'
+import { callableSchemas } from '@helpinus/shared'
+import type { ZodType } from 'zod'
+import { initializeMentorProfileHandler, initializeStudentProfileHandler } from './profile.js'
+import { discoverMentorsHandler } from './mentorDiscovery.js'
+import { getMentorRequestSelectionHandler } from './mentorRequestSelection.js'
+import { readOwnMentorProfileHandler, updateOwnMentorProfileHandler } from './mentorProfileManagement.js'
+import { searchMentorModulesHandler } from './mentorModuleSearch.js'
+import { createHelpRequestHandler, respondToHelpRequestHandler } from './helpRequests.js'
+import { acknowledgeMessageHandler, provisionForAcceptedRequest, sendMessageHandler } from './conversations.js'
+import {
+  createStudentStudyAssistantDependencies,
+  deleteStudentStudyAssistantConversationHandler,
+  listStudentStudyAssistantConversationsHandler,
+  readStudentStudyAssistantConversationHandler,
+  recordStudentStudyAssistantBoundaryAudit,
+  studentStudyAssistHandler,
+} from './studentStudyAssistant.js'
+export { soclaasConnectivityCheck } from './soclaasConnectivityPrivate.js'
+export { mentorConsultationSummary } from './mentorSummaryCallable.js'
+
+initializeApp()
+const db = getFirestore()
+const studentSoclaasApiKey = defineSecret('SOCLAAS_API_KEY_STUDENT')
+
+export const testAuthenticated = callable(
+  // The shared initialization schema keeps runtime parsing consistent without inventing a domain contract.
+  callableSchemas.initializeStudentProfile.input,
+  async (_input, request) => ({ uid: (await requireActiveUser(request)).uid, ok: true }),
+)
+
+export const initializeStudentProfile = callable(
+  callableSchemas.initializeStudentProfile.input,
+  (input, request) => initializeStudentProfileHandler(input, request, db, process.env.FUNCTIONS_EMULATOR === 'true'),
+)
+
+export const initializeMentorProfile = callable(
+  callableSchemas.initializeMentorProfile.input,
+  (input, request) => initializeMentorProfileHandler(input, request, db),
+)
+
+export const discoverMentors = callable(
+  callableSchemas.discoverMentors.input,
+  (input, request) => discoverMentorsHandler(input, request, db),
+)
+export const getMentorRequestSelection = callable(
+  callableSchemas.getMentorRequestSelection.input,
+  (input, request) => getMentorRequestSelectionHandler(input, request, db),
+)
+export const readOwnMentorProfile = callable(callableSchemas.readOwnMentorProfile.input, (input, request) => readOwnMentorProfileHandler(input, request, db))
+export const searchMentorModules = callable(callableSchemas.searchMentorModules.input, (input, request) => searchMentorModulesHandler(input, request, db))
+export const updateOwnMentorProfile = callable(callableSchemas.updateOwnMentorProfile.input, (input, request) => updateOwnMentorProfileHandler(input, request, db))
+
+function notImplemented(name: string, role?: 'STUDENT' | 'MENTOR') {
+  return callable(callableSchemas[name as keyof typeof callableSchemas].input as ZodType<unknown>, async (_input, request) => {
+    if (role) await requireRole(request, role)
+    else await requireActiveUser(request)
+    throw new HttpsError('unavailable', `${name} is not available in Sprint 1.`)
+  })
+}
+
+export const createHelpRequest = callable(callableSchemas.createHelpRequest.input, (input, request) => createHelpRequestHandler(input, request, db))
+export const respondToHelpRequest = callable(callableSchemas.respondToHelpRequest.input, (input, request) => respondToHelpRequestHandler(input, request, db, provisionForAcceptedRequest))
+export const sendMessage = callable(callableSchemas.sendMessage.input, (input, request) => sendMessageHandler(input, request, db))
+export const acknowledgeMessage = callable(callableSchemas.acknowledgeMessage.input, (input, request) => acknowledgeMessageHandler(input, request, db))
+export const closeHelpRequest = notImplemented('closeHelpRequest', 'STUDENT')
+export const createAvailabilitySlot = notImplemented('createAvailabilitySlot', 'MENTOR')
+export const withdrawAvailabilitySlot = notImplemented('withdrawAvailabilitySlot', 'MENTOR')
+export const reserveAppointment = notImplemented('reserveAppointment', 'STUDENT')
+export const respondToAppointment = notImplemented('respondToAppointment', 'MENTOR')
+export const cancelAppointment = notImplemented('cancelAppointment')
+export const completeAppointment = notImplemented('completeAppointment', 'MENTOR')
+const studentStudyAssistantDependencies = createStudentStudyAssistantDependencies(
+  process.env.FUNCTIONS_EMULATOR === 'true',
+  () => studentSoclaasApiKey.value(),
+)
+export const studentStudyAssist = callable(
+  callableSchemas.studentStudyAssist.input,
+  (input, request) => studentStudyAssistHandler(input, request, db, studentStudyAssistantDependencies),
+  { secrets: [studentSoclaasApiKey] },
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(request, 'studentStudyAssist', phase, error),
+)
+export const listStudentStudyAssistantConversations = callable(
+  callableSchemas.listStudentStudyAssistantConversations.input,
+  (input, request) => listStudentStudyAssistantConversationsHandler(input, request, db, studentStudyAssistantDependencies),
+  {},
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(request, 'listStudentStudyAssistantConversations', phase, error),
+)
+export const readStudentStudyAssistantConversation = callable(
+  callableSchemas.readStudentStudyAssistantConversation.input,
+  (input, request) => readStudentStudyAssistantConversationHandler(input, request, db, studentStudyAssistantDependencies),
+  {},
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(request, 'readStudentStudyAssistantConversation', phase, error),
+)
+export const deleteStudentStudyAssistantConversation = callable(
+  callableSchemas.deleteStudentStudyAssistantConversation.input,
+  (input, request) => deleteStudentStudyAssistantConversationHandler(input, request, db, studentStudyAssistantDependencies),
+  {},
+  (error, request, phase) => recordStudentStudyAssistantBoundaryAudit(request, 'deleteStudentStudyAssistantConversation', phase, error),
+)
+export { singaporeRegion }
