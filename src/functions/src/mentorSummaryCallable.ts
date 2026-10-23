@@ -15,18 +15,8 @@ export function assertB3TestScope(uid: string | undefined, environment: NodeJS.P
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in to continue.')
   const projectId = expectedProjectId ?? environment.GCLOUD_PROJECT
   if (!projectId || (expectedProjectId === undefined && !supportedProjectIds.has(projectId)) ||
-    environment.GCLOUD_PROJECT !== projectId || environment.SOCLAAS_B3_APPROVED_PROJECT_ID !== projectId ||
-    environment.SOCLAAS_B3_ENABLED !== 'true' || environment.SOCLAAS_B3_ISOLATION_VERIFIED !== 'true') {
+    environment.GCLOUD_PROJECT !== projectId) {
     throw new HttpsError('unavailable', 'The consultation draft is unavailable.', { reason: 'AI_CONFIG' })
-  }
-  const configured = environment.SOCLAAS_B3_ALLOWED_UIDS ?? ''
-  const allowed = configured.split(',')
-  if (!allowed.length || allowed.some((value) => !/^[A-Za-z0-9_-]{1,128}$/u.test(value)) ||
-    new Set(allowed).size !== allowed.length) {
-    throw new HttpsError('unavailable', 'The consultation draft is unavailable.', { reason: 'AI_CONFIG' })
-  }
-  if (!allowed.includes(uid)) {
-    throw new HttpsError('permission-denied', 'Conversation access is unavailable.', { reason: 'ACCESS_UNAVAILABLE' })
   }
 }
 

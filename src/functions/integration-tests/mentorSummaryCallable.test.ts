@@ -18,9 +18,8 @@ const requestId = `b3-request-${crypto.randomUUID()}`
 const brief = { summary: 'Student asked about sorting.', unresolvedQuestions: 'None identified from the selected messages.', teachingApproaches: 'Use a small example.', limitations: 'Only one question was provided.' }
 const providerBody = JSON.stringify({ choices: [{ message: { content: JSON.stringify(brief) } }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } })
 const request = (uid = mentorUid) => ({ auth: { uid, token: { email: uid === mentorUid ? mentorEmail : `${uid}@example.test`, email_verified: true } } }) as never
-const environment = (allowed = mentorUid): NodeJS.ProcessEnv => ({
-  GCLOUD_PROJECT: projectId, SOCLAAS_B3_APPROVED_PROJECT_ID: projectId, SOCLAAS_B3_ENABLED: 'true',
-  SOCLAAS_B3_ISOLATION_VERIFIED: 'true', SOCLAAS_B3_ALLOWED_UIDS: allowed,
+const environment = (): NodeJS.ProcessEnv => ({
+  GCLOUD_PROJECT: projectId,
   SOCLAAS_APPROVED_ORIGIN: SOC_ORIGIN, SOCLAAS_APPROVED_MODEL_ID: 'approved-chat-model',
   SOCLAAS_VERIFIED_CONTEXT_TOKENS: '20000', SOCLAAS_VERIFIED_OUTPUT_TOKENS: '512',
   SOCLAAS_B3_MAX_OUTPUT_TOKENS: '128',
@@ -59,12 +58,9 @@ afterAll(async () => {
 }, 30000)
 
 describe('B3 synthetic project gate and durable provider attempt scope', () => {
-  it('rejects unset config, foreign project, signed-out and nondesignated UID before secret, Firestore, or HTTP', async () => {
+  it('rejects a foreign project and signed-out caller before secret, Firestore, or HTTP', async () => {
     for (const [auth, env, code] of [
-      [request(otherUid), environment(), 'permission-denied'],
       [request(), { ...environment(), GCLOUD_PROJECT: 'helpinus-prod' }, 'unavailable'],
-      [request(), { ...environment(), SOCLAAS_B3_ALLOWED_UIDS: '' }, 'unavailable'],
-      [request(), { ...environment(), SOCLAAS_B3_ENABLED: undefined }, 'unavailable'],
       [{ auth: null }, environment(), 'unauthenticated'],
     ] as const) {
       const run = dependencies(env)
@@ -73,6 +69,20 @@ describe('B3 synthetic project gate and durable provider attempt scope', () => {
       expect(run.firestore).not.toHaveBeenCalled()
       expect(run.fetchImpl).not.toHaveBeenCalled()
     }
+  })
+
+  it('denies another active Mentor access to a conversation they do not own before provider HTTP', async () => {
+    const run = dependencies()
+    await expect(mentorSummaryCallableHandler({ helpRequestId: requestId }, request(otherUid), run.deps))
+      .rejects.toMatchObject({ code: 'permission-denied' })
+    expect(run.fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('denies an active Student before provider HTTP', async () => {
+    const run = dependencies()
+    await expect(mentorSummaryCallableHandler({ helpRequestId: requestId }, request(studentUid), run.deps))
+      .rejects.toMatchObject({ code: 'permission-denied' })
+    expect(run.fetchImpl).not.toHaveBeenCalled()
   })
 
   it('runs the gated accepted synthetic conversation through the shared real adapter with fake HTTP', async () => {

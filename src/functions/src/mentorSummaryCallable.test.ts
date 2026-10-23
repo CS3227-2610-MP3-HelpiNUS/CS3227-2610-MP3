@@ -3,15 +3,17 @@ import { assertB3TestScope } from './mentorSummaryCallable.js'
 
 const configuredEnvironment = (projectId: string): NodeJS.ProcessEnv => ({
   GCLOUD_PROJECT: projectId,
-  SOCLAAS_B3_APPROVED_PROJECT_ID: projectId,
-  SOCLAAS_B3_ENABLED: 'true',
-  SOCLAAS_B3_ISOLATION_VERIFIED: 'true',
-  SOCLAAS_B3_ALLOWED_UIDS: 'approved-uid',
 })
 
 describe('Mentor summary deployment project scope', () => {
-  it.each(['helpinus-dev', 'helpinus-prod'])('accepts configured project %s', (projectId) => {
-    expect(() => assertB3TestScope('approved-uid', configuredEnvironment(projectId))).not.toThrow()
+  it.each(['helpinus-dev', 'helpinus-prod'])('accepts any signed-in UID in configured project %s', (projectId) => {
+    expect(() => assertB3TestScope('first-mentor', configuredEnvironment(projectId))).not.toThrow()
+    expect(() => assertB3TestScope('another-mentor', configuredEnvironment(projectId))).not.toThrow()
+  })
+
+  it('rejects signed-out callers', () => {
+    expect(() => assertB3TestScope(undefined, configuredEnvironment('helpinus-prod')))
+      .toThrow(expect.objectContaining({ code: 'unauthenticated' }))
   })
 
   it('rejects an unsupported deployment project before provider access', () => {
@@ -19,10 +21,8 @@ describe('Mentor summary deployment project scope', () => {
       .toThrow(expect.objectContaining({ code: 'unavailable' }))
   })
 
-  it('rejects a mismatched approved project', () => {
-    expect(() => assertB3TestScope('approved-uid', {
-      ...configuredEnvironment('helpinus-prod'),
-      SOCLAAS_B3_APPROVED_PROJECT_ID: 'helpinus-dev',
-    })).toThrow(expect.objectContaining({ code: 'unavailable' }))
+  it('rejects a mismatched runtime project', () => {
+    expect(() => assertB3TestScope('approved-uid', configuredEnvironment('helpinus-prod'), 'helpinus-dev'))
+      .toThrow(expect.objectContaining({ code: 'unavailable' }))
   })
 })
