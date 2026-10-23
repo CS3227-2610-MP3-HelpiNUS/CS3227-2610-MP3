@@ -5,6 +5,12 @@
   padding-bottom: 28px;
   overflow-wrap: anywhere;
 }
+.mentor-consultation-summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 18px; padding: 17px 20px; border-radius: 11px; background: #edf5f1; }
+.mentor-consultation-summary h2 { margin: 0 0 5px; font-size: 14px; font-weight: 680; }
+.mentor-consultation-summary p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.mentor-consultation-summary p strong { color: var(--green-dark); font-size: 14px; font-variant-numeric: tabular-nums; }
+.mentor-consultation-summary .button { flex: 0 0 auto; }
+@media (max-width: 520px) { .mentor-consultation-summary { align-items: stretch; flex-direction: column; } .mentor-consultation-summary .button { width: 100%; } }
 
 .mentor-dashboard-header {
   display: flex;
