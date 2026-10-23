@@ -82,7 +82,9 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HELPINUS_PROD }}
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-      - run: npx firebase-tools deploy --only hosting,functions,firestore:rules,firestore:indexes --project helpinus-prod --non-interactive
+      # Required for non-interactive Artifact Registry cleanup-policy setup.
+      # This also confirms deletion of deployed Functions absent from this source tree.
+      - run: npx firebase-tools deploy --only hosting,functions,firestore:rules,firestore:indexes --project helpinus-prod --non-interactive --force
       - name: Preserve public access for the Student Study Assistant callable
         run: >-
           gcloud run services add-iam-policy-binding studentstudyassist
