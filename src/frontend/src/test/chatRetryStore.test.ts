@@ -32,8 +32,9 @@ describe('F02 private retry storage (F02-TC-035)', () => {
   it('pauses when storage cannot safely retain the record', () => {
     const existing = record(crypto.randomUUID(), 'A message', 1)
     saveChatRetry(existing)
-    const original = Storage.prototype.setItem
-    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+    const storagePrototype = Object.getPrototypeOf(sessionStorage) as Storage
+    const original = storagePrototype.setItem
+    const spy = vi.spyOn(storagePrototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
       if (key.includes('f02-send:') && !key.includes(existing.messageId)) throw new Error('Quota exceeded')
       return original.call(this, key, value)
     })
@@ -62,9 +63,10 @@ describe('F02 private retry storage (F02-TC-035)', () => {
     const first = record(crypto.randomUUID(), 'Keep this saved', 1)
     const later = record(crypto.randomUUID(), 'Readback may fail', 2)
     saveChatRetry(first)
-    const original = Storage.prototype.getItem
+    const storagePrototype = Object.getPrototypeOf(sessionStorage) as Storage
+    const original = storagePrototype.getItem
     let laterReads = 0
-    const read = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
+    const read = vi.spyOn(storagePrototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
       if (key.endsWith(later.messageId) && ++laterReads === 2) return 'corrupt readback'
       return original.call(this, key)
     })

@@ -98,9 +98,10 @@ describe('F02 uncertain send reconciliation (TC-031)', () => {
       normalizedBody: 'Persisted once', localSequence: 1, state: 'uncertain',
     }
     saveChatRetry(item)
-    const originalRemove = Storage.prototype.removeItem
+    const storagePrototype = Object.getPrototypeOf(sessionStorage) as Storage
+    const originalRemove = storagePrototype.removeItem
     let failRemoval = true
-    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, key: string) {
+    vi.spyOn(storagePrototype, 'removeItem').mockImplementation(function (this: Storage, key: string) {
       if (failRemoval && key.endsWith(`:${item.messageId}`)) throw new Error('storage delete failed')
       return originalRemove.call(this, key)
     })

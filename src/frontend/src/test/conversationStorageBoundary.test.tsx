@@ -64,21 +64,22 @@ describe('F02 storage fault preservation (TC-035)', () => {
       const input = screen.getByRole('textbox', { name: 'Message' })
       fireEvent.change(input, { target: { value: 'Third unsaved intention' } })
 
-      const originalSet = Storage.prototype.setItem
-      const originalGet = Storage.prototype.getItem
+      const storagePrototype = Object.getPrototypeOf(sessionStorage) as Storage
+      const originalSet = storagePrototype.setItem
+      const originalGet = storagePrototype.getItem
       let newKey = ''
       let newReads = 0
       if (fault === 'write') {
-        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+        vi.spyOn(storagePrototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
           if (key.startsWith('f02-send:') && !earlier.some((item) => key.endsWith(item.messageId))) throw new Error('write failed')
           return originalSet.call(this, key, value)
         })
       } else if (fault === 'readback') {
-        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+        vi.spyOn(storagePrototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
           if (key.startsWith('f02-send:') && !earlier.some((item) => key.endsWith(item.messageId))) newKey = key
           return originalSet.call(this, key, value)
         })
-        vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key) {
+        vi.spyOn(storagePrototype, 'getItem').mockImplementation(function (this: Storage, key) {
           if (key === newKey && ++newReads === 1) return 'unreadable'
           return originalGet.call(this, key)
         })

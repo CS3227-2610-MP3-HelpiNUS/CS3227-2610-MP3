@@ -42,12 +42,11 @@ const environment: NodeJS.ProcessEnv = {
 const request = (uid: string | undefined, action: unknown = 'models') => ({
   data: { action }, auth: uid ? { uid } : undefined,
 }) as CallableRequest<unknown>
-const catalog = new Response(JSON.stringify({ data: [{ id: 'synthetic-model' }] }))
 const dependencies = (overrides: Partial<ACallDeps> = {}): ACallDeps => ({
   environment: () => environment,
   secret: vi.fn(() => 'synthetic-secret'),
   firestore: vi.fn(() => { throw new Error('Firestore should not be reached') }),
-  fetchImpl: vi.fn(async () => catalog),
+  fetchImpl: vi.fn(async () => new Response(JSON.stringify({ data: [{ id: 'synthetic-model' }] }))),
   ...overrides,
 })
 
@@ -60,14 +59,23 @@ describe('Milestone A onCall authorization and catalog', () => {
     expect(deps.fetchImpl).not.toHaveBeenCalled()
   })
 
-  it('fails closed when the runtime project is missing or is not helpinus-dev', async () => {
-    for (const env of [{ ...environment, GCLOUD_PROJECT: undefined }, { ...environment, GCLOUD_PROJECT: 'helpinus-prod' },
-      { ...environment, GCLOUD_PROJECT: 'other-project' }]) {
+  it('fails closed when the runtime project is missing or unsupported', async () => {
+    for (const env of [{ ...environment, GCLOUD_PROJECT: undefined }, { ...environment, GCLOUD_PROJECT: 'other-project' }]) {
       const deps = dependencies({ environment: () => env })
       await expect(soclaasACallHandler(request('developer-uid'), deps)).rejects.toMatchObject({ code: 'failed-precondition' })
       expect(deps.secret).not.toHaveBeenCalled()
       expect(deps.firestore).not.toHaveBeenCalled()
       expect(deps.fetchImpl).not.toHaveBeenCalled()
+    }
+  })
+
+  it('accepts the authenticated catalog action in both deployment projects', async () => {
+    for (const projectId of ['helpinus-dev', 'helpinus-prod']) {
+      const deps = dependencies({ environment: () => ({ ...environment, GCLOUD_PROJECT: projectId }) })
+      await expect(soclaasACallHandler(request('developer-uid'), deps)).resolves.toEqual({ models: ['synthetic-model'] })
+      expect(deps.secret).toHaveBeenCalledTimes(1)
+      expect(deps.firestore).not.toHaveBeenCalled()
+      expect(deps.fetchImpl).toHaveBeenCalledTimes(1)
     }
   })
 

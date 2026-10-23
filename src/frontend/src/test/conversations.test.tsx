@@ -392,7 +392,8 @@ describe('F02 conversation screens', () => {
       callables: createMockCallableClient({ sendMessage: send }),
     }))
     expect(await screen.findByText('No messages yet. Start the conversation below.')).toBeInTheDocument()
-    const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota exceeded') })
+    const storage = vi.spyOn(Object.getPrototypeOf(sessionStorage) as Storage, 'setItem')
+      .mockImplementation(() => { throw new Error('quota exceeded') })
     try {
       await userEvent.setup().type(screen.getByRole('textbox', { name: 'Message' }), 'Keep this local')
       await userEvent.setup().click(screen.getByRole('button', { name: 'Send message' }))

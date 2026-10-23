@@ -1,4 +1,4 @@
-// Milestone A development-only callable. Auth and project checks run before
+// Milestone A environment-scoped callable. Auth and project checks run before
 // reading the bound secret, Firestore marker, or SoCLaaS catalog.
 import { getFirestore, type Firestore } from 'firebase-admin/firestore'
 import { defineSecret } from 'firebase-functions/params'
@@ -7,7 +7,7 @@ import { ASafeError, SOC_ORIGIN, listKeyVisibleModels, validateAInferenceConfig,
 
 export const soclaasASecret = defineSecret('SOCLAAS_API_KEY')
 export const soclaasAMarkerPath = 'soclaasVerification/milestoneA'
-const DEV_PROJECT_ID = 'helpinus-dev'
+const supportedProjectIds = new Set(['helpinus-dev', 'helpinus-prod'])
 
 export function firestoreAMarker(db: Firestore): AMarker {
   const ref = db.doc(soclaasAMarkerPath)
@@ -45,11 +45,11 @@ function actionOf(data: unknown): 'models' | 'infer' {
 
 function configFor(uid: string, environment: NodeJS.ProcessEnv, readSecret: () => string): AConfig {
   const projectId = environment.GCLOUD_PROJECT ?? ''
-  if (projectId !== DEV_PROJECT_ID) {
+  if (!supportedProjectIds.has(projectId)) {
     throw new HttpsError('failed-precondition', 'Verification unavailable.')
   }
   return {
-    projectId, approvedProjectId: DEV_PROJECT_ID, operator: uid, secret: readSecret(),
+    projectId, approvedProjectId: projectId, operator: uid, secret: readSecret(),
     approvedOrigin: SOC_ORIGIN,
     approvedModelId: environment.SOCLAAS_A_APPROVED_MODEL_ID,
     verifiedContextTokens: Number(environment.SOCLAAS_A_VERIFIED_CONTEXT_TOKENS),

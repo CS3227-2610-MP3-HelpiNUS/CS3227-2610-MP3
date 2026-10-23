@@ -9,11 +9,13 @@ import { B3_FUNCTION_TIMEOUT_SECONDS, createB3TestCapacity } from './aiTestCapac
 import { mentorConsultationSummaryHandler } from './mentorConsultationSummary.js'
 
 export const soclaasB3Secret = defineSecret('SOCLAAS_API_KEY')
-const DEV_PROJECT_ID = 'helpinus-dev'
+const supportedProjectIds = new Set(['helpinus-dev', 'helpinus-prod'])
 
-export function assertB3TestScope(uid: string | undefined, environment: NodeJS.ProcessEnv, expectedProjectId = DEV_PROJECT_ID): void {
+export function assertB3TestScope(uid: string | undefined, environment: NodeJS.ProcessEnv, expectedProjectId?: string): void {
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in to continue.')
-  if (environment.GCLOUD_PROJECT !== expectedProjectId || environment.SOCLAAS_B3_APPROVED_PROJECT_ID !== expectedProjectId ||
+  const projectId = expectedProjectId ?? environment.GCLOUD_PROJECT
+  if (!projectId || (expectedProjectId === undefined && !supportedProjectIds.has(projectId)) ||
+    environment.GCLOUD_PROJECT !== projectId || environment.SOCLAAS_B3_APPROVED_PROJECT_ID !== projectId ||
     environment.SOCLAAS_B3_ENABLED !== 'true' || environment.SOCLAAS_B3_ISOLATION_VERIFIED !== 'true') {
     throw new HttpsError('unavailable', 'The consultation draft is unavailable.', { reason: 'AI_CONFIG' })
   }
@@ -34,7 +36,7 @@ export type B3CallDeps = {
   firestore(): Firestore
   fetchImpl: typeof fetch
   now?: () => number
-  /** Synthetic Emulator tests supply their project; the deployed entry fixes helpinus-dev. */
+  /** Synthetic Emulator tests supply their project; deployed entries accept only the two HelpiNUS projects. */
   expectedProjectId?: string
 }
 
@@ -53,7 +55,7 @@ export async function mentorSummaryCallableHandler(
   let outcome = 'success'
   try {
     const environment = deps.environment()
-    const expectedProjectId = deps.expectedProjectId ?? DEV_PROJECT_ID
+    const expectedProjectId = deps.expectedProjectId
     assertB3TestScope(request.auth?.uid, environment, expectedProjectId)
     const config = loadAiGatewayConfig(environment, deps.secret())
     const outputTokens = Number(environment.SOCLAAS_B3_MAX_OUTPUT_TOKENS)

@@ -51,7 +51,7 @@ describe('B3 Mentor consultation draft UI', () => {
     const invoke = vi.fn(async () => ({ brief, partialHistory: false }))
     const callables = createMockCallableClient({ mentorConsultationSummary: invoke })
     const invokedCalls = vi.spyOn(callables, 'invoke')
-    const storageWrites = vi.spyOn(Storage.prototype, 'setItem')
+    const storageWrites = vi.spyOn(Object.getPrototypeOf(sessionStorage) as Storage, 'setItem')
     const studentView = mount('student', callables)
     expect(await screen.findByText('No messages yet. Start the conversation below.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Summarise Conversation' })).not.toBeInTheDocument()

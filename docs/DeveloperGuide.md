@@ -283,7 +283,7 @@ appointment functions remain scaffolds.
 | Respond/complete appointment | Denied | Allowed | Denied |
 | Cancel involved appointment | Allowed | Allowed | Denied |
 | Student study assistant | Allowed | Denied | Denied |
-| Mentor consultation summary | Denied | Designated development-test Mentor only while the B3 project, isolation, and exact-UID gates are enabled | Denied |
+| Mentor consultation summary | Denied | Designated Mentor only while the environment-specific project, isolation, and exact-UID gates are enabled | Denied |
 
 Functions validate input before executing handlers, then verify authentication,
 the authoritative profile, ACTIVE status, email equality, verified email, role,
@@ -314,7 +314,7 @@ accepts only that ID. Other dormant domain contracts retain their existing
 | `cancelAppointment` | Involved Student or Mentor | Cancel an eligible appointment |
 | `completeAppointment` | Mentor | Mark a confirmed consultation complete |
 | `studentStudyAssist` | Student | Private source-grounded Study Assistant callable |
-| `mentorConsultationSummary` | Designated development-test Mentor with an accepted conversation | Gated development callable returning a four-section, ephemeral brief; current page renders the fields as read-only text |
+| `mentorConsultationSummary` | Designated Mentor with an accepted conversation | Environment-gated callable returning a four-section, ephemeral brief; current page renders the fields as read-only text |
 
 F01/F02 execute both branches of `respondToHelpRequest` with the real
 conversation provisioner. Existing unrelated callables retain their own
@@ -1104,11 +1104,13 @@ Before enabling a deployed environment, a human must:
    the server-side `STUDENT_STUDY_ASSISTANT_ENABLED=true`; and
 5. explicitly approve deployment and a real-provider smoke test.
 
-Production is disabled by default; the local emulator is enabled by default for
-isolated verification. Development staging (`helpinus-dev`) is enabled through
-the committed non-secret `src/functions/deploy/.env.helpinus-dev` configuration;
-that file pins the public base URL and `default` model but never contains the
-API key. Retrieval returns insufficient context when a question does not match
+The local emulator is enabled by default for isolated verification. Development
+staging (`helpinus-dev`) and production (`helpinus-prod`) are enabled through
+their committed non-secret `src/functions/deploy/.env.<project-id>` configurations;
+those files pin the public base URL and `default` model but never contain the
+Firebase-managed secret. Each project must provide its own
+`SOCLAAS_API_KEY_STUDENT` secret before deployment.
+Retrieval returns insufficient context when a question does not match
 the approved CS2030S/CS2103 material. A future source importer must remain a
 separately reviewed trusted process and enforce content-type and size bounds, bounded
 same-allowlist redirects, DNS/IP checks against loopback, private, link-local,
@@ -1206,7 +1208,7 @@ synthetic conversation data, but this is not general-user or production approval
 ```text
 Mentor conversation page
   -> mentorConsultationSummary callable
-  -> development and exact-UID gates
+  -> environment-specific project and exact-UID gates
   -> current Mentor and accepted-conversation authorization
   -> bounded, validated conversation messages
   -> SoCLaaS gateway and capacity reservation
@@ -1215,7 +1217,8 @@ Mentor conversation page
 ```
 
 The separate `soclaasConnectivityCheck` Milestone A callable authenticates and
-queries the key-visible `/models` catalog in `helpinus-dev`. This proves the
+queries the key-visible `/models` catalog in `helpinus-dev` or `helpinus-prod`.
+This proves the
 configured credential can reach the catalog, **not** that a specific chat model,
 its token limits, or Mentor inference is approved.
 
@@ -1246,8 +1249,8 @@ The exported `mentorConsultationSummary` callable accepts only
 `{helpRequestId}` with a canonical document ID. Client-provided transcripts,
 prompts, notes, paths, and extra fields are rejected. Before secret access,
 Firestore reads, or HTTP requests, the outer callable checks authentication,
-the exact `helpinus-dev` runtime/approved project, explicit B3 enablement and
-isolation flags, and an exact-UID allowlist.
+an allowed HelpiNUS runtime matching its approved project configuration,
+explicit B3 enablement and isolation flags, and an exact-UID allowlist.
 
 The handler then verifies the current Firebase identity, the authoritative
 `ACTIVE` Mentor profile, ownership of the accepted help request, and the
@@ -1318,9 +1321,10 @@ Firebase-managed secret. The operator configures
 `SOCLAAS_B3_APPROVED_PROJECT_ID`, `SOCLAAS_B3_ALLOWED_UIDS`,
 `SOCLAAS_APPROVED_ORIGIN`, `SOCLAAS_APPROVED_MODEL_ID`,
 `SOCLAAS_VERIFIED_CONTEXT_TOKENS`, `SOCLAAS_VERIFIED_OUTPUT_TOKENS`, and
-`SOCLAAS_B3_MAX_OUTPUT_TOKENS` before enabling the B3 flags. The temporary
-Functions predeploy guard rejects any selected `GCLOUD_PROJECT` other than
-`helpinus-dev`. No secret or server authorization control belongs in a
+`SOCLAAS_B3_MAX_OUTPUT_TOKENS` before enabling the B3 flags. The Functions
+predeploy guard accepts only the shared deployment targets `helpinus-dev` and
+`helpinus-prod`; each runtime still requires matching project configuration
+before provider access. No secret or server authorization control belongs in a
 `VITE_*` variable.
 
 ### Verification and known limits

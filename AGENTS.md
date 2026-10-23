@@ -35,3 +35,4 @@ The Mission Briefs and feature specifications under `docs/mission-brief/` and `d
 - Before hard-coding role-specific UI copy in Playwright, inspect the rendered accessible tree; assert the current page contract rather than assuming Student and Mentor headings match.
 - Firestore may cancel and replace its own Listen-channel long polls with `net::ERR_ABORTED`; retain those requests in browser diagnostics but distinguish that exact expected cancellation from unrelated request failures.
 - Playwright resolves relative reporter paths from the config directory; anchor generated evidence to the repository root so discovery runs cannot place artifacts inside a segregated subsystem.
+- Quote shell search patterns containing Markdown backticks with single quotes so the shell cannot interpret them as command substitutions.
