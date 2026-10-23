@@ -1,5 +1,8 @@
 # HelpiNUS Developer Guide
 
+> **Production application:**
+> [https://helpinus-prod.web.app](https://helpinus-prod.web.app)
+
 ## 1. Product and Sprint 1 scope
 
 HelpiNUS is a two-role academic-support application for NUS Students and
@@ -24,8 +27,9 @@ Sprint 2 F01 implements help-request creation, decisions, owner reads and
 summaries. F02 now provides the real transaction-compatible conversation
 provisioner, authenticated text messaging, bounded read acknowledgements, and
 Student/Mentor chat pages. S2-D1-F03 implements the separate Student Study
-Assistant boundary; appointments and the Mentor AI feature remain outside this
-Developer 1 feature.
+Assistant boundary, while the consultation scheduler implements Mentor
+availability and immediate Student booking as a separate workflow. The Mentor
+AI consultation-summary feature remains independently gated.
 
 ## 2. Technology baseline
 
@@ -213,9 +217,12 @@ erDiagram
 | `helpRequestSummaries/{studentId}` | Trusted pending, accepted, rejected and open counts |
 | `conversations/{helpRequestId}` | immutable accepted request ID, Student/Mentor IDs, ordered participants, matching native acceptance timestamps |
 | `conversations/{helpRequestId}/messages/{messageId}` | authenticated sender, normalized plain text, server timestamp, nullable recipient acknowledgement timestamp |
-| `availabilitySlots/{slotId}` | Mentor, start/end, withdrawal state, creation time |
-| `appointments/{appointmentId}` | slot, Student, Mentor, topic, status, timestamps |
-| `aiAuditEvents/{eventId}` | actor, role, feature, outcome, prompt hash, timestamp |
+| `availabilitySlots/{slotId}` | Mentor and historical display name, start/end, `OPEN`/`BOOKED`/`WITHDRAWN` status, nullable linked appointment, timestamps |
+| `appointments/{appointmentId}` | Slot, Student/Mentor IDs and historical display names, optional Help Request, topic, `CONFIRMED`/`CANCELLED`/`COMPLETED` status, cancellation actor, start/end and audit timestamps |
+| `appointmentOperations/{uid}/operations/{requestId}` | Private action, actor, payload fingerprint and result receipt for scheduling retries |
+| `availabilitySlotLocks/{lockHash}` | Private Mentor/half-hour occupancy lock used to reject overlapping availability |
+| `studentAppointmentLocks/{lockHash}` | Private Student/half-hour occupancy lock used to reject concurrent overlapping bookings |
+| `aiAuditEvents/{eventId}` | Reserved domain scaffold; the Mentor summary path does not write these records |
 
 Firestore stores native timestamps. The shared network/application contract
 represents timestamps as ISO 8601 strings. Adapters normalize native
@@ -236,18 +243,23 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PENDING: reserveAppointment
-    PENDING --> CONFIRMED: respondToAppointment
-    PENDING --> REJECTED: respondToAppointment
-    PENDING --> CANCELLED: cancelAppointment
+    [*] --> CONFIRMED: reserveAppointment on OPEN slot
     CONFIRMED --> CANCELLED: cancelAppointment
     CONFIRMED --> COMPLETED: completeAppointment
 ```
 
+Availability is a coupled state machine: `createAvailabilitySlot` creates an
+`OPEN` slot, `reserveAppointment` atomically creates a `CONFIRMED` appointment
+and moves the slot to `BOOKED`, and an unbooked Mentor withdrawal moves it to
+`WITHDRAWN`. Student cancellation returns the booked slot to `OPEN`; Mentor
+cancellation moves it to `WITHDRAWN`. There is no pending reservation or
+Mentor approval step.
+
 F01 creates PENDING requests and supports PENDING to REJECTED or ACCEPTED.
 Acceptance now calls F02's real provisioner inside the same Firestore
 transaction. `closeHelpRequest` remains dormant and unavailable. The
-appointment functions remain scaffolds.
+consultation callables are implemented independently of Help Request
+acceptance; `helpRequestId` is nullable on a reservation.
 
 ## 8. Authorization design
 
@@ -263,8 +275,9 @@ appointment functions remain scaffolds.
 | Request summary | Owning Student only | Denied |
 | Conversations | Accepted parent request's matching Student/Mentor may get an individual conversation; the list uses bounded owner-scoped accepted Help Request queries | Denied |
 | Messages | Accepted parent request's matching participants may get or list with limit at most 20 | Denied; send and read acknowledgement use authenticated callables |
-| Availability slots | ACTIVE users; available future slots only | Denied; callable operations only |
-| Appointments | Involved Student or Mentor | Denied; callable transitions only |
+| Availability slots | ACTIVE Mentors may get their own slots; ACTIVE users may get a currently open slot from an active schedulable Mentor. Bounded list queries expose only owner-scoped Mentor rows or `OPEN` rows with no linked appointment. | Denied; callable operations only |
+| Appointments | Involved ACTIVE Student or Mentor; list queries must be owner-scoped and limited to at most 100 | Denied; callable transitions only |
+| Scheduling receipts and overlap locks | Denied | Denied; backend only |
 | AI audit events | Denied | Denied; backend only |
 
 ### Role authorization
@@ -279,7 +292,7 @@ appointment functions remain scaffolds.
 | Send/read-acknowledge a matched conversation message | Participant only | Participant only | Denied |
 | Create/withdraw availability | Denied | Allowed | Denied |
 | Reserve appointment | Allowed | Denied | Denied |
-| Respond/complete appointment | Denied | Allowed | Denied |
+| Complete own elapsed confirmed appointment | Denied | Allowed | Denied |
 | Cancel involved appointment | Allowed | Allowed | Denied |
 | Student study assistant | Allowed | Denied | Denied |
 | Mentor consultation summary | Denied | Allowed | Denied |
@@ -292,8 +305,9 @@ Function must perform these checks explicitly.
 ## 9. Callable catalogue
 
 F01 create/respond inputs use a UUID `operationId`; `helpRequestId` is the
-server-generated persistent document ID. Other dormant domain contracts retain
-their existing `requestId` fields.
+server-generated persistent document ID. The S3-D2-01 Mentor AI input now
+accepts only that ID. Scheduling mutations use a UUID `requestId` as their
+idempotency key.
 
 | Callable | Authorized role | Purpose in approved contract |
 | --- | --- | --- |
@@ -305,14 +319,13 @@ their existing `requestId` fields.
 | `sendMessage` | Student or Mentor participant | Create or replay one normalized text message under a UUID ID |
 | `acknowledgeMessage` | Other participant | Set a saved message's `readAt` once |
 | `closeHelpRequest` | Student | Dormant unavailable closure seam |
-| `createAvailabilitySlot` | Mentor | Publish availability |
-| `withdrawAvailabilitySlot` | Mentor | Withdraw an unreserved slot |
-| `reserveAppointment` | Student | Reserve an available slot |
-| `respondToAppointment` | Mentor | Confirm or reject a reservation |
-| `cancelAppointment` | Involved Student or Mentor | Cancel an eligible appointment |
-| `completeAppointment` | Mentor | Mark a confirmed consultation complete |
-| `studentStudyAssist` | Student | Future SoC LLM study-assistance seam |
-| `mentorConsultationSummary` | Mentor | Future SoC LLM summary seam |
+| `createAvailabilitySlot` | Mentor | Publish a future 30–120 minute opening on half-hour boundaries |
+| `withdrawAvailabilitySlot` | Owning Mentor | Withdraw an unbooked future slot |
+| `reserveAppointment` | Student | Atomically book an open slot and create an immediately confirmed appointment |
+| `cancelAppointment` | Involved Student or Mentor | Cancel a future confirmed appointment; reopen for Student cancellation or withdraw for Mentor cancellation |
+| `completeAppointment` | Owning Mentor | Mark a confirmed consultation complete after its end |
+| `studentStudyAssist` | Student | Private source-grounded Study Assistant callable |
+| `mentorConsultationSummary` | Designated Mentor with an accepted conversation | Environment-gated callable returning a four-section, ephemeral brief; current page renders the fields as read-only text |
 
 F01/F02 execute both branches of `respondToHelpRequest` with the real
 conversation provisioner. Existing unrelated callables retain their own
@@ -343,11 +356,13 @@ Student navigation:
 - Find a mentor — Student Mentor discovery and module filtering;
 - Help requests — Student submission, history and detail;
 - Conversations — accepted request-linked list and message detail;
-- Consultations — scaffold; and
+- Consultations — persisted calendar, booking and appointment history; and
 - Study assistant — private grounded multi-turn questions, recent history,
   citations, idempotent recovery, and deletion.
 
-The Mentor dashboard is a role-protected, read-only own-profile summary.
+The Mentor shell also exposes Consultations for publishing availability and
+managing bookings. The Mentor dashboard combines its own-profile summary with
+a persisted consultation summary.
 Desktop and mobile layouts have equal support. Both expose a sign-out action.
 The app includes semantic
 labels, visible focus, a skip link, keyboard-operable controls, responsive form
@@ -552,6 +567,73 @@ records exact commands and remaining RTT evidence. Node 22 CI, manual 320 px
 keyboard/screen-reader observations, a production accepted-pair audit, and
 the full approved RTT crosswalk remain unverified. Do not label the feature
 release-ready from the local suite alone.
+
+### Consultation scheduling
+
+`/student/consultations` renders `StudentConsultationsPage` and
+`/mentor/consultations` renders `MentorConsultationsPage`, each inside the
+existing role guard and `AppShell`. Both use a Singapore-time monthly calendar,
+selected-day agenda, loading/error recovery, and upcoming, in-progress and
+history views. These lifecycle sections are derived from the current Singapore
+time and refresh once per minute: a confirmed appointment is upcoming before
+its start, in progress until its end, then awaits a Mentor outcome in history.
+The Student chooses an `OPEN` time and supplies a 1–240 character
+topic; the Mentor creates availability, sees booked Student/topic details and
+can withdraw an open time. Both roles use inline cancellation confirmation.
+The Student and Mentor dashboards subscribe to the same persisted appointment
+source for consultation summaries rather than treating dashboard fixtures as
+authoritative scheduling data.
+
+The `HelpiNUSServices.scheduling` read boundary contains three realtime
+subscriptions: `subscribeOpenSlots(range)`, `subscribeMentorSlots(uid, range)`,
+and `subscribeAppointments(uid, role)`. Firebase queries use native Firestore
+timestamps, explicit owner/status filters, start ordering and a limit of 100;
+the adapter normalizes timestamps and validates every row with the strict
+shared `AvailabilitySlot` or `Appointment` schema. Composite indexes support
+status/appointment/start, Mentor/start, and role-owner/start queries. The mock
+service implements the same boundary and callable names for frontend work, but
+is not evidence of Rules or transaction behaviour.
+
+All scheduling writes cross callable Functions. Each handler authenticates the
+current Firebase identity, rereads the exact ACTIVE `users/{uid}` record and
+checks its role; Mentor slot creation also requires the current active Mentor
+profile. Slots must be in the future, begin and end on 30-minute boundaries,
+start and end on the same Singapore date, and last 30–120 minutes.
+`createAvailabilitySlot` transactionally acquires one
+private SHA-256 `availabilitySlotLocks` document for every occupied half-hour,
+so adjacent slots remain legal while an overlap fails. Reservation rereads the
+Student, Mentor account/profile and slot, then atomically changes `OPEN` to
+`BOOKED` and creates one `CONFIRMED` appointment. A supplied `helpRequestId` is
+optional; when present, the handler validates the accepted request and exact
+Student/Mentor pair. Reservation also acquires private Student half-hour locks
+in the same transaction, preventing two concurrent bookings for the same
+Student from overlapping even when different Mentors own the slots.
+
+Every mutation stores a private per-actor operation receipt keyed by UUID
+`requestId`, including an action-specific payload fingerprint and result ID.
+An identical retry returns the saved result; reuse with different content is
+rejected. Stored slots and appointments are parsed fail-closed, including
+native timestamps, document IDs, slot/appointment links and cancellation
+metadata. A Student cancellation keeps the Mentor's occupancy locks and
+reopens the slot; a Mentor cancellation withdraws the slot and removes the
+Mentor occupancy locks. Either cancellation releases the Student occupancy
+locks. Direct withdrawal is limited to the owning Mentor's unbooked future
+slot. Only the owning Mentor can complete an appointment, only after its end
+time; completion also releases the Student occupancy locks.
+
+Firestore clients cannot write slots, appointments, receipts or locks. Direct
+slot `get` can enforce that an open slot belongs to a currently active Mentor
+profile, but Firestore cannot prove that cross-document predicate for a
+collection query. The bounded list rule therefore exposes only the minimal
+`OPEN`/null-appointment projection (or a Mentor's own rows), while
+`reserveAppointment` repeats the authoritative Mentor/profile check before any
+write. UI date ranges and callable validation exclude elapsed availability;
+the list rule alone is not a booking authorization decision.
+
+Appointments and slots are retained as auditable records when their times
+pass; the clock changes presentation and available actions, not persisted
+status. There is no automatic deletion or `NO_SHOW` state in this feature.
+Retention duration and no-show policy remain explicit product decisions.
 
 ### Mentor dashboard (S1-D2-F03)
 
@@ -826,6 +908,26 @@ npm run test:rules --workspace src/functions
 npm run test:integration --workspace src/functions
 ```
 
+For consultation scheduling, the focused local checks are:
+
+```bash
+npm run test:rules --workspace src/functions
+npm exec -- firebase emulators:exec --only auth,firestore,functions --project helpinus-integration-test "npm exec --prefix src/functions -- vitest run integration-tests/appointments.test.ts --no-file-parallelism"
+npm run verify:app -- --grep "consultation booking"
+```
+
+The 2026-10-23 restoration check passed two Rules files and 28 tests, including
+bounded slot/appointment reads and denied client mutations. The focused
+full-emulator appointment integration passed 1/1, covering overlap locks,
+concurrent single-winner reservation, idempotent replay, wrong-role rejection,
+Student reopen, Mentor withdrawal, and completion authorization. `npm run
+check` passed lint, type checking, 344 frontend tests, 176 Functions tests, 18
+shared tests, and both production builds. The isolated app verifier also passed
+its cross-role Playwright journey: Mentor publication, Student booking,
+removal for a second Student, Student dashboard reflection, Mentor booking
+details, responsive screenshots, and browser diagnostics. Its evidence is
+under `.verify-app/runs/2026-10-23T03-47-00-200Z`.
+
 For F02, the focused frontend suites are:
 
 ```bash
@@ -939,11 +1041,11 @@ keyboard focus, and emulator restart recovery.
 
 ## 15. Environments and continuous delivery
 
-| Git branch | Firebase project | Deployment behaviour |
-| --- | --- | --- |
-| Feature `zh/...` | Local emulators | No deployment |
-| `dev-staging` | `helpinus-dev` | Automatic after verification |
-| `master` | `helpinus-prod` | Pauses at protected `production` environment |
+| Git branch | Firebase project | Hosted URL | Deployment behaviour |
+| --- | --- | --- | --- |
+| Feature `zh/...` | Local emulators | Not hosted | No deployment |
+| `dev-staging` | `helpinus-dev` | Development Hosting URL | Automatic after verification |
+| `master` | `helpinus-prod` | [Production site](https://helpinus-prod.web.app) | Pauses at protected `production` environment |
 
 Configure these GitHub repository variables for development:
 

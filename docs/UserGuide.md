@@ -1,5 +1,11 @@
 # HelpiNUS User Guide
 
+> **Test HelpiNUS on the live production site:**
+> [Open HelpiNUS Production](https://helpinus-prod.web.app)
+>
+> This is the official hosted application. You do not need to install anything
+> to use it.
+
 ## 1. About HelpiNUS
 
 HelpiNUS helps NUS Students find suitable Mentors, request academic help,
@@ -14,7 +20,12 @@ request summary, and a Mentor request inbox. The local F02 implementation adds
 atomic Mentor acceptance and private request-linked text conversations for
 the Student and addressed Mentor. S2-D1-F03 adds a private Student Study
 Assistant with approved-source citations, recent conversation history, and
-explicit insufficient-context responses. Consultations remain scaffolds.
+explicit insufficient-context responses.
+
+The consultation calendar lets Mentors publish availability and lets Students
+make and manage confirmed bookings. The current local build also includes a
+Mentor consultation draft for accepted conversations; its availability in a
+hosted version depends on that version's deployment and AI configuration.
 
 ## 2. Supported users and devices
 
@@ -79,11 +90,11 @@ the header.
 
 | Destination | Current behaviour |
 | --- | --- |
-| Dashboard | Shows persisted help-request counts and recent requests; other widgets use labelled sample data |
+| Dashboard | Shows persisted help-request counts, recent requests, and your next confirmed consultation when available |
 | Find a mentor | Browse available Mentors, search and filter loaded results, and inspect public details |
 | Help requests | Submit, review, and track your own requests |
 | Conversations | Open accepted request conversations, read saved history, send messages and see sender-side read status |
-| Consultations | Route and interface scaffold |
+| Consultations | Find open Mentor times, book a consultation, and manage your bookings |
 | Study assistant | Private source-grounded questions, multi-turn history, citations, safe retry, and deletion |
 
 Use **Skip to content** when navigating by keyboard to bypass repeated
@@ -252,6 +263,39 @@ Deployed environments use the server-only SoCLaaS adapter only when an
 administrator configures the environment's secret and explicitly enables the
 feature. The key is never exposed to the browser.
 
+### Book and manage a consultation
+
+1. Choose **Consultations**. The calendar and every time shown use Singapore
+   time (GMT+8). Dates with open Mentor times are marked in the calendar.
+   Use **Previous month**, **Next month**, or **Return to today**, then select
+   a date to see its available times. Past dates are muted and unavailable.
+2. Choose **Choose** beside a suitable time. Enter a short topic in **What
+   would you like help with?**, then choose **Confirm booking**. A successful
+   booking is confirmed immediately and appears under **Upcoming
+   consultations** with the Mentor's name and time.
+3. A time can be booked by only one Student. If somebody books it first, the
+   app explains that the time is no longer available; choose another open
+   time. You also cannot book a time that overlaps another one of your
+   consultations. Your topic is kept while you choose a replacement. If there
+   are no times on the selected date, choose another marked date or check a
+   later month.
+4. To cancel an upcoming booking, choose **Cancel**, then **Yes, cancel**.
+   The booking moves to **History** and the time becomes available for another
+   Student. Choose **Keep it** if you do not want to cancel.
+
+When a confirmed consultation starts, it moves to **In progress** and can no
+longer be cancelled. After its end time it appears in **History** as
+**Awaiting Mentor outcome** until the Mentor marks it completed. Completed and
+cancelled records remain in History; HelpiNUS does not automatically delete
+them when their date passes.
+
+The calendar lists open Mentor times. A booking is confirmed only while the
+Mentor's account and profile remain active. HelpiNUS does not
+create a video-call link, send calendar invitations or reminders, sync with an
+external calendar, offer recurring availability, or provide a reschedule
+button. Cancel a booking and make a new one instead when you need a different
+time.
+
 ## 6. Mentor access
 
 Mentors register through **No, create an account**, choose **Mentor**, and
@@ -286,8 +330,10 @@ information**. If your own profile is missing, inactive, or invalid, follow
 the administrator or HelpiNUS support guidance shown on the page. If account
 access is denied during a read, the page clears the summary and checks the
 session again; use its explicit **Try again** only after access is resolved.
-The dashboard does not show request, booking, consultation, conversation, or
-other activity totals.
+The dashboard also shows a consultation schedule summary. It states whether
+your consultation list is loading or unavailable, shows the next confirmed
+consultation when there is one, and links to **Manage availability**. It does
+not show a full consultation history; use **Consultations** for that.
 
 ### Review help requests
 
@@ -310,6 +356,60 @@ The Mentor **Conversations** list and detail use the same request-linked chat
 as the Student view, with the Student's historical display name and question
 context. The message, history, retry and read-status behavior above applies
 to both roles.
+
+### Review a consultation draft in the local build
+
+If your local build has AI drafting configured, open an accepted conversation
+as its Mentor and choose **Summarise Conversation** in **Consultation draft**.
+The button is available only to the Mentor in that conversation. It starts a
+draft only when selected; opening the conversation or receiving a message does
+not start one. While the request runs, the page says **Preparing consultation
+draft…**.
+
+If a draft is returned, review its **Conversation summary**, **Unresolved
+Student questions**, **Suggested teaching approaches**, and **Limitations or
+missing context**. A **Partial history** notice means earlier messages were
+omitted. The fields are displayed as text in this build; there is no edit or
+save control. The draft is not sent as a chat message or saved to the
+conversation. Leaving the conversation or changing accounts clears it.
+Check the draft against the conversation before relying on it.
+
+If there are no messages, the page says there is nothing to summarise. If AI
+drafting is not configured or the request fails, the page shows an explanation
+and adds no draft. A busy service may ask you to try again shortly; a timeout
+may still count as an attempt. Your messages remain available in the
+conversation. Availability of this local-build feature in a hosted app has not
+been confirmed.
+
+### Manage consultation availability
+
+1. Choose **Consultations** in Mentor navigation. The calendar, form, and
+   times are all in Singapore time (GMT+8). Select a future date; dates with
+   your existing availability are marked in the calendar.
+2. Under the selected date, set **Starts** and **Ends**, then choose **Add
+   availability**. Each opening must start and end on a half-hour boundary and
+   last from 30 to 120 minutes. Overlapping availability is not allowed,
+   although back-to-back openings are allowed. Invalid fields explain whether
+   the end is not later than the start, the time is in the past, the boundary
+   is not `:00` or `:30`, or the duration is outside the allowed range.
+3. An unbooked opening is labelled **open**. Choose **Withdraw** to remove it
+   before a Student books it. A withdrawn time is not offered to Students.
+4. When a Student books an opening, it is labelled **booked** and shows the
+   Student's name and booking topic. The booking is already confirmed; there
+   is no separate Mentor approval step.
+5. To cancel a future booked consultation, choose **Cancel consultation**,
+   then **Yes, cancel**. This cancels the consultation and withdraws that time
+   so it cannot be booked again. Choose **Keep it** to leave it unchanged.
+6. A consultation moves to **In progress** at its start time. After its end
+   time it moves to **History** as **Awaiting Mentor outcome**. Choose **Mark
+   completed** to record the outcome. Students cannot complete appointments.
+
+Past times are retained as history rather than new availability. A no-show
+outcome is not currently available; do not use **Completed** to represent a
+no-show. Use the
+calendar controls to move between months. If availability or consultations
+cannot load, use the page's **Try again** button after your connection or
+account access is restored.
 
 ### Manage your Mentor profile
 
