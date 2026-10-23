@@ -17,6 +17,7 @@ beforeEach(async () => {
     const db = context.firestore()
     const acceptedAt = new Date()
     await setDoc(doc(db, 'users/student'), { id: 'student', role: 'STUDENT', status: 'ACTIVE', email: 'student@example.test' })
+    await setDoc(doc(db, 'users/otherStudent'), { id: 'otherStudent', role: 'STUDENT', status: 'ACTIVE', email: 'otherStudent@example.test' })
     await setDoc(doc(db, 'mentors/mentor'), { id: 'mentor', role: 'MENTOR', status: 'ACTIVE', email: 'mentor@example.test' })
     await setDoc(doc(db, 'mentors/otherMentor'), { id: 'otherMentor', role: 'MENTOR', status: 'ACTIVE', email: 'other@example.test' })
     await setDoc(doc(db, 'users/suspended'), { id: 'suspended', role: 'STUDENT', status: 'SUSPENDED', email: 'suspended@example.test' })
@@ -30,8 +31,8 @@ beforeEach(async () => {
     await setDoc(doc(db, 'helpRequests/chat'), { id: 'chat', studentId: 'student', mentorId: 'mentor', status: 'ACCEPTED', updatedAt: acceptedAt })
     await setDoc(doc(db, 'conversations/chat'), { id: 'chat', helpRequestId: 'chat', studentId: 'student', mentorId: 'mentor', participantIds: ['student', 'mentor'], createdAt: acceptedAt, updatedAt: acceptedAt })
     await setDoc(doc(db, 'conversations/chat/messages/old'), { senderId: 'mentor', body: 'Hi', createdAt: new Date() })
-    await setDoc(doc(db, 'availabilitySlots/slot'), { mentorId: 'mentor', withdrawn: false, startsAt: new Date(Date.now() + 60 * 60 * 1000) })
-    await setDoc(doc(db, 'appointments/appointment'), { studentId: 'student', mentorId: 'mentor', status: 'PENDING' })
+    await setDoc(doc(db, 'availabilitySlots/slot'), { mentorId: 'mentor', status: 'OPEN', appointmentId: null, startsAt: new Date(Date.now() + 60 * 60 * 1000) })
+    await setDoc(doc(db, 'appointments/appointment'), { studentId: 'student', mentorId: 'mentor', status: 'CONFIRMED', startsAt: new Date(Date.now() + 60 * 60 * 1000) })
     await setDoc(doc(db, 'studentStudyAssistantUsers/student'), { ownerUid: 'student' })
     await setDoc(doc(db, 'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation'), { ownerUid: 'student', state: 'ACTIVE' })
     await setDoc(doc(db, 'studentStudyAssistantUsers/student/studentStudyAssistantConversations/conversation/studentStudyAssistantMessages/message'), { role: 'STUDENT', content: 'Private study question' })
@@ -101,7 +102,7 @@ describe('approved direct access matrix', () => {
     await assertSucceeds(getDoc(doc(db, 'appointments/appointment')))
     await assertSucceeds(getDocs(query(collection(db, 'helpRequests'), where('studentId', '==', 'student'), limit(20))))
     await assertFails(getDocs(query(collection(db, 'conversations'), where('participantIds', 'array-contains', 'student'))))
-    await assertSucceeds(getDocs(query(collection(db, 'availabilitySlots'), where('mentorId', '==', 'mentor'), where('withdrawn', '==', false), where('startsAt', '>', new Date()))))
+    await assertSucceeds(getDocs(query(collection(db, 'availabilitySlots'), where('status', '==', 'OPEN'), where('appointmentId', '==', null), where('startsAt', '>=', new Date(0)), orderBy('startsAt'), limit(100))))
   })
   it('denies cross-user, unauthenticated, inactive, and privileged profile access', async () => {
     await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'users/student')))
@@ -180,7 +181,7 @@ describe('approved direct access matrix', () => {
   it('denies all client writes to workflow, availability, appointment and audit data', async () => {
     const db = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
     await assertFails(updateDoc(doc(db, 'helpRequests/request'), { status: 'CLOSED' }))
-    await assertFails(setDoc(doc(db, 'availabilitySlots/new'), { mentorId: 'mentor', withdrawn: false }))
+    await assertFails(setDoc(doc(db, 'availabilitySlots/new'), { mentorId: 'mentor', status: 'OPEN', appointmentId: null }))
     await assertFails(updateDoc(doc(db, 'appointments/appointment'), { status: 'CONFIRMED' }))
     await assertFails(getDoc(doc(db, 'aiAuditEvents/event')))
   })
@@ -223,6 +224,50 @@ describe('approved direct access matrix', () => {
         await assertFails(deleteDoc(doc(db, path)))
       }
       for (const path of collections) await assertFails(getDocs(collection(db, path)))
+    }
+  })
+
+  it('allows only bounded consultation projections for eligible owners and open schedulable slots', async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      const startsAt = new Date(Date.now() + 2 * 60 * 60 * 1000)
+      await setDoc(doc(db, 'availabilitySlots/booked'), { mentorId: 'mentor', status: 'BOOKED', appointmentId: 'appointment', startsAt })
+      await setDoc(doc(db, 'availabilitySlots/foreignOpen'), { mentorId: 'otherMentor', status: 'OPEN', appointmentId: null, startsAt })
+      await setDoc(doc(db, 'appointments/foreign'), { studentId: 'otherStudent', mentorId: 'otherMentor', status: 'CONFIRMED', startsAt })
+    })
+    const student = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
+    const mentor = env.authenticatedContext('mentor', { email: 'mentor@example.test', email_verified: true }).firestore()
+    const otherStudent = env.authenticatedContext('otherStudent', { email: 'otherStudent@example.test', email_verified: true }).firestore()
+
+    await assertSucceeds(getDocs(query(collection(student, 'availabilitySlots'), where('status', '==', 'OPEN'), where('appointmentId', '==', null), where('startsAt', '>=', new Date(0)), orderBy('startsAt'), limit(100))))
+    await assertSucceeds(getDocs(query(collection(student, 'availabilitySlots'), where('status', '==', 'OPEN'), where('appointmentId', '==', null), where('startsAt', '>=', new Date(0)), where('startsAt', '<', new Date('2100-01-01T00:00:00.000Z')), orderBy('startsAt', 'asc'), orderBy(documentId(), 'asc'), limit(100))))
+    await assertFails(getDocs(query(collection(student, 'availabilitySlots'), orderBy('startsAt'), limit(100))))
+    await assertFails(getDocs(query(collection(student, 'availabilitySlots'), where('status', '==', 'OPEN'), orderBy('startsAt'), limit(101))))
+    await assertFails(getDoc(doc(student, 'availabilitySlots/booked')))
+    await assertSucceeds(getDoc(doc(mentor, 'availabilitySlots/booked')))
+    await assertSucceeds(getDocs(query(collection(mentor, 'availabilitySlots'), where('mentorId', '==', 'mentor'), where('startsAt', '>=', new Date(0)), orderBy('startsAt'), limit(100))))
+    await assertSucceeds(getDocs(query(collection(mentor, 'availabilitySlots'), where('mentorId', '==', 'mentor'), where('startsAt', '>=', new Date(0)), where('startsAt', '<', new Date('2100-01-01T00:00:00.000Z')), orderBy('startsAt', 'asc'), orderBy(documentId(), 'asc'), limit(100))))
+    await assertFails(getDocs(query(collection(mentor, 'availabilitySlots'), where('mentorId', '==', 'otherMentor'), limit(100))))
+
+    await assertSucceeds(getDocs(query(collection(student, 'appointments'), where('studentId', '==', 'student'), orderBy('startsAt', 'desc'), limit(100))))
+    await assertSucceeds(getDocs(query(collection(mentor, 'appointments'), where('mentorId', '==', 'mentor'), orderBy('startsAt', 'desc'), limit(100))))
+    await assertSucceeds(getDocs(query(collection(student, 'appointments'), where('studentId', '==', 'student'), where('startsAt', '>=', new Date(0)), orderBy('startsAt', 'asc'), orderBy(documentId(), 'asc'), limit(100))))
+    await assertSucceeds(getDocs(query(collection(mentor, 'appointments'), where('mentorId', '==', 'mentor'), where('startsAt', '<', new Date('2100-01-01T00:00:00.000Z')), orderBy('startsAt', 'desc'), orderBy(documentId(), 'desc'), limit(100))))
+    await assertFails(getDocs(query(collection(student, 'appointments'), limit(100))))
+    await assertFails(getDoc(doc(student, 'appointments/foreign')))
+    await assertSucceeds(getDoc(doc(otherStudent, 'appointments/foreign')))
+  })
+
+  it('keeps scheduling receipts and overlap locks private', async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'appointmentOperations/student/operations/request'), { action: 'RESERVE_APPOINTMENT' })
+      await setDoc(doc(context.firestore(), 'availabilitySlotLocks/lock'), { mentorId: 'mentor', slotId: 'slot' })
+      await setDoc(doc(context.firestore(), 'studentAppointmentLocks/lock'), { studentId: 'student', appointmentId: 'appointment' })
+    })
+    const student = env.authenticatedContext('student', { email: 'student@example.test', email_verified: true }).firestore()
+    for (const path of ['appointmentOperations/student/operations/request', 'availabilitySlotLocks/lock', 'studentAppointmentLocks/lock']) {
+      await assertFails(getDoc(doc(student, path)))
+      await assertFails(setDoc(doc(student, path), { forged: true }))
     }
   })
 })
